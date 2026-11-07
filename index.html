@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Backman</title>
+<style>
+  :root {
+    --bg: #07110c;
+    --panel: #0f2118;
+    --text: #e9f5ec;
+    --muted: #8fb39b;
+    --accent: #ffcf5a;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif; overflow: hidden;
+    touch-action: none; user-select: none; -webkit-user-select: none; }
+  #app { display: flex; flex-direction: column; align-items: center; height: 100%; padding: 10px 16px; gap: 8px; }
+  #hud { display: flex; justify-content: space-between; align-items: center; width: 100%; font-weight: 700; gap: 12px; }
+  .stat { display: flex; flex-direction: column; line-height: 1.1; }
+  .stat small { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+  .stat span { font-size: 20px; font-variant-numeric: tabular-nums; }
+  #lives { display: flex; gap: 4px; min-height: 22px; align-items: center; }
+  #wrap { position: relative; flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  canvas { display: block; border-radius: 10px; box-shadow: 0 0 0 2px #163323, 0 10px 40px #000a; }
+  #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .card { pointer-events: auto; background: #0b1a12ee; border: 2px solid #2b6a40; border-radius: 16px;
+    padding: 22px 26px; text-align: center; max-width: 340px; box-shadow: 0 10px 40px #000c; }
+  .card h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: .04em; color: var(--accent);
+    text-shadow: 0 3px 0 #8a5a14; }
+  .card h2 { margin: 0 0 8px; font-size: 28px; }
+  .card p { margin: 6px 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+  .card .legend { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; text-align: left; margin: 12px 0; font-size: 13px; color: var(--text); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; align-self: center; }
+  button.big { margin-top: 12px; font: inherit; font-weight: 800; font-size: 18px; padding: 10px 28px; border: 0;
+    border-radius: 999px; background: var(--accent); color: #3a2400; cursor: pointer; box-shadow: 0 4px 0 #a06d12; }
+  button.big:active { transform: translateY(2px); box-shadow: 0 2px 0 #a06d12; }
+  .hidden { display: none !important; }
+  #controls { display: flex; gap: 8px; }
+  .icon-btn { font: inherit; font-size: 14px; font-weight: 700; background: var(--panel); color: var(--text);
+    border: 1px solid #24503a; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  #dpad { display: none; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 48px); gap: 6px; margin-bottom: 6px; }
+  #dpad button { font-size: 22px; background: var(--panel); color: var(--text); border: 1px solid #24503a; border-radius: 12px; }
+  #dpad button:active { background: #24503a; }
+  @media (pointer: coarse) { #dpad { display: grid; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="stat"><small>Score</small><span id="score">0</span></div>
+    <div class="stat" style="align-items:center"><small>Level</small><span id="level">1</span></div>
+    <div class="stat" style="align-items:center"><small>Best</small><span id="best">0</span></div>
+    <div class="stat" style="align-items:flex-end"><small>Lives</small><div id="lives"></div></div>
+  </div>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+    <div id="overlay">
+      <div class="card" id="startCard">
+        <h1>BACKMAN</h1>
+        <p>Guide Backman through the night garden. Gather every glowing seed, and steer clear of the beetles.</p>
+        <div class="legend">
+          <span class="dot" style="background:#ffe8a3"></span><span>Seed: 10 pts</span>
+          <span class="dot" style="background:#ffb02e;box-shadow:0 0 8px #ffb02e"></span><span>Lantern: beetles flee, catch them for big points</span>
+          <span class="dot" style="background:#e05a5a"></span><span>Mushroom: bonus snack</span>
+        </div>
+        <p>Arrows / WASD to move · P to pause · M to mute<br>Swipe or use the pad on touch screens</p>
+        <button class="big" id="startBtn">Play</button>
+      </div>
+      <div class="card hidden" id="pauseCard">
+        <h2>Paused</h2>
+        <p>Press P or tap to continue</p>
+        <button class="big" id="resumeBtn">Resume</button>
+      </div>
+      <div class="card hidden" id="overCard">
+        <h2 style="color:var(--danger)">Game Over</h2>
+        <p id="overText"></p>
+        <button class="big" id="againBtn">Play again</button>
+      </div>
+    </div>
+  </div>
+  <div id="dpad">
+    <span></span><button data-dir="up" aria-label="Up">▲</button><span></span>
+    <button data-dir="left" aria-label="Left">◀</button><button data-dir="down" aria-label="Down">▼</button><button data-dir="right" aria-label="Right">▶</button>
+  </div>
+  <div id="controls">
+    <button class="icon-btn" id="pauseBtn">Pause</button>
+    <button class="icon-btn" id="muteBtn">Sound: on</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- Maze ----------
+// # hedge  . seed  o lantern  - beetle gate  E beetle den  P player start  (space) empty path
+const MAP = [
+  '#####################',
+  '#.........#.........#',
+  '#o###.###.#.###.###o#',
+  '#...................#',
+  '#.###.#.#####.#.###.#',
+  '#.....#...#...#.....#',
+  '#####.###.#.###.#####',
+  '#####.#.......#.#####',
+  '#####.#.##-##.#.#####',
+  '     ...#EEE#...     ',
+  '#####.#.#####.#.#####',
+  '#####.#.......#.#####',
+  '#####.#.#####.#.#####',
+  '#.........#.........#',
+  '#.###.###.#.###.###.#',
+  '#o..#.....P.....#..o#',
+  '###.#.#.#####.#.#.###',
+  '#.....#...#...#.....#',
+  '#.#######.#.#######.#',
+  '#...................#',
+  '#####################',
+];
+const COLS = MAP[0].length, ROWS = MAP.length;
+const TUNNEL_ROW = 9;
+const GATE = { x: 10, y: 8 };
+const DEN_EXIT = { x: 10, y: 7 };
+const DEN_CENTER = { x: 10, y: 9 };
+const BONUS_TILE = { x: 10, y: 11 };
+
+const DIRS = {
+  up: { x: 0, y: -1 }, left: { x: -1, y: 0 }, down: { x: 0, y: 1 }, right: { x: 1, y: 0 }, none: { x: 0, y: 0 },
+};
+const DIR_ORDER = [DIRS.up, DIRS.left, DIRS.down, DIRS.right];
+
+// ---------- DOM ----------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const $ = id => document.getElementById(id);
+const ui = {
+  score: $('score'), level: $('level'), best: $('best'), lives: $('lives'),
+  start: $('startCard'), pause: $('pauseCard'), over: $('overCard'), overText: $('overText'),
+  muteBtn: $('muteBtn'), pauseBtn: $('pauseBtn'),
+};
+
+let T = 24;          // tile size in CSS px
+let dpr = 1;
+let mazeLayer = null; // pre-rendered hedges
+let mazeLayerFlash = null;
+
+// ---------- Storage (best score) ----------
+function loadBest() { try { return parseInt(localStorage.getItem('backman.best') || '0', 10) || 0; } catch (e) { return 0; } }
+function saveBest(v) { try { localStorage.setItem('backman.best', String(v)); } catch (e) { /* ignore */ } }
+
+// ---------- Audio ----------
+let actx = null, muted = false;
+try { muted = localStorage.getItem('backman.muted') === '1'; } catch (e) { /* ignore */ }
+function audio() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+  if (actx && actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function tone(freq, dur, { type = 'square', vol = 0.06, to = null, delay = 0 } = {}) {
+  if (muted) return;
+  const a = audio(); if (!a) return;
+  const t0 = a.currentTime + delay;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(a.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+let seedFlip = false;
+const sfx = {
+  seed() { seedFlip = !seedFlip; tone(seedFlip ? 660 : 520, 0.05, { type: 'triangle', vol: 0.05 }); },
+  lantern() { tone(300, 0.35, { type: 'sawtooth', vol: 0.05, to: 900 }); },
+  eat() { tone(200, 0.25, { type: 'square', vol: 0.06, to: 1400 }); },
+  bonus() { [700, 900, 1200].forEach((f, i) => tone(f, 0.1, { type: 'triangle', vol: 0.07, delay: i * 0.07 })); },
+  die() { tone(700, 1.1, { type: 'sawtooth', vol: 0.06, to: 60 }); },
+  start() { [392, 523, 659, 784, 659, 784].forEach((f, i) => tone(f, 0.14, { type: 'triangle', vol: 0.07, delay: i * 0.13 })); },
+  clear() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.16, { type: 'triangle', vol: 0.07, delay: i * 0.1 })); },
+  life() { [880, 1175, 1568].forEach((f, i) => tone(f, 0.1, { type: 'square', vol: 0.05, delay: i * 0.08 })); },
+};
+
+// ---------- Game state ----------
+let grid, seedsLeft, seedsEaten, score, best = loadBest(), lives, level;
+let state = 'title'; // title | ready | play | dying | clear | over
+let paused = false;
+let stateTimer = 0;
+let frightTimer = 0, frightChain = 0;
+let modeIndex = 0, modeTimer = 0;
+let bonus = null;      // {x,y,timer,value}
+let popups = [];
+let extraLifeGiven = false;
+let time = 0;
+
+const player = { tx: 10, ty: 15, dir: DIRS.none, want: DIRS.left, progress: 0, facing: 1, walk: 0, trail: [] };
+
+const BEETLE_DEFS = [
+  { name: 'Bramble', color: '#ff5d5d', corner: { x: 19, y: -2 }, start: { x: 10, y: 7 }, release: 0 },
+  { name: 'Moth',    color: '#ff9be4', corner: { x: 1, y: -2 },  start: { x: 10, y: 9 }, release: 2 },
+  { name: 'Drift',   color: '#4fe0c8', corner: { x: 20, y: 21 }, start: { x: 9, y: 9 },  release: 5 },
+  { name: 'Hush',    color: '#b78cff', corner: { x: 0, y: 21 },  start: { x: 11, y: 9 }, release: 8 },
+];
+let beetles = [];
+
+function modeSchedule() {
+  // [scatter, chase, scatter, chase, ...] seconds
+  return level < 3 ? [7, 20, 7, 20, 5, 20, 5, Infinity] : [5, 22, 5, 22, 3, 30, 1, Infinity];
+}
+const isChaseMode = () => modeIndex % 2 === 1;
+
+function speeds() {
+  const l = Math.min(level - 1, 8);
+  return {
+    player: 7.2 + l * 0.18,
+    beetle: 6.6 + l * 0.3,
+    fright: 4.2,
+    tunnel: 3.8,
+    eaten: 15,
+    frightTime: Math.max(1.5, 7 - (level - 1) * 0.7),
+  };
+}
+
+// ---------- Setup ----------
+function resetMaze() {
+  grid = MAP.map(r => r.split(''));
+  seedsLeft = 0;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const c = grid[y][x];
+    if (c === 'P' || c === 'E') grid[y][x] = ' ';
+    if (c === '.' || c === 'o') seedsLeft++;
+  }
+  seedsEaten = 0;
+}
+
+function resetActors() {
+  Object.assign(player, { tx: 10, ty: 15, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [] });
+  beetles = BEETLE_DEFS.map((d, i) => ({
+    i, ...d,
+    tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
+    mode: i === 0 ? 'active' : 'den',
+    releaseAt: Math.max(0, d.release - (level - 1) * 0.6),
+    frightened: false, bob: Math.random() * 6,
+  }));
+  frightTimer = 0; frightChain = 0;
+  modeIndex = 0; modeTimer = 0;
+  bonus = null;
+  time = 0;
+}
+
+function newGame() {
+  score = 0; lives = 3; level = 1; extraLifeGiven = false;
+  resetMaze(); resetActors();
+  popups = [];
+  setState('ready', 2.2);
+  sfx.start();
+  hideCards();
+  updateHud();
+}
+
+function nextLevel() {
+  level++;
+  resetMaze(); resetActors();
+  setState('ready', 1.6);
+  updateHud();
+}
+
+function setState(s, t = 0) { state = s; stateTimer = t; }
+
+// ---------- Grid helpers ----------
+function tileAt(x, y) {
+  if (y === TUNNEL_ROW && (x < 0 || x >= COLS)) return ' ';
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return '#';
+  return grid[y][x];
+}
+function canEnter(x, y, gateOk) {
+  const t = tileAt(x, y);
+  if (t === '#') return false;
+  if (t === '-') return !!gateOk;
+  return true;
+}
+function wrap(e) {
+  // Tunnel: tiles -1 and COLS exist off-screen; hop across when reaching them.
+  if (e.tx <= -1 && e.dir.x < 0) e.tx = COLS;
+  else if (e.tx >= COLS && e.dir.x > 0) e.tx = -1;
+}
+function pos(e) { return { x: e.tx + e.dir.x * e.progress, y: e.ty + e.dir.y * e.progress }; }
+const opposite = (a, b) => a.x === -b.x && a.y === -b.y && (a.x || a.y);
+const sameDir = (a, b) => a.x === b.x && a.y === b.y;
+
+// Generic movement: progress toward the next tile, calling hooks at tile centers.
+function advance(e, dist, onCenter, onArrive) {
+  let guard = 0;
+  while (dist > 1e-6 && guard++ < 12) {
+    if (e.progress === 0) {
+      onCenter(e);
+      if (!e.dir.x && !e.dir.y) return;
+    }
+    const need = 1 - e.progress;
+    if (dist >= need) {
+      dist -= need;
+      e.tx += e.dir.x; e.ty += e.dir.y; e.progress = 0;
+      wrap(e);
+      if (onArrive) onArrive(e);
+    } else { e.progress += dist; dist = 0; }
+  }
+}
+function reverse(e) {
+  if (!e.dir.x && !e.dir.y) return;
+  const back = { x: -e.dir.x, y: -e.dir.y };
+  if (e.progress > 0) { e.tx += e.dir.x; e.ty += e.dir.y; e.progress = 1 - e.progress; wrap(e); }
+  e.dir = back;
+}
+
+// ---------- Player ----------
+function updatePlayer(dt) {
+  const sp = speeds();
+  if (e_mid_reverse()) reverse(player);
+  if (player.dir.x) player.facing = player.dir.x;
+  else if (player.want.x && !player.dir.y) player.facing = player.want.x;
+  const moving = player.dir.x || player.dir.y;
+  if (moving) player.walk += dt * 12;
+  const inTunnel = player.ty === TUNNEL_ROW && (player.tx < 2 || player.tx > COLS - 3);
+  advance(player, sp.player * (inTunnel ? 0.85 : 1) * dt, e => {
+    const w = e.want;
+    if ((w.x || w.y) && canEnter(e.tx + w.x, e.ty + w.y, false)) e.dir = w;
+    else if (!canEnter(e.tx + e.dir.x, e.ty + e.dir.y, false)) e.dir = DIRS.none;
+  }, e => {
+    eatAt(e.tx, e.ty);
+    e.trail.push({ x: e.tx, y: e.ty });
+    if (e.trail.length > 24) e.trail.shift();
+  });
+}
+function e_mid_reverse() { return player.progress > 0 && opposite(player.want, player.dir); }
+
+function eatAt(x, y) {
+  if (x < 0 || x >= COLS) return;
+  const c = grid[y][x];
+  if (c === '.') {
+    grid[y][x] = ' '; addScore(10); seedsLeft--; seedsEaten++; sfx.seed();
+  } else if (c === 'o') {
+    grid[y][x] = ' '; addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
+    startFright();
+  }
+  if (seedsEaten === 60 || seedsEaten === 140) spawnBonus();
+  if (seedsLeft === 0) { setState('clear', 2.4); sfx.clear(); }
+}
+
+function addScore(n) {
+  score += n;
+  if (!extraLifeGiven && score >= 10000) { extraLifeGiven = true; lives++; sfx.life(); popup(player.tx, player.ty, '1UP', '#7dffa1'); }
+  if (score > best) { best = score; saveBest(best); }
+  updateHud();
+}
+
+function spawnBonus() {
+  bonus = { x: BONUS_TILE.x, y: BONUS_TILE.y, timer: 9, value: 100 * Math.min(level, 10) + (level > 1 ? 200 : 0) };
+}
+
+function startFright() {
+  const sp = speeds();
+  frightTimer = sp.frightTime;
+  frightChain = 0;
+  for (const b of beetles) {
+    if (b.mode === 'eaten') continue;
+    b.frightened = true;
+    if (b.mode === 'active') reverse(b);
+  }
+}
+
+// ---------- Beetles ----------
+function chaseTarget(b) {
+  const p = { x: player.tx, y: player.ty };
+  const d = (player.dir.x || player.dir.y) ? player.dir : player.want;
+  switch (b.i) {
+    case 0: return p;                                       // Bramble: straight at you
+    case 1: return { x: p.x + d.x * 3, y: p.y + d.y * 3 };  // Moth: cuts you off ahead
+    case 2: {                                               // Drift: wanders when close, hunts when far
+      const dist = Math.hypot(b.tx - p.x, b.ty - p.y);
+      return dist > 7 ? p : { x: (b.i * 7 + Math.floor(time / 3) * 5) % COLS, y: (Math.floor(time / 3) * 7) % ROWS };
+    }
+    case 3: {                                               // Hush: follows your footsteps
+      const tr = player.trail;
+      return tr.length > 6 ? tr[tr.length - 7] : p;
+    }
+  }
+  return p;
+}
+
+function chooseDir(b, target, allowReverse, gateOk) {
+  let best = null, bestD = Infinity;
+  const opts = [];
+  for (const d of DIR_ORDER) {
+    if (!allowReverse && opposite(d, b.dir)) continue;
+    const nx = b.tx + d.x, ny = b.ty + d.y;
+    if (!canEnter(nx, ny, gateOk)) continue;
+    // beetles never re-enter the den by themselves
+    if (!gateOk && tileAt(nx, ny) === '-') continue;
+    opts.push(d);
+    if (target) {
+      const dd = (nx - target.x) ** 2 + (ny - target.y) ** 2;
+      if (dd < bestD) { bestD = dd; best = d; }
+    }
+  }
+  if (!opts.length) return { x: -b.dir.x, y: -b.dir.y };
+  if (!target) return opts[Math.floor(Math.random() * opts.length)];
+  return best;
+}
+
+function updateBeetles(dt) {
+  const sp = speeds();
+  for (const b of beetles) {
+    b.bob += dt * 6;
+    if (b.mode === 'den') {
+      if (time >= b.releaseAt) { b.mode = 'leaving'; b.progress = 0; }
+      continue;
+    }
+    let speed;
+    if (b.mode === 'eaten') speed = sp.eaten;
+    else if (b.mode === 'leaving') speed = sp.beetle * 0.6;
+    else if (b.frightened) speed = sp.fright;
+    else speed = sp.beetle;
+    const inTunnel = b.ty === TUNNEL_ROW && (b.tx < 4 || b.tx > COLS - 5);
+    if (inTunnel && b.mode === 'active') speed = Math.min(speed, sp.tunnel);
+    // Bramble speeds up when few seeds remain
+    if (b.i === 0 && b.mode === 'active' && !b.frightened && seedsLeft < 30) speed *= 1.08;
+
+    advance(b, speed * dt, e => {
+      if (e.mode === 'leaving') {
+        if (e.tx === DEN_EXIT.x && e.ty === DEN_EXIT.y) { e.mode = 'active'; e.dir = DIRS.left; }
+        else { e.dir = chooseDir(e, DEN_EXIT, true, true); return; }
+      }
+      if (e.mode === 'eaten') {
+        if (e.tx === DEN_CENTER.x && e.ty === DEN_CENTER.y) { e.mode = 'leaving'; e.frightened = false; e.dir = DIRS.up; return; }
+        e.dir = chooseDir(e, DEN_CENTER, false, true); return;
+      }
+      let target;
+      if (e.frightened) target = null;
+      else if (isChaseMode()) target = chaseTarget(e);
+      else target = e.corner;
+      e.dir = chooseDir(e, target, false, false);
+    });
+  }
+}
+
+function updateModes(dt) {
+  if (frightTimer > 0) {
+    frightTimer -= dt;
+    if (frightTimer <= 0) { frightTimer = 0; beetles.forEach(b => { b.frightened = false; }); }
+    return;
+  }
+  const sched = modeSchedule();
+  modeTimer += dt;
+  if (modeTimer >= sched[modeIndex]) {
+    modeTimer = 0; modeIndex = Math.min(modeIndex + 1, sched.length - 1);
+    beetles.forEach(b => { if (b.mode === 'active') reverse(b); });
+  }
+}
+
+function checkCollisions() {
+  const pp = pos(player);
+  for (const b of beetles) {
+    if (b.mode === 'den' || b.mode === 'eaten') continue;
+    const bp = pos(b);
+    if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.75) {
+      if (b.frightened) {
+        b.frightened = false; b.mode = 'eaten';
+        const pts = 200 * 2 ** Math.min(frightChain, 3);
+        frightChain++;
+        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat();
+        if (b.progress > 0) { /* keep moving; will route home at next center */ }
+      } else {
+        lives--; updateHud();
+        setState('dying', 1.8); sfx.die();
+        return;
+      }
+    }
+  }
+  if (bonus) {
+    if (Math.abs(pp.x - bonus.x) + Math.abs(pp.y - bonus.y) < 0.7) {
+      addScore(bonus.value); popup(bonus.x, bonus.y, String(bonus.value), '#ffd36b'); sfx.bonus();
+      bonus = null;
+    }
+  }
+}
+
+function popup(x, y, text, color) { popups.push({ x, y, text, color, t: 1.2 }); }
+
+// ---------- Main update ----------
+function update(dt) {
+  for (const p of popups) p.t -= dt;
+  popups = popups.filter(p => p.t > 0);
+  if (paused) return;
+
+  if (state === 'ready') {
+    stateTimer -= dt;
+    if (stateTimer <= 0) setState('play');
+    return;
+  }
+  if (state === 'play') {
+    time += dt;
+    updateModes(dt);
+    updatePlayer(dt);
+    if (state !== 'play') return; // cleared the level
+    checkCollisions();
+    if (state !== 'play') return;
+    updateBeetles(dt);
+    checkCollisions();
+    if (bonus) { bonus.timer -= dt; if (bonus.timer <= 0) bonus = null; }
+    return;
+  }
+  if (state === 'dying') {
+    stateTimer -= dt;
+    if (stateTimer <= 0) {
+      if (lives <= 0) gameOver();
+      else { resetActors(); setState('ready', 1.6); }
+    }
+    return;
+  }
+  if (state === 'clear') {
+    stateTimer -= dt;
+    if (stateTimer <= 0) nextLevel();
+  }
+}
+
+function gameOver() {
+  setState('over');
+  ui.overText.innerHTML = `You reached level ${level} with <b style="color:var(--accent)">${score.toLocaleString()}</b> points.` +
+    (score >= best && score > 0 ? '<br>New best score!' : `<br>Best: ${best.toLocaleString()}`);
+  showCard(ui.over);
+}
+
+// ---------- Rendering ----------
+function resize() {
+  const wrapEl = $('wrap');
+  const aw = wrapEl.clientWidth, ah = wrapEl.clientHeight;
+  T = Math.max(8, Math.floor(Math.min(aw / COLS, ah / ROWS)));
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.style.width = COLS * T + 'px';
+  canvas.style.height = ROWS * T + 'px';
+  canvas.width = Math.round(COLS * T * dpr);
+  canvas.height = Math.round(ROWS * T * dpr);
+  mazeLayer = buildMaze(false);
+  mazeLayerFlash = buildMaze(true);
+}
+
+// Seeded random so the hedge texture is stable between redraws.
+function rng(seed) { return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+
+function buildMaze(flash) {
+  const c = document.createElement('canvas');
+  c.width = canvas.width; c.height = canvas.height;
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr);
+  // ground
+  g.fillStyle = '#0a1510';
+  g.fillRect(0, 0, COLS * T, ROWS * T);
+  const r = rng(42);
+  for (let i = 0; i < COLS * ROWS * 0.6; i++) {
+    g.fillStyle = r() > 0.5 ? '#0e1d15' : '#08120d';
+    g.fillRect(r() * COLS * T, r() * ROWS * T, 2, 2);
+  }
+  const isWall = (x, y) => {
+    if (y === TUNNEL_ROW && (x < 0 || x >= COLS)) return false;
+    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return true;
+    return MAP[y][x] === '#';
+  };
+  const dark = flash ? '#cfe9d6' : '#123722';
+  const mid = flash ? '#ffffff' : '#256b3e';
+  const light = flash ? '#ffffff' : '#3d9a5b';
+  // base hedge mass
+  g.fillStyle = dark;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (isWall(x, y)) g.fillRect(x * T, y * T, T, T);
+  // leafy top layer, inset where the hedge borders a path
+  const ins = T * 0.14;
+  g.fillStyle = mid;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!isWall(x, y)) continue;
+    const l = isWall(x - 1, y) ? 0 : ins, rt = isWall(x + 1, y) ? 0 : ins;
+    const t = isWall(x, y - 1) ? 0 : ins, b = isWall(x, y + 1) ? 0 : ins;
+    roundRect(g, x * T + l, y * T + t, T - l - rt, T - t - b, T * 0.18);
+    g.fill();
+  }
+  // leaves
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!isWall(x, y)) continue;
+    const open = !isWall(x - 1, y) || !isWall(x + 1, y) || !isWall(x, y - 1) || !isWall(x, y + 1);
+    if (!open) continue;
+    for (let k = 0; k < 3; k++) {
+      g.fillStyle = r() > 0.4 ? light : dark;
+      g.beginPath();
+      g.arc(x * T + T * (0.25 + r() * 0.5), y * T + T * (0.25 + r() * 0.5), T * (0.06 + r() * 0.06), 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  // gate
+  g.fillStyle = '#e8a0c8';
+  g.fillRect(GATE.x * T, GATE.y * T + T * 0.42, T, T * 0.16);
+  return c;
+}
+
+function roundRect(g, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+function draw(now) {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const flashing = state === 'clear' && stateTimer < 1.8 && Math.floor(stateTimer * 6) % 2 === 0;
+  ctx.drawImage(flashing ? mazeLayerFlash : mazeLayer, 0, 0, COLS * T, ROWS * T);
+  if (!grid) return;
+
+  // seeds & lanterns
+  const pulse = 0.5 + 0.5 * Math.sin(now / 180);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const c = grid[y][x];
+    const cx = x * T + T / 2, cy = y * T + T / 2;
+    if (c === '.') {
+      ctx.fillStyle = 'rgba(255,232,163,0.18)';
+      ctx.beginPath(); ctx.arc(cx, cy, T * 0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffe8a3';
+      ctx.beginPath(); ctx.arc(cx, cy, T * 0.09, 0, Math.PI * 2); ctx.fill();
+    } else if (c === 'o') {
+      drawLantern(cx, cy, pulse);
+    }
+  }
+
+  if (bonus) drawMushroom(bonus.x * T + T / 2, bonus.y * T + T / 2, bonus.timer);
+
+  // actors (clip so tunnel travel slides under the edge)
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, COLS * T, ROWS * T); ctx.clip();
+  if (state !== 'clear' || stateTimer > 1.8) {
+    for (const b of beetles) if (!(state === 'dying' && stateTimer < 1.2)) drawBeetle(b, now);
+  }
+  drawPlayer(now);
+  ctx.restore();
+
+  // popups
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const p of popups) {
+    ctx.globalAlpha = Math.min(1, p.t * 1.5);
+    ctx.fillStyle = p.color;
+    ctx.font = `800 ${Math.round(T * 0.6)}px ui-rounded, system-ui, sans-serif`;
+    ctx.fillText(p.text, p.x * T + T / 2, p.y * T + T / 2 - (1.2 - p.t) * T * 0.8);
+  }
+  ctx.globalAlpha = 1;
+
+  // banners
+  if (state === 'ready') banner(level > 1 && time === 0 && score > 0 ? `LEVEL ${level}` : 'READY!', '#ffcf5a');
+  if (state === 'clear' && stateTimer > 1.8) banner('GARDEN CLEARED!', '#7dffa1');
+  if (paused && state !== 'title' && state !== 'over') banner('PAUSED', '#e9f5ec');
+}
+
+function banner(text, color) {
+  ctx.font = `900 ${Math.round(T * 0.9)}px ui-rounded, system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const x = COLS * T / 2, y = 11 * T + T / 2;
+  ctx.lineWidth = T * 0.22; ctx.strokeStyle = '#06100b';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+
+function drawLantern(cx, cy, pulse) {
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, T * (0.55 + pulse * 0.2));
+  glow.addColorStop(0, 'rgba(255,190,70,0.55)');
+  glow.addColorStop(1, 'rgba(255,190,70,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(cx, cy, T * 0.8, 0, Math.PI * 2); ctx.fill();
+  // body
+  ctx.fillStyle = '#5a3a14';
+  ctx.fillRect(cx - T * 0.14, cy - T * 0.3, T * 0.28, T * 0.07);
+  ctx.fillRect(cx - T * 0.14, cy + T * 0.2, T * 0.28, T * 0.07);
+  ctx.fillStyle = `rgb(255,${170 + pulse * 50},${50 + pulse * 40})`;
+  roundRect(ctx, cx - T * 0.12, cy - T * 0.24, T * 0.24, T * 0.45, T * 0.06); ctx.fill();
+  ctx.strokeStyle = '#5a3a14'; ctx.lineWidth = Math.max(1, T * 0.04);
+  ctx.beginPath(); ctx.arc(cx, cy - T * 0.32, T * 0.08, Math.PI, 0); ctx.stroke();
+}
+
+function drawMushroom(cx, cy, timer) {
+  if (timer < 2 && Math.floor(timer * 8) % 2 === 0) return;
+  const bob = Math.sin(performance.now() / 200) * T * 0.04;
+  cy += bob;
+  ctx.fillStyle = '#f3e6cf';
+  roundRect(ctx, cx - T * 0.1, cy - T * 0.02, T * 0.2, T * 0.3, T * 0.06); ctx.fill();
+  ctx.fillStyle = '#e05a5a';
+  ctx.beginPath(); ctx.ellipse(cx, cy, T * 0.34, T * 0.26, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fff';
+  [[-0.15, -0.1, 0.05], [0.08, -0.17, 0.06], [0.2, -0.05, 0.04]].forEach(([dx, dy, r]) => {
+    ctx.beginPath(); ctx.arc(cx + dx * T, cy + dy * T, r * T, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+function drawPlayer(now) {
+  const p = pos(player);
+  const cx = p.x * T + T / 2, cy = p.y * T + T / 2;
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  if (state === 'dying') {
+    // spin and shrink away
+    const k = Math.max(0, stateTimer - 0.3) / 1.5;
+    ctx.rotate((1 - k) * Math.PI * 4);
+    ctx.scale(k, k);
+    if (k <= 0) { ctx.restore(); return; }
+  }
+
+  const moving = state === 'play' && (player.dir.x || player.dir.y);
+  const step = moving ? Math.sin(player.walk) : 0;
+  const bounce = moving ? Math.abs(step) * T * 0.05 : 0;
+  ctx.scale(player.facing < 0 ? -1 : 1, 1);
+  ctx.translate(0, -bounce);
+  const R = T * 0.36;
+
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(0, R * 1.05 + bounce, R * 0.8, R * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+  // feet
+  ctx.fillStyle = '#3b2412';
+  ctx.beginPath(); ctx.ellipse(-R * 0.35 + step * R * 0.3, R * 0.88, R * 0.26, R * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(R * 0.35 - step * R * 0.3, R * 0.88, R * 0.26, R * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+  // backpack (on the back = left side when facing right)
+  ctx.fillStyle = '#9a5b2a';
+  roundRect(ctx, -R * 1.25, -R * 0.55, R * 0.7, R * 1.15, R * 0.22); ctx.fill();
+  ctx.fillStyle = '#7a431b';
+  roundRect(ctx, -R * 1.2, -R * 0.05, R * 0.6, R * 0.35, R * 0.12); ctx.fill();
+  ctx.fillStyle = '#d9a441';
+  ctx.fillRect(-R * 1.0, R * 0.05, R * 0.18, R * 0.1);
+  // bedroll on top of pack
+  ctx.fillStyle = '#3f7fbf';
+  roundRect(ctx, -R * 1.3, -R * 0.82, R * 0.8, R * 0.32, R * 0.16); ctx.fill();
+  // body
+  const grad = ctx.createRadialGradient(-R * 0.3, -R * 0.4, R * 0.2, 0, 0, R * 1.1);
+  grad.addColorStop(0, '#ffe08a'); grad.addColorStop(1, '#f2a93b');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  // strap
+  ctx.strokeStyle = '#7a431b'; ctx.lineWidth = R * 0.16;
+  ctx.beginPath(); ctx.moveTo(-R * 0.55, -R * 0.75); ctx.quadraticCurveTo(-R * 0.1, 0, -R * 0.5, R * 0.75); ctx.stroke();
+  // hat
+  ctx.fillStyle = '#2f6b3f';
+  ctx.beginPath(); ctx.ellipse(R * 0.1, -R * 0.78, R * 0.95, R * 0.2, -0.08, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-R * 0.05, -R * 0.95, R * 0.55, R * 0.38, 0, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#e04f3c';
+  ctx.fillRect(-R * 0.58, -R * 0.98, R * 1.06, R * 0.14);
+  // eye
+  const blink = (Math.floor(now / 140) % 28) === 0;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(R * 0.45, -R * 0.2, R * 0.22, blink ? R * 0.04 : R * 0.25, 0, 0, Math.PI * 2); ctx.fill();
+  if (!blink) {
+    ctx.fillStyle = '#1b1b2a';
+    const look = player.dir.y * R * 0.08;
+    ctx.beginPath(); ctx.arc(R * 0.53, -R * 0.18 + look, R * 0.11, 0, Math.PI * 2); ctx.fill();
+  }
+  // cheek + smile
+  ctx.fillStyle = 'rgba(255,110,90,0.5)';
+  ctx.beginPath(); ctx.arc(R * 0.35, R * 0.22, R * 0.13, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#7a3b10'; ctx.lineWidth = R * 0.08; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(R * 0.62, R * 0.15, R * 0.18, 0.3, 1.9); ctx.stroke();
+  ctx.restore();
+}
+
+function drawBeetle(b, now) {
+  let p = pos(b);
+  if (b.mode === 'den') p = { x: b.tx, y: b.ty + Math.sin(b.bob) * 0.18 };
+  const cx = p.x * T + T / 2, cy = p.y * T + T / 2;
+  const R = T * 0.4;
+  const d = b.mode === 'den' ? DIRS.up : b.dir;
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  const flashEnd = b.frightened && frightTimer < 2 && Math.floor(frightTimer * 5) % 2 === 0;
+  if (b.mode !== 'eaten') {
+    const body = b.frightened ? (flashEnd ? '#f1f1ff' : '#3d5bd9') : b.color;
+    const legPhase = Math.sin(now / 70 + b.i);
+    // legs
+    ctx.strokeStyle = b.frightened ? '#22348a' : '#1a1012';
+    ctx.lineWidth = Math.max(1, T * 0.06); ctx.lineCap = 'round';
+    for (let k = -1; k <= 1; k++) {
+      const ly = k * R * 0.5;
+      const sw = (k % 2 === 0 ? legPhase : -legPhase) * R * 0.15;
+      ctx.beginPath(); ctx.moveTo(-R * 0.6, ly); ctx.lineTo(-R * 1.05, ly + R * 0.25 + sw); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(R * 0.6, ly); ctx.lineTo(R * 1.05, ly + R * 0.25 - sw); ctx.stroke();
+    }
+    // antennae
+    ctx.beginPath(); ctx.moveTo(-R * 0.2, -R * 0.8); ctx.quadraticCurveTo(-R * 0.5, -R * 1.3, -R * 0.75, -R * 1.15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(R * 0.2, -R * 0.8); ctx.quadraticCurveTo(R * 0.5, -R * 1.3, R * 0.75, -R * 1.15); ctx.stroke();
+    // shell
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.ellipse(0, R * 0.1, R * 0.78, R * 0.88, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.beginPath(); ctx.ellipse(-R * 0.3, -R * 0.2, R * 0.2, R * 0.35, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(1, T * 0.04);
+    ctx.beginPath(); ctx.moveTo(0, -R * 0.35); ctx.lineTo(0, R * 0.95); ctx.stroke();
+    // spots
+    if (!b.frightened) {
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      [[-0.38, 0.35], [0.38, 0.35], [-0.3, 0.7], [0.3, 0.7]].forEach(([sx, sy]) => {
+        ctx.beginPath(); ctx.arc(sx * R, sy * R, R * 0.11, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    // head
+    ctx.fillStyle = b.frightened ? '#22348a' : '#241418';
+    ctx.beginPath(); ctx.ellipse(0, -R * 0.6, R * 0.5, R * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // eyes (always shown; eaten beetles are just eyes scurrying home)
+  if (b.frightened && b.mode !== 'eaten') {
+    ctx.fillStyle = flashEnd ? '#d03030' : '#ffe2a8';
+    ctx.beginPath(); ctx.arc(-R * 0.2, -R * 0.62, R * 0.09, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(R * 0.2, -R * 0.62, R * 0.09, 0, Math.PI * 2); ctx.fill();
+  } else {
+    const ex = d.x * R * 0.08, ey = d.y * R * 0.08;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-R * 0.22, -R * 0.62, R * 0.17, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(R * 0.22, -R * 0.62, R * 0.17, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#16233f';
+    ctx.beginPath(); ctx.arc(-R * 0.22 + ex, -R * 0.62 + ey, R * 0.08, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(R * 0.22 + ex, -R * 0.62 + ey, R * 0.08, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---------- HUD ----------
+function updateHud() {
+  ui.score.textContent = (score || 0).toLocaleString();
+  ui.level.textContent = level || 1;
+  ui.best.textContent = best.toLocaleString();
+  const n = Math.max(0, (lives || 0) - (state === 'ready' || state === 'play' ? 1 : 0));
+  ui.lives.innerHTML = '';
+  for (let i = 0; i < Math.min(n, 6); i++) {
+    const s = document.createElement('span');
+    s.style.cssText = 'width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe08a,#f2a93b);display:inline-block;box-shadow:-4px 0 0 #9a5b2a';
+    ui.lives.appendChild(s);
+  }
+}
+function hideCards() { [ui.start, ui.pause, ui.over].forEach(c => c.classList.add('hidden')); }
+function showCard(c) { hideCards(); c.classList.remove('hidden'); }
+
+// ---------- Input ----------
+function setWant(name) {
+  player.want = DIRS[name];
+  if (state === 'title' || state === 'over') return;
+}
+const KEYMAP = {
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
+};
+window.addEventListener('keydown', e => {
+  if (KEYMAP[e.key]) { setWant(KEYMAP[e.key]); e.preventDefault(); return; }
+  if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { togglePause(); e.preventDefault(); return; }
+  if (e.key === 'm' || e.key === 'M') { toggleMute(); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && (state === 'title' || state === 'over')) { newGame(); e.preventDefault(); }
+});
+
+let touchStart = null;
+canvas.addEventListener('touchstart', e => { const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY }; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  if (!touchStart) return;
+  const t = e.touches[0];
+  const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
+  if (Math.hypot(dx, dy) > 18) {
+    setWant(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    touchStart = { x: t.clientX, y: t.clientY };
+  }
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchend', () => { touchStart = null; });
+document.querySelectorAll('#dpad button').forEach(btn => {
+  btn.addEventListener('pointerdown', e => { setWant(btn.dataset.dir); e.preventDefault(); });
+});
+
+function togglePause() {
+  if (state === 'title' || state === 'over') return;
+  paused = !paused;
+  ui.pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  if (paused) showCard(ui.pause); else hideCards();
+}
+function toggleMute() {
+  muted = !muted;
+  try { localStorage.setItem('backman.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
+  ui.muteBtn.textContent = muted ? 'Sound: off' : 'Sound: on';
+}
+$('startBtn').addEventListener('click', () => { audio(); newGame(); });
+$('againBtn').addEventListener('click', () => { audio(); newGame(); });
+$('resumeBtn').addEventListener('click', togglePause);
+ui.pauseBtn.addEventListener('click', togglePause);
+ui.muteBtn.addEventListener('click', toggleMute);
+ui.muteBtn.textContent = muted ? 'Sound: off' : 'Sound: on';
+document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && (state === 'play' || state === 'ready')) togglePause(); });
+window.addEventListener('resize', resize);
+
+// ---------- Loop ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  draw(now);
+  requestAnimationFrame(frame);
+}
+
+// Title screen shows the maze in the background.
+level = 1; score = 0; lives = 3;
+resetMaze(); resetActors();
+resize();
+updateHud();
+requestAnimationFrame(frame);
+
+// Exposed for automated testing.
+window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
+  get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame };
+})();
+</script>
+</body>
+</html>
