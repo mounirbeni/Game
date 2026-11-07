@@ -93,9 +93,14 @@ const MAP = [
   '#####################',
   '#.........#.........#',
   '#o###.###.#.###.###o#',
+  '#.###.###.#.###.###.#',
   '#...................#',
   '#.###.#.#####.#.###.#',
   '#.....#...#...#.....#',
+  '###.#.###.#.###.#.###',
+  '#...#.....#.....#...#',
+  '#.#####.#.#.#.#####.#',
+  '#.......#...#.......#',
   '#####.###.#.###.#####',
   '#####.#.......#.#####',
   '#####.#.##-##.#.#####',
@@ -108,16 +113,23 @@ const MAP = [
   '#o..#.....P.....#..o#',
   '###.#.#.#####.#.#.###',
   '#.....#...#...#.....#',
+  '#.###.###.#.###.###.#',
+  '#...#...........#...#',
+  '###.#.#.#####.#.#.###',
+  '#.....#...#...#.....#',
   '#.#######.#.#######.#',
   '#...................#',
   '#####################',
 ];
 const COLS = MAP[0].length, ROWS = MAP.length;
-const TUNNEL_ROW = 9;
-const GATE = { x: 10, y: 8 };
-const DEN_EXIT = { x: 10, y: 7 };
-const DEN_CENTER = { x: 10, y: 9 };
-const BONUS_TILE = { x: 10, y: 11 };
+const findTile = ch => { for (let y = 0; y < ROWS; y++) { const x = MAP[y].indexOf(ch); if (x >= 0) return { x, y }; } };
+const GATE = findTile('-');
+const TUNNEL_ROW = GATE.y + 1;
+const DEN_EXIT = { x: GATE.x, y: GATE.y - 1 };
+const DEN_CENTER = { x: GATE.x, y: GATE.y + 1 };
+const BONUS_TILE = { x: GATE.x, y: GATE.y + 3 };
+const START = findTile('P');
+const TOTAL_SEEDS = MAP.join('').split('').filter(c => c === '.' || c === 'o').length;
 
 const DIRS = {
   up: { x: 0, y: -1 }, left: { x: -1, y: 0 }, down: { x: 0, y: 1 }, right: { x: 1, y: 0 }, none: { x: 0, y: 0 },
@@ -187,13 +199,13 @@ let popups = [];
 let extraLifeGiven = false;
 let time = 0;
 
-const player = { tx: 10, ty: 15, dir: DIRS.none, want: DIRS.left, progress: 0, facing: 1, walk: 0, trail: [] };
+const player = { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: 1, walk: 0, trail: [] };
 
 const BEETLE_DEFS = [
-  { name: 'Bramble', color: '#ff5d5d', corner: { x: 19, y: -2 }, start: { x: 10, y: 7 }, release: 0 },
-  { name: 'Moth',    color: '#ff9be4', corner: { x: 1, y: -2 },  start: { x: 10, y: 9 }, release: 2 },
-  { name: 'Drift',   color: '#4fe0c8', corner: { x: 20, y: 21 }, start: { x: 9, y: 9 },  release: 5 },
-  { name: 'Hush',    color: '#b78cff', corner: { x: 0, y: 21 },  start: { x: 11, y: 9 }, release: 8 },
+  { name: 'Bramble', color: '#ff5d5d', corner: { x: COLS - 2, y: -2 }, start: DEN_EXIT, release: 0 },
+  { name: 'Moth',    color: '#ff9be4', corner: { x: 1, y: -2 },        start: DEN_CENTER, release: 2 },
+  { name: 'Drift',   color: '#4fe0c8', corner: { x: COLS, y: ROWS },   start: { x: DEN_CENTER.x - 1, y: DEN_CENTER.y }, release: 5 },
+  { name: 'Hush',    color: '#b78cff', corner: { x: -1, y: ROWS },     start: { x: DEN_CENTER.x + 1, y: DEN_CENTER.y }, release: 8 },
 ];
 let beetles = [];
 
@@ -228,7 +240,7 @@ function resetMaze() {
 }
 
 function resetActors() {
-  Object.assign(player, { tx: 10, ty: 15, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [] });
+  Object.assign(player, { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [] });
   beetles = BEETLE_DEFS.map((d, i) => ({
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
@@ -336,7 +348,7 @@ function eatAt(x, y) {
     grid[y][x] = ' '; addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
     startFright();
   }
-  if (seedsEaten === 60 || seedsEaten === 140) spawnBonus();
+  if (seedsEaten === Math.round(TOTAL_SEEDS * 0.3) || seedsEaten === Math.round(TOTAL_SEEDS * 0.7)) spawnBonus();
   if (seedsLeft === 0) { setState('clear', 2.4); sfx.clear(); }
 }
 
@@ -417,7 +429,7 @@ function updateBeetles(dt) {
     const inTunnel = b.ty === TUNNEL_ROW && (b.tx < 4 || b.tx > COLS - 5);
     if (inTunnel && b.mode === 'active') speed = Math.min(speed, sp.tunnel);
     // Bramble speeds up when few seeds remain
-    if (b.i === 0 && b.mode === 'active' && !b.frightened && seedsLeft < 30) speed *= 1.08;
+    if (b.i === 0 && b.mode === 'active' && !b.frightened && seedsLeft < TOTAL_SEEDS * 0.12) speed *= 1.08;
 
     advance(b, speed * dt, e => {
       if (e.mode === 'leaving') {
@@ -655,7 +667,7 @@ function draw(now) {
 function banner(text, color) {
   ctx.font = `900 ${Math.round(T * 0.9)}px ui-rounded, system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const x = COLS * T / 2, y = 11 * T + T / 2;
+  const x = COLS * T / 2, y = BONUS_TILE.y * T + T / 2;
   ctx.lineWidth = T * 0.22; ctx.strokeStyle = '#06100b';
   ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
