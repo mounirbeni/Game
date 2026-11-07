@@ -14,7 +14,7 @@ Open `index.html` in any modern browser.
 | P / Esc | Pause |
 | M | Mute |
 | Enter / Space | Start |
-| Swipe or on-screen pad | Move on touch screens |
+| Swipe anywhere | Move on touch screens |
 
 ## Rules
 

@@ -41,10 +41,6 @@
   #controls { display: flex; gap: 8px; }
   .icon-btn { font: inherit; font-size: 14px; font-weight: 700; background: var(--panel); color: var(--text);
     border: 1px solid #24503a; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
-  #dpad { display: none; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 48px); gap: 6px; margin-bottom: 6px; }
-  #dpad button { font-size: 22px; background: var(--panel); color: var(--text); border: 1px solid #24503a; border-radius: 12px; }
-  #dpad button:active { background: #24503a; }
-  @media (pointer: coarse) { #dpad { display: grid; } }
 </style>
 </head>
 <body>
@@ -66,7 +62,7 @@
           <span class="dot" style="background:#ffb02e;box-shadow:0 0 8px #ffb02e"></span><span>Lantern: beetles flee, catch them for big points</span>
           <span class="dot" style="background:#e05a5a"></span><span>Mushroom: bonus snack</span>
         </div>
-        <p>Arrows / WASD to move · P to pause · M to mute<br>Swipe or use the pad on touch screens</p>
+        <p>Arrows / WASD to move · P to pause · M to mute<br>Swipe anywhere on the screen to move</p>
         <button class="big" id="startBtn">Play</button>
       </div>
       <div class="card hidden" id="pauseCard">
@@ -80,10 +76,6 @@
         <button class="big" id="againBtn">Play again</button>
       </div>
     </div>
-  </div>
-  <div id="dpad">
-    <span></span><button data-dir="up" aria-label="Up">▲</button><span></span>
-    <button data-dir="left" aria-label="Left">◀</button><button data-dir="down" aria-label="Down">▼</button><button data-dir="right" aria-label="Right">▶</button>
   </div>
   <div id="controls">
     <button class="icon-btn" id="pauseBtn">Pause</button>
@@ -860,9 +852,15 @@ window.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && (state === 'title' || state === 'over')) { newGame(); e.preventDefault(); }
 });
 
+// Swipe anywhere on the screen (except on buttons) to steer.
 let touchStart = null;
-canvas.addEventListener('touchstart', e => { const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY }; e.preventDefault(); }, { passive: false });
-canvas.addEventListener('touchmove', e => {
+const isButton = el => el && el.closest && el.closest('button');
+document.addEventListener('touchstart', e => {
+  if (isButton(e.target)) return;
+  const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY };
+  e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchmove', e => {
   if (!touchStart) return;
   const t = e.touches[0];
   const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
@@ -872,10 +870,7 @@ canvas.addEventListener('touchmove', e => {
   }
   e.preventDefault();
 }, { passive: false });
-canvas.addEventListener('touchend', () => { touchStart = null; });
-document.querySelectorAll('#dpad button').forEach(btn => {
-  btn.addEventListener('pointerdown', e => { setWant(btn.dataset.dir); e.preventDefault(); });
-});
+document.addEventListener('touchend', () => { touchStart = null; });
 
 function togglePause() {
   if (state === 'title' || state === 'over') return;
