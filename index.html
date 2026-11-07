@@ -17,8 +17,9 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     font-family: ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif; overflow: hidden;
     touch-action: none; user-select: none; -webkit-user-select: none; }
-  #app { display: flex; flex-direction: column; align-items: center; height: 100%; padding: 10px 16px; gap: 8px; }
-  #hud { display: flex; justify-content: space-between; align-items: center; width: 100%; font-weight: 700; gap: 12px; }
+  #app { display: flex; flex-direction: column; align-items: center; height: 100%; gap: 6px;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
+  #hud { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 720px; font-weight: 700; gap: 10px; padding: 0 6px; }
   .stat { display: flex; flex-direction: column; line-height: 1.1; }
   .stat small { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
   .stat span { font-size: 20px; font-variant-numeric: tabular-nums; }
@@ -38,9 +39,9 @@
     border-radius: 999px; background: var(--accent); color: #3a2400; cursor: pointer; box-shadow: 0 4px 0 #a06d12; }
   button.big:active { transform: translateY(2px); box-shadow: 0 2px 0 #a06d12; }
   .hidden { display: none !important; }
-  #controls { display: flex; gap: 8px; }
-  .icon-btn { font: inherit; font-size: 14px; font-weight: 700; background: var(--panel); color: var(--text);
-    border: 1px solid #24503a; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  #controls { display: flex; gap: 6px; }
+  .icon-btn { font: inherit; font-size: 18px; line-height: 1; background: var(--panel); color: var(--text);
+    border: 1px solid #24503a; border-radius: 10px; width: 40px; height: 40px; cursor: pointer; padding: 0; }
 </style>
 </head>
 <body>
@@ -49,7 +50,11 @@
     <div class="stat"><small>Score</small><span id="score">0</span></div>
     <div class="stat" style="align-items:center"><small>Level</small><span id="level">1</span></div>
     <div class="stat" style="align-items:center"><small>Best</small><span id="best">0</span></div>
-    <div class="stat" style="align-items:flex-end"><small>Lives</small><div id="lives"></div></div>
+    <div class="stat" style="align-items:center"><small>Lives</small><div id="lives"></div></div>
+    <div id="controls">
+      <button class="icon-btn" id="pauseBtn" aria-label="Pause">⏸</button>
+      <button class="icon-btn" id="muteBtn" aria-label="Sound">🔊</button>
+    </div>
   </div>
   <div id="wrap">
     <canvas id="game"></canvas>
@@ -76,10 +81,6 @@
         <button class="big" id="againBtn">Play again</button>
       </div>
     </div>
-  </div>
-  <div id="controls">
-    <button class="icon-btn" id="pauseBtn">Pause</button>
-    <button class="icon-btn" id="muteBtn">Sound: on</button>
   </div>
 </div>
 
@@ -537,17 +538,37 @@ function gameOver() {
 }
 
 // ---------- Rendering ----------
+// On tall (phone-shaped) screens the whole maze would be tiny, so zoom in until
+// about VISIBLE_COLS columns fill the width and let the camera follow Backman.
+const VISIBLE_COLS = 14;
+let viewW = 0, viewH = 0, camX = 0, camY = 0;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
 function resize() {
   const wrapEl = $('wrap');
   const aw = wrapEl.clientWidth, ah = wrapEl.clientHeight;
-  T = Math.max(8, Math.floor(Math.min(aw / COLS, ah / ROWS)));
+  const fit = Math.floor(Math.min(aw / COLS, ah / ROWS));
+  const zoom = ah > aw ? Math.floor(aw / VISIBLE_COLS) : 0;
+  T = Math.max(8, fit, zoom);
+  viewW = Math.min(COLS * T, aw);
+  viewH = Math.min(ROWS * T, ah);
   dpr = Math.min(window.devicePixelRatio || 1, 3);
-  canvas.style.width = COLS * T + 'px';
-  canvas.style.height = ROWS * T + 'px';
-  canvas.width = Math.round(COLS * T * dpr);
-  canvas.height = Math.round(ROWS * T * dpr);
+  canvas.style.width = viewW + 'px';
+  canvas.style.height = viewH + 'px';
+  canvas.width = Math.round(viewW * dpr);
+  canvas.height = Math.round(viewH * dpr);
   mazeLayer = buildMaze(false);
   mazeLayerFlash = buildMaze(true);
+  updateCamera(0, true);
+}
+
+function updateCamera(dt, snap) {
+  const p = pos(player);
+  const tx = clamp(p.x * T + T / 2 - viewW / 2, 0, COLS * T - viewW);
+  const ty = clamp(p.y * T + T / 2 - viewH / 2, 0, ROWS * T - viewH);
+  if (snap || Math.abs(tx - camX) > COLS * T / 2) { camX = tx; camY = ty; return; }
+  const k = Math.min(1, dt * 8);
+  camX += (tx - camX) * k; camY += (ty - camY) * k;
 }
 
 // Seeded random so the hedge texture is stable between redraws.
@@ -555,7 +576,7 @@ function rng(seed) { return () => { seed = (seed * 16807) % 2147483647; return (
 
 function buildMaze(flash) {
   const c = document.createElement('canvas');
-  c.width = canvas.width; c.height = canvas.height;
+  c.width = Math.round(COLS * T * dpr); c.height = Math.round(ROWS * T * dpr);
   const g = c.getContext('2d');
   g.scale(dpr, dpr);
   // ground
@@ -616,8 +637,15 @@ function roundRect(g, x, y, w, h, r) {
   g.closePath();
 }
 
+let lastDraw = 0;
 function draw(now) {
+  const fdt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0;
+  lastDraw = now;
+  updateCamera(fdt, false);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#07110c';
+  ctx.fillRect(0, 0, viewW, viewH);
+  ctx.translate(-Math.round(camX), -Math.round(camY));
   const flashing = state === 'clear' && stateTimer < 1.8 && Math.floor(stateTimer * 6) % 2 === 0;
   ctx.drawImage(flashing ? mazeLayerFlash : mazeLayer, 0, 0, COLS * T, ROWS * T);
   if (!grid) return;
@@ -658,6 +686,10 @@ function draw(now) {
   }
   ctx.globalAlpha = 1;
 
+  // back to screen space
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawOffscreenMarkers();
+
   // banners
   if (state === 'ready') banner(level > 1 && time === 0 && score > 0 ? `LEVEL ${level}` : 'READY!', '#ffcf5a');
   if (state === 'clear' && stateTimer > 1.8) banner('GARDEN CLEARED!', '#7dffa1');
@@ -667,10 +699,30 @@ function draw(now) {
 function banner(text, color) {
   ctx.font = `900 ${Math.round(T * 0.9)}px ui-rounded, system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const x = COLS * T / 2, y = BONUS_TILE.y * T + T / 2;
+  const x = viewW / 2, y = clamp(BONUS_TILE.y * T + T / 2 - camY, T, viewH - T);
   ctx.lineWidth = T * 0.22; ctx.strokeStyle = '#06100b';
   ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+
+// Little arrows on the screen edge pointing at beetles outside the view.
+function drawOffscreenMarkers() {
+  if (state !== 'play' && state !== 'ready') return;
+  const m = T * 0.35;
+  for (const b of beetles) {
+    if (b.mode === 'den' || b.mode === 'eaten') continue;
+    const bp = pos(b);
+    const sx = bp.x * T + T / 2 - camX, sy = bp.y * T + T / 2 - camY;
+    if (sx >= 0 && sx <= viewW && sy >= 0 && sy <= viewH) continue;
+    const ex = clamp(sx, m, viewW - m), ey = clamp(sy, m, viewH - m);
+    const ang = Math.atan2(sy - ey, sx - ex);
+    ctx.save();
+    ctx.translate(ex, ey); ctx.rotate(ang);
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = b.frightened ? '#3d5bd9' : b.color;
+    ctx.beginPath(); ctx.moveTo(m, 0); ctx.lineTo(-m * 0.7, -m * 0.7); ctx.lineTo(-m * 0.7, m * 0.7); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
 }
 
 function drawLantern(cx, cy, pulse) {
@@ -887,20 +939,20 @@ document.addEventListener('touchend', () => { touchStart = null; });
 function togglePause() {
   if (state === 'title' || state === 'over') return;
   paused = !paused;
-  ui.pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  ui.pauseBtn.textContent = paused ? '▶' : '⏸';
   if (paused) showCard(ui.pause); else hideCards();
 }
 function toggleMute() {
   muted = !muted;
   try { localStorage.setItem('backman.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
-  ui.muteBtn.textContent = muted ? 'Sound: off' : 'Sound: on';
+  ui.muteBtn.textContent = muted ? '🔇' : '🔊';
 }
 $('startBtn').addEventListener('click', () => { audio(); newGame(); });
 $('againBtn').addEventListener('click', () => { audio(); newGame(); });
 $('resumeBtn').addEventListener('click', togglePause);
 ui.pauseBtn.addEventListener('click', togglePause);
 ui.muteBtn.addEventListener('click', toggleMute);
-ui.muteBtn.textContent = muted ? 'Sound: off' : 'Sound: on';
+ui.muteBtn.textContent = muted ? '🔇' : '🔊';
 document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && (state === 'play' || state === 'ready')) togglePause(); });
 window.addEventListener('resize', resize);
 
