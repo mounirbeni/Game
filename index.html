@@ -200,7 +200,7 @@ let popups = [];
 let extraLifeGiven = false;
 let time = 0;
 
-const player = { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: 1, walk: 0, trail: [] };
+const player = { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: 1, walk: 0, trail: [], ox: 0, oy: 0 };
 
 const BEETLE_DEFS = [
   { name: 'Bramble', color: '#ff5d5d', corner: { x: COLS - 2, y: -2 }, start: DEN_EXIT, release: 0 },
@@ -238,10 +238,11 @@ function resetMaze() {
     if (c === '.' || c === 'o') seedsLeft++;
   }
   seedsEaten = 0;
+  buildSeeds();
 }
 
 function resetActors() {
-  Object.assign(player, { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [] });
+  Object.assign(player, { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [], ox: 0, oy: 0 });
   beetles = BEETLE_DEFS.map((d, i) => ({
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
@@ -323,6 +324,18 @@ function reverse(e) {
 function updatePlayer(dt) {
   const sp = speeds();
   if (e_mid_reverse()) reverse(player);
+  // Forgiving corners: a turn asked for just after passing a junction is still taken.
+  // The small position correction is eased out visually via ox/oy.
+  const w = player.want;
+  if (player.progress > 0 && player.progress < 0.3 && (w.x || w.y) &&
+      !sameDir(w, player.dir) && !opposite(w, player.dir) &&
+      canEnter(player.tx + w.x, player.ty + w.y, false)) {
+    const before = pos(player);
+    player.dir = w; player.progress = 0;
+    player.ox += before.x - player.tx; player.oy += before.y - player.ty;
+  }
+  const ease = Math.exp(-dt * 22);
+  player.ox *= ease; player.oy *= ease;
   if (player.dir.x) player.facing = player.dir.x;
   else if (player.want.x && !player.dir.y) player.facing = player.want.x;
   const moving = player.dir.x || player.dir.y;
@@ -344,7 +357,7 @@ function eatAt(x, y) {
   if (x < 0 || x >= COLS) return;
   const c = grid[y][x];
   if (c === '.') {
-    grid[y][x] = ' '; addScore(10); seedsLeft--; seedsEaten++; sfx.seed();
+    grid[y][x] = ' '; eraseSeed(x, y); addScore(10); seedsLeft--; seedsEaten++; sfx.seed();
   } else if (c === 'o') {
     grid[y][x] = ' '; addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
     startFright();
@@ -552,22 +565,43 @@ function resize() {
   T = Math.max(8, fit, zoom);
   viewW = Math.min(COLS * T, aw);
   viewH = Math.min(ROWS * T, ah);
-  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.style.width = viewW + 'px';
   canvas.style.height = viewH + 'px';
   canvas.width = Math.round(viewW * dpr);
   canvas.height = Math.round(viewH * dpr);
   mazeLayer = buildMaze(false);
   mazeLayerFlash = buildMaze(true);
+  buildSeeds();
   updateCamera(0, true);
 }
 
+// Seeds never move, so draw them once onto their own layer and erase them as they are eaten.
+let seedLayer = null, seedCtx = null;
+function buildSeeds() {
+  if (!grid) return;
+  seedLayer = document.createElement('canvas');
+  seedLayer.width = Math.round(COLS * T * dpr); seedLayer.height = Math.round(ROWS * T * dpr);
+  seedCtx = seedLayer.getContext('2d');
+  seedCtx.scale(dpr, dpr);
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (grid[y][x] !== '.') continue;
+    const cx = x * T + T / 2, cy = y * T + T / 2;
+    seedCtx.fillStyle = 'rgba(255,232,163,0.18)';
+    seedCtx.beginPath(); seedCtx.arc(cx, cy, T * 0.2, 0, Math.PI * 2); seedCtx.fill();
+    seedCtx.fillStyle = '#ffe8a3';
+    seedCtx.beginPath(); seedCtx.arc(cx, cy, T * 0.09, 0, Math.PI * 2); seedCtx.fill();
+  }
+}
+function eraseSeed(x, y) { if (seedCtx) seedCtx.clearRect(x * T, y * T, T, T); }
+
 function updateCamera(dt, snap) {
-  const p = pos(player);
+  const lp = pos(player), p = { x: lp.x + player.ox, y: lp.y + player.oy };
   const tx = clamp(p.x * T + T / 2 - viewW / 2, 0, COLS * T - viewW);
   const ty = clamp(p.y * T + T / 2 - viewH / 2, 0, ROWS * T - viewH);
-  if (snap || Math.abs(tx - camX) > COLS * T / 2) { camX = tx; camY = ty; return; }
-  const k = Math.min(1, dt * 8);
+  if (snap) { camX = tx; camY = ty; return; }
+  if (Math.abs(tx - camX) < T * 1.5 && Math.abs(ty - camY) < T * 1.5) { camX = tx; camY = ty; return; }
+  const k = Math.min(1, dt * 10);
   camX += (tx - camX) * k; camY += (ty - camY) * k;
 }
 
@@ -645,24 +679,16 @@ function draw(now) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#07110c';
   ctx.fillRect(0, 0, viewW, viewH);
-  ctx.translate(-Math.round(camX), -Math.round(camY));
+  ctx.translate(-Math.round(camX * dpr) / dpr, -Math.round(camY * dpr) / dpr);
   const flashing = state === 'clear' && stateTimer < 1.8 && Math.floor(stateTimer * 6) % 2 === 0;
   ctx.drawImage(flashing ? mazeLayerFlash : mazeLayer, 0, 0, COLS * T, ROWS * T);
   if (!grid) return;
 
-  // seeds & lanterns
+  // seeds (pre-rendered) & lanterns
+  if (seedLayer) ctx.drawImage(seedLayer, 0, 0, COLS * T, ROWS * T);
   const pulse = 0.5 + 0.5 * Math.sin(now / 180);
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    const c = grid[y][x];
-    const cx = x * T + T / 2, cy = y * T + T / 2;
-    if (c === '.') {
-      ctx.fillStyle = 'rgba(255,232,163,0.18)';
-      ctx.beginPath(); ctx.arc(cx, cy, T * 0.2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffe8a3';
-      ctx.beginPath(); ctx.arc(cx, cy, T * 0.09, 0, Math.PI * 2); ctx.fill();
-    } else if (c === 'o') {
-      drawLantern(cx, cy, pulse);
-    }
+    if (grid[y][x] === 'o') drawLantern(x * T + T / 2, y * T + T / 2, pulse);
   }
 
   if (bonus) drawMushroom(bonus.x * T + T / 2, bonus.y * T + T / 2, bonus.timer);
@@ -756,7 +782,8 @@ function drawMushroom(cx, cy, timer) {
 }
 
 function drawPlayer(now) {
-  const p = pos(player);
+  const lp = pos(player);
+  const p = { x: lp.x + player.ox, y: lp.y + player.oy };
   const cx = p.x * T + T / 2, cy = p.y * T + T / 2;
   ctx.save();
   ctx.translate(cx, cy);
