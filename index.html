@@ -703,9 +703,8 @@ function generateMaze(seed, W = 21, H = 31, loopChance = 0.22) {
       if (!fixed) { ok = stuck === 0; break; }
     }
     if (!ok) continue;
-    // 6) lanterns, start, empty tunnel mouths, and the magic doors in the top and bottom walls
+    // 6) lanterns, start, empty tunnel mouths
     set(1, 3, 'o'); set(1, H - 4, 'o');
-    g[0][MID] = ' '; g[1][MID] = '.'; g[H - 1][MID] = ' '; g[H - 2][MID] = '.';
     g[PY][MID] = 'P';
     const rows = g.map(r => r.join(''));
     if (validate(rows)) return rows;
@@ -715,10 +714,9 @@ function generateMaze(seed, W = 21, H = 31, loopChance = 0.22) {
 function validate(M) {
   const W = M[0].length, H = M.length, py = M.findIndex(r => r.includes('P')), px = M[py].indexOf('P');
   const gy = M.findIndex(r => r.includes('-')), tr = gy + 1;
-  const dc = M[0].indexOf(' ');   // magic door column (top and bottom), -1 if none
-  const open = (x, y) => { if (y === tr && (x < 0 || x >= W)) return true; if (x === dc && (y < 0 || y >= H)) return true; if (x < 0 || x >= W || y < 0 || y >= H) return false; const c = M[y][x]; return c !== '#' && c !== '-' && c !== 'E'; };
+  const open = (x, y) => { if (y === tr && (x < 0 || x >= W)) return true; if (x < 0 || x >= W || y < 0 || y >= H) return false; const c = M[y][x]; return c !== '#' && c !== '-' && c !== 'E'; };
   const seen = new Set([px + ',' + py]), q = [[px, py]];
-  while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = (x + dx + W) % W, ny = (y + dy + H) % H; if (!open(nx, ny) || seen.has(nx + ',' + ny)) continue; seen.add(nx + ',' + ny); q.push([nx, ny]); } }
+  while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = (x + dx + W) % W, ny = y + dy; if (!open(nx, ny) || seen.has(nx + ',' + ny)) continue; seen.add(nx + ',' + ny); q.push([nx, ny]); } }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     if (!open(x, y)) continue;
     if (!seen.has(x + ',' + y)) return false;
@@ -737,7 +735,7 @@ const THEMES = [
   { name: 'Golden Meadow',  ground: '#12100a', speck: ['#1a170d', '#0a0905'], dark: '#3e3a12', mid: '#8a7f22', light: '#d8c84a', gate: '#ffe9a8' },
 ];
 
-let MAP, COLS, ROWS, GATE, TUNNEL_ROW, DOOR_COL = -1, DEN_EXIT, DEN_CENTER, BONUS_TILE, START, TOTAL_SEEDS, THEME;
+let MAP, COLS, ROWS, GATE, TUNNEL_ROW, DOOR_COL = -1, gateRows = [], gateCols = [], gateTimer = 0, DEN_EXIT, DEN_CENTER, BONUS_TILE, START, TOTAL_SEEDS, THEME;
 const findTile = ch => { for (let y = 0; y < ROWS; y++) { const x = MAP[y].indexOf(ch); if (x >= 0) return { x, y }; } };
 const mapCache = {};
 // The garden grows with every level: small and simple at first, bigger and twistier later.
@@ -754,12 +752,36 @@ function mapForLevel(n, seed) {
   for (let k = 0; !m && k < 20; k++) m = generateMaze((seed || n) + k * 1000, w, h, loops);
   return (mapCache[key] = m);
 }
+// ---------- Gates ----------
+// Every maze has a gate on the left and right (one row). From level 20 there are also gates in
+// the top and bottom walls (one column), and every 15 seconds all the gates move somewhere new.
+const MOVING_GATES_LEVEL = 20, GATE_EVERY = 15, GATE_WARN = 2.5;
+const gatesMove = () => level >= MOVING_GATES_LEVEL && !duel;
+function setupGates(n) {
+  TUNNEL_ROW = GATE.y + 1; DOOR_COL = -1; gateTimer = GATE_EVERY;
+  gateRows = []; gateCols = [];
+  for (let y = 1; y < ROWS - 1; y++) if (MAP[y][1] !== '#') gateRows.push(y);
+  for (let x = 2; x < COLS - 2; x++) if (MAP[1][x] !== '#' && MAP[ROWS - 2][x] !== '#') gateCols.push(x);
+  if (n >= MOVING_GATES_LEVEL && !duel && gateCols.length) DOOR_COL = gateCols[Math.floor(gateCols.length / 2)];
+}
+// Someone in a doorway (or stepping into one) keeps the gates where they are for a moment.
+const atEdge = e => [[e.tx, e.ty], [e.tx + e.dir.x, e.ty + e.dir.y]].some(([x, y]) => x <= 0 || x >= COLS - 1 || y <= 0 || y >= ROWS - 1);
+function updateGates(dt) {
+  gateTimer -= dt;
+  if (gateTimer > 0 || atEdge(player) || beetles.some(atEdge)) return;
+  const pick = (list, cur) => { const far = list.filter(v => Math.abs(v - cur) > 2); return far.length ? far[Math.floor(Math.random() * far.length)] : cur; };
+  TUNNEL_ROW = pick(gateRows, TUNNEL_ROW);
+  if (gateCols.length) DOOR_COL = pick(gateCols, DOOR_COL);
+  gateTimer = GATE_EVERY;
+  mazeLayer = buildMaze(false); mazeLayerFlash = null;
+  for (const [x, y] of [[0, TUNNEL_ROW], [COLS - 1, TUNNEL_ROW], [DOOR_COL, 0], [DOOR_COL, ROWS - 1]]) if (x >= 0) burst(x, y, '#ffcf5a', 10, 3, 0.5);
+  sfx.portal();
+}
 function applyLevelMap(n, seed) {
   MAP = mapForLevel(n, seed);
   COLS = MAP[0].length; ROWS = MAP.length;
   GATE = findTile('-');
-  TUNNEL_ROW = GATE.y + 1;
-  DOOR_COL = MAP[0].indexOf(' ');   // the magic doors: an opening in the top and bottom walls
+  setupGates(n);
   DEN_EXIT = { x: GATE.x, y: GATE.y - 1 };
   DEN_CENTER = { x: GATE.x, y: GATE.y + 1 };
   BONUS_TILE = { x: GATE.x, y: GATE.y + 3 };
@@ -888,7 +910,7 @@ const sfx = {
     thump(t, 300, 40, 0.65, 0.34);
   }); },
   start() { play(t => noise(t, 0.45, { f: 300, f2: 2400, q: 0.7, vol: 0.5 })); },   // soft whoosh
-  portal() { play(t => { noise(t, 0.35, { f: 2400, f2: 400, q: 1.2, vol: 0.35 }); [0, 0.06, 0.12].forEach((d, i) => thump(t + d, 900 + i * 300, 1600 + i * 400, 0.05, 0.08)); }); },   // magic door shimmer
+  portal() { play(t => { noise(t, 0.35, { f: 400, f2: 2400, q: 1.2, vol: 0.3 }); [0, 0.06, 0.12].forEach((d, i) => thump(t + d, 900 + i * 300, 1600 + i * 400, 0.05, 0.08)); }); },   // the gates move: stone sliding plus chimes
   clear() { play(t => [0, 0.09, 0.18].forEach((d, i) => {   // three rising pops
     thump(t + d, 420 + i * 160, 820 + i * 220, 0.08, 0.16);
     noise(t + d, 0.03, { type: 'highpass', f: 3000, vol: 0.07 });
@@ -1092,9 +1114,10 @@ function setState(s, t = 0) { state = s; stateTimer = t; }
 
 // ---------- Grid helpers ----------
 function tileAt(x, y) {
-  if (y === TUNNEL_ROW && (x < 0 || x >= COLS)) return ' ';
-  if (x === DOOR_COL && (y < 0 || y >= ROWS)) return ' ';
-  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return '#';
+  if (x < 0 || x >= COLS) return y === TUNNEL_ROW ? ' ' : '#';
+  if (y < 0 || y >= ROWS) return x === DOOR_COL ? ' ' : '#';
+  if (x === 0 || x === COLS - 1) return y === TUNNEL_ROW ? ' ' : '#';   // left/right wall: open only at the gate
+  if (y === 0 || y === ROWS - 1) return x === DOOR_COL ? ' ' : '#';     // top/bottom wall: open only at the gate
   return grid[y][x];
 }
 function canEnter(x, y, gateOk) {
@@ -1107,13 +1130,9 @@ function wrap(e) {
   // Tunnel: tiles -1 and COLS exist off-screen; hop across when reaching them.
   if (e.tx <= -1 && e.dir.x < 0) e.tx = COLS;
   else if (e.tx >= COLS && e.dir.x > 0) e.tx = -1;
-  // Magic doors: walk out of the top and come back in at the bottom (and the other way round).
-  else if (e.ty <= -1 && e.dir.y < 0) { e.ty = ROWS; if (e === player) portalFx(ROWS - 0.5); }
-  else if (e.ty >= ROWS && e.dir.y > 0) { e.ty = -1; if (e === player) portalFx(-0.5); }
-}
-function portalFx(y) {
-  burst(DOOR_COL, y, '#c98bff', 14, 3.2, 0.5); burst(DOOR_COL, y, '#7fe8ff', 8, 2.4, 0.45);
-  sfx.portal(); snapCamera = true;
+  // Top and bottom gates: walk out of the top and come back in at the bottom (and the other way round).
+  else if (e.ty <= -1 && e.dir.y < 0) { e.ty = ROWS; if (e === player) snapCamera = true; }
+  else if (e.ty >= ROWS && e.dir.y > 0) { e.ty = -1; if (e === player) snapCamera = true; }
 }
 let snapCamera = false;
 function pos(e) { return { x: e.tx + e.dir.x * e.progress, y: e.ty + e.dir.y * e.progress }; }
@@ -1479,6 +1498,7 @@ function update(dt) {
     checkCollisions();
     if (bonus) { bonus.timer -= dt; if (bonus.timer <= 0) bonus = null; }
     updateCoin(dt);
+    if (gatesMove()) updateGates(dt);
     if (freezeTimer > 0) freezeTimer = Math.max(0, freezeTimer - dt);
     return;
   }
@@ -1660,9 +1680,10 @@ function buildMaze(flash) {
   g.scale(dpr, dpr);
   const r = rng(42);
   const isWall = (x, y) => {
-    if (y === TUNNEL_ROW && (x < 0 || x >= COLS)) return false;
-    if (x === DOOR_COL && (y < 0 || y >= ROWS)) return false;
-    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return true;
+    if (x < 0 || x >= COLS) return y !== TUNNEL_ROW;
+    if (y < 0 || y >= ROWS) return x !== DOOR_COL;
+    if (x === 0 || x === COLS - 1) return y !== TUNNEL_ROW;
+    if (y === 0 || y === ROWS - 1) return x !== DOOR_COL;
     return MAP[y][x] === '#';
   };
   const corners = (x, y, rad) => [
@@ -1791,7 +1812,7 @@ function draw(now) {
 
   if (bonus) drawMushroom(bonus.x * T + T / 2, bonus.y * T + T / 2, bonus.timer);
   drawCoin(now);
-  if (DOOR_COL >= 0) { drawDoor(DOOR_COL * T + T / 2, 0, 1, now); drawDoor(DOOR_COL * T + T / 2, ROWS * T, -1, now); }
+  if (gatesMove() && state === 'play' && gateTimer < GATE_WARN) drawGateWarning(now);
 
   // actors (clip so tunnel travel slides under the edge)
   ctx.save();
@@ -1911,38 +1932,15 @@ function drawOffscreenMarkers() {
   }
 }
 
-// A magic door set into the outer wall: a glowing arch with a swirling portal.
-// (cx, edgeY) is the middle of the wall edge; dir is 1 for the top door (opening downwards), -1 for the bottom one.
-function drawDoor(cx, edgeY, dir, now) {
-  const t = now / 1000, R = T * 0.62, cy = edgeY;
-  ctx.save();
-  ctx.translate(cx, cy); ctx.scale(1, dir);   // draw the top door; the bottom one is its mirror
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, T * 1.5);
-  glow.addColorStop(0, `rgba(190,120,255,${0.5 + 0.15 * Math.sin(t * 3)})`); glow.addColorStop(1, 'rgba(190,120,255,0)');
-  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, T * 1.5, 0, Math.PI); ctx.fill();
-  // portal: half disc going into the wall, with spinning bands
-  ctx.beginPath(); ctx.ellipse(0, 0, R, R * 0.95, 0, 0, Math.PI); ctx.closePath(); ctx.clip();
-  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
-  core.addColorStop(0, '#ffffff'); core.addColorStop(0.25, '#bfe9ff'); core.addColorStop(0.6, '#7b4dff'); core.addColorStop(1, '#2a0b5c');
-  ctx.fillStyle = core; ctx.fillRect(-R, 0, R * 2, R);
-  ctx.lineWidth = T * 0.07; ctx.lineCap = 'round';
-  for (let i = 0; i < 3; i++) {
-    const a = t * (2.2 + i * 0.6) * (i % 2 ? -1 : 1) + i * 2.1, rr = R * (0.35 + i * 0.22);
-    ctx.strokeStyle = i === 1 ? 'rgba(127,232,255,0.85)' : 'rgba(255,255,255,0.7)';
-    ctx.beginPath(); ctx.arc(0, 0, rr, a, a + 1.6); ctx.stroke();
+// The gates are about to move: their openings blink orange.
+function drawGateWarning(now) {
+  const a = 0.45 + 0.4 * Math.sin(now / 80);
+  for (const [x, y] of [[0, TUNNEL_ROW], [COLS - 1, TUNNEL_ROW], [DOOR_COL, 0], [DOOR_COL, ROWS - 1]]) {
+    if (x < 0) continue;
+    const cx = x * T + T / 2, cy = y * T + T / 2, g = ctx.createRadialGradient(cx, cy, 0, cx, cy, T * 1.1);
+    g.addColorStop(0, `rgba(255,200,80,${a})`); g.addColorStop(0.5, `rgba(255,140,30,${a * 0.6})`); g.addColorStop(1, 'rgba(255,140,30,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, T * 1.1, 0, Math.PI * 2); ctx.fill();
   }
-  ctx.restore();
-  // golden arch frame
-  ctx.save(); ctx.translate(cx, cy); ctx.scale(1, dir);
-  ctx.strokeStyle = '#ffd75a'; ctx.lineWidth = T * 0.1; ctx.shadowColor = '#ffcf3a'; ctx.shadowBlur = T * 0.3;
-  ctx.beginPath(); ctx.ellipse(0, 0, R + T * 0.06, R * 0.95 + T * 0.06, 0, 0, Math.PI); ctx.stroke();
-  // twinkles
-  ctx.shadowBlur = 0; ctx.fillStyle = '#fff';
-  for (let i = 0; i < 4; i++) {
-    const a = (t * 0.8 + i / 4) % 1, x = Math.sin(i * 2.4 + t) * R * 0.8, y = a * T * 1.1;
-    ctx.globalAlpha = 1 - a; ctx.beginPath(); ctx.arc(x, y, T * 0.05, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.restore();
 }
 function drawLantern(cx, cy, pulse) {
   const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, T * (0.55 + pulse * 0.2));
@@ -3222,7 +3220,7 @@ window.__backman = { get state() { return state; }, get score() { return score; 
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
-  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
+  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
 })();
 </script>
 </body>

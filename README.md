@@ -124,8 +124,9 @@ challenges going at once. Challenge runs never change your saved level or best s
 The server (`/api/challenge`) keeps the maze seed, each attempt and each collected reward, so
 each player can only play once and collect once.
 
-## Magic doors
+## Gates
 
-Every maze has a glowing magic door in the middle of the top wall and another in the bottom wall.
-Walk into one and you come out of the other, like the side tunnel but up and down. Beetles slow
-down in the doorways, so the doors are a good way to escape.
+Every maze has a gate in the left and right walls: walk out of one side and come back in on the
+other. From **level 20** there is also a gate in the top and bottom walls, and every **15 seconds
+all the gates move** to new places. The open gates blink orange just before they move. They wait
+for anyone standing in a doorway, so nobody gets stuck. Beetles slow down in the doorways.
