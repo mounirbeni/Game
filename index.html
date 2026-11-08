@@ -1194,7 +1194,7 @@ function checkCollisions() {
         b.frightened = false; b.mode = 'eaten';
         const pts = 200 * 2 ** Math.min(frightChain, 3);
         frightChain++;
-        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, b.color, 16, 5, 0.55, 0.1); earnCredit(1, bp.x, bp.y);
+        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, '#ff3b3b', 16, 5, 0.55, 0.1); earnCredit(1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
       } else {
         lives--; updateHud();
@@ -1646,7 +1646,7 @@ function drawOffscreenMarkers() {
     ctx.save();
     ctx.translate(ex, ey); ctx.rotate(ang);
     ctx.globalAlpha = 0.85;
-    ctx.fillStyle = b.frightened ? '#3d5bd9' : b.color;
+    ctx.fillStyle = b.frightened ? '#3d5bd9' : '#ff3b3b';
     ctx.beginPath(); ctx.moveTo(m, 0); ctx.lineTo(-m * 0.7, -m * 0.7); ctx.lineTo(-m * 0.7, m * 0.7); ctx.closePath(); ctx.fill();
     ctx.restore();
   }
@@ -1898,7 +1898,7 @@ function drawBeetle(b, now) {
     let diff = target - b.ang; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     b.ang += diff * 0.35;
     const flashEnd = b.frightened && frightTimer < 2 && Math.floor(frightTimer * 5) % 2 === 0;
-    const img = b.frightened ? (flashEnd ? ladySprites.flash : ladySprites.scared) : ladyFor(b.color);
+    const img = b.frightened ? (flashEnd ? ladySprites.flash : ladySprites.scared) : ladySprites.red;   // all ladybugs are red
     const S = T * 1.12, wobble = b.mode === 'den' ? 0 : Math.sin(now / 85 + b.i * 1.7) * 0.09;
     ctx.save();
     ctx.translate(p.x * T + T / 2, p.y * T + T / 2);
@@ -1919,7 +1919,7 @@ function drawBeetle(b, now) {
 
   const flashEnd = b.frightened && frightTimer < 2 && Math.floor(frightTimer * 5) % 2 === 0;
   if (b.mode !== 'eaten') {
-    const body = b.frightened ? (flashEnd ? '#f1f1ff' : '#3d5bd9') : b.color;
+    const body = b.frightened ? (flashEnd ? '#f1f1ff' : '#3d5bd9') : '#ff3b3b';
     const legPhase = Math.sin(now / 70 + b.i);
     // legs
     ctx.strokeStyle = b.frightened ? '#22348a' : '#1a1012';
