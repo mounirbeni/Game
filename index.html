@@ -2268,7 +2268,7 @@ window.addEventListener('keydown', e => {
 let touchStart = null;
 const isButton = el => el && el.closest && el.closest('button');
 document.addEventListener('touchstart', e => {
-  if (isButton(e.target) || (e.target.closest && e.target.closest('.card, #home'))) return; // let buttons and cards (scrolling) work
+  if (isButton(e.target) || (e.target.closest && e.target.closest('.card, #home, #gate'))) return; // let buttons, cards (scrolling) and the account form work
   const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY };
   e.preventDefault();
 }, { passive: false });
