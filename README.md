@@ -123,3 +123,9 @@ gives +5 each, and the loser still gets +1. A challenge lasts 3 days, and a play
 challenges going at once. Challenge runs never change your saved level or best score.
 The server (`/api/challenge`) keeps the maze seed, each attempt and each collected reward, so
 each player can only play once and collect once.
+
+## Magic doors
+
+Every maze has a glowing magic door in the middle of the top wall and another in the bottom wall.
+Walk into one and you come out of the other, like the side tunnel but up and down. Beetles slow
+down in the doorways, so the doors are a good way to escape.
