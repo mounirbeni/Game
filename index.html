@@ -793,6 +793,8 @@ function modeSchedule() {
 }
 const isChaseMode = () => modeIndex % 2 === 1;
 
+// Every 5th level (5, 10, 15, ...) is a challenge level: harder, worth more, multicoloured walls.
+const isChallenge = n => n % 5 === 0;
 function speeds() {
   // Difficulty curve: level 1 is gentle (beetles ~64% of Backman's speed); each level adds a
   // little, capped at 80% so Backman can always get away by moving.
@@ -800,11 +802,11 @@ function speeds() {
   const player = 7.5 + l * 0.1;
   return {
     player,
-    beetle: Math.min(player * 0.8, 4.8 + l * 0.2),
+    beetle: isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2),
     fright: 4.2,
     tunnel: 3.6,
     eaten: 15,
-    frightTime: Math.max(4, 12 - (level - 1) * 0.7),
+    frightTime: Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1),
   };
 }
 
@@ -827,7 +829,7 @@ function resetActors() {
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
     mode: i === 0 ? 'active' : 'den',
-    releaseAt: d.release * Math.max(0.5, 1 - (level - 1) * 0.08),
+    releaseAt: d.release * Math.max(0.5, 1 - (level - 1) * 0.08) * (isChallenge(level) ? 0.5 : 1),
     frightened: false, bob: Math.random() * 6,
   }));
   frightTimer = 0; frightChain = 0;
@@ -883,12 +885,12 @@ function earnCredit(n, x, y) {
 function levelCleared() {
   const flawless = deathsThisLevel === 0;
   track('clears'); if (flawless) track('flawless');
-  const earned = flawless ? 4 : 2;
+  const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1);
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
   if (level > highestCleared) { highestCleared = level; if (SKINS[level] && !ownedSkins.has(level)) unlockedSkin = SKINS[level]; }
   saveMeta();
-  clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${flawless ? ' · FLAWLESS!' : ''}`;
+  clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${isChallenge(level) ? ' · CHALLENGE BEATEN!' : flawless ? ' · FLAWLESS!' : ''}`;
   setState('clear', unlockedSkin ? 4 : 2.8);
   sfx.clear();
   updateHud();
@@ -1110,7 +1112,11 @@ const levelProgress = () => TOTAL_SEEDS ? seedsEaten / TOTAL_SEEDS : 0;
 function huntWeight(b) {
   const p = levelProgress(), n = beetles.length;
   // after losing a life (or at the start) beetles leave you alone for a while, easing back in
-  const breather = clamp((time - 8) / 6, 0, 1);
+  const breather = clamp((time - (isChallenge(level) ? 4 : 8)) / 6, 0, 1);
+  if (isChallenge(level)) {   // challenge: everyone joins early and hunts hard near the end
+    if (p >= 0.75) return breather;
+    return breather * clamp((p - 0.1 - 0.3 * (b.i / Math.max(1, n - 1))) / 0.15, 0, 1);
+  }
   // endgame: half of them hunt flat out, the rest only now and then
   if (p >= ENDGAME) return breather * (b.i < Math.ceil(n / 2) ? 1 : 0.55);
   const start = n > 1 ? 0.3 + 0.45 * (b.i / (n - 1)) : 0.35;   // when this beetle starts to hunt
@@ -1429,6 +1435,39 @@ const mapArt = {};
     im.src = `assets/${f}.webp`;
   }
 })();
+// Wall colour per level. Normal levels: one hue, stepped by the golden angle so no two levels
+// look alike. Challenge levels: two or three hues blended across the stone, seamlessly.
+const BASE_WALL_HUE = 220;
+const levelHue = n => (BASE_WALL_HUE + (n - 1) * 137.508) % 360;
+const hueName = h => ['RUBY', 'EMBER', 'AMBER', 'GOLDEN', 'LIME', 'EMERALD', 'JADE', 'TEAL', 'SKY', 'SAPPHIRE', 'INDIGO', 'VIOLET', 'ORCHID', 'ROSE', 'RUBY'][Math.round(h / 25.7) % 15] + ' MAZE';
+const wallCache = {};
+function wallTexture(n) {
+  if (wallCache[n]) return wallCache[n];
+  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'); g.drawImage(mapArt.wall, 0, 0, S, S);
+  let d; try { d = g.getImageData(0, 0, S, S); } catch (e) { return (wallCache[n] = mapArt.wall); }
+  const px = d.data;
+  const hues = isChallenge(n) ? [levelHue(n), (levelHue(n) + 120) % 360, (levelHue(n) + 220) % 360].slice(0, 2 + (n / 5) % 2) : [levelHue(n)];
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const i = (y * S + x) * 4;
+    const [, sat, val] = rgbToHsv(px[i], px[i + 1], px[i + 2]);
+    let r, gg, b;
+    if (hues.length === 1) [r, gg, b] = hsvToRgb(hues[0], sat, val);
+    else {
+      // periodic blend weight so the tile still repeats without seams
+      const u = x / S, v = y / S;
+      let t = (Math.sin(2 * Math.PI * u) + Math.sin(2 * Math.PI * (u + v)) + 2) / 4;   // 0..1
+      t *= hues.length - 1;
+      const k = Math.min(hues.length - 2, Math.floor(t)), f = t - k;
+      const a = hsvToRgb(hues[k], sat, val), bb = hsvToRgb(hues[k + 1], sat, val);
+      r = a[0] + (bb[0] - a[0]) * f; gg = a[1] + (bb[1] - a[1]) * f; b = a[2] + (bb[2] - a[2]) * f;
+    }
+    px[i] = r; px[i + 1] = gg; px[i + 2] = b;
+  }
+  g.putImageData(d, 0, 0);
+  return (wallCache[n] = c);
+}
+
 // A repeating pattern from a texture, sized so one copy of the texture spans `size` CSS pixels.
 function texPattern(g, img, size) {
   const c = document.createElement('canvas'), px = Math.max(8, Math.round(size * dpr));
@@ -1485,7 +1524,7 @@ function buildMaze(flash) {
     cornerRect(g, x * T + T * 0.05, y * T + T * 0.16, T, T, a1, a2, a3, a4); g.fill();
   }
   // hedge body (its darker colour shows as the side below the top face)
-  const wallPat = art ? texPattern(g, mapArt.wall, T * 4) : null;
+  const wallPat = art ? (isChallenge(level) ? texPattern(g, wallTexture(level), T * 9) : texPattern(g, wallTexture(level), T * 4)) : null;
   g.fillStyle = art ? wallPat : dark;
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     if (!isWall(x, y)) continue;
@@ -1612,7 +1651,7 @@ function draw(now) {
   drawOffscreenMarkers();
 
   // banners
-  if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', '#ffcf5a', THEME.name.toUpperCase());
+  if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', isChallenge(level) ? '#ff7a5a' : '#ffcf5a', isChallenge(level) ? 'CHALLENGE LEVEL!' : hueName(levelHue(level)));
   if (state === 'clear' && stateTimer > 1.8) {
     ctx.fillStyle = 'rgba(4,10,7,0.6)'; ctx.fillRect(0, 0, viewW, viewH);
     banner('GARDEN CLEARED!', '#7dffa1', clearMsg);
@@ -2271,7 +2310,7 @@ function refreshHome() {
   $('xpFill').style.width = `${Math.round(100 * pl.xp / pl.need)}%`;
   $('xpText').textContent = `${pl.xp} / ${pl.need}`;
   $('homeCredits').textContent = credits;
-  $('playLevel').textContent = `Level ${prog.level}`;
+  $('playLevel').textContent = isChallenge(prog.level) ? `Level ${prog.level} ★` : `Level ${prog.level}`;
   const dailyReady = !dailyState().claimedToday;
   $('dailyBadge').classList.toggle('hidden', !dailyReady);
   $('dailyLabel').textContent = dailyReady ? 'Claim!' : 'Tomorrow';
