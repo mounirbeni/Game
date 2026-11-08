@@ -123,7 +123,7 @@
   .xp-banner .xp em { position: relative; display: block; line-height: 28px; text-align: center; font-style: normal; font-weight: 900; font-size: 17px; color: #fff; text-shadow: 0 2px 2px #000; }
   .xp-sub { position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%); white-space: nowrap; padding: 1px 12px; border-radius: 0 0 12px 12px;
     background: #0a1e52; border: 2px solid #4f86ff; border-top: 0; color: #cfe0ff; font-weight: 800; font-size: 11px; }
-  .home-stage { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 18px; }
+  .home-stage { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 54px; }
   .bubbles { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 30px; }
   .bubbles.left { left: 0; } .bubbles.right { right: 0; }
   .bubble { position: relative; width: 84px; height: 84px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
@@ -137,11 +137,11 @@
   .blabel.go { background: linear-gradient(#4fd35a, #23902d); border-color: #b8ffb0; }
   .badge { position: absolute; top: -6px; right: -6px; width: 26px; height: 26px; border-radius: 50%; font: 900 16px/22px system-ui; font-style: normal;
     color: #fff; background: radial-gradient(circle at 35% 30%, #ff6b6b, #d11a2a); border: 2px solid #fff; box-shadow: 0 2px 6px #0008; }
-  .play-btn { min-width: 240px; padding: 12px 34px 14px; border-radius: 30px; cursor: pointer; font: inherit;
+  .play-btn { min-width: 180px; padding: 8px 26px 10px; border-radius: 24px; cursor: pointer; font: inherit;
     background: linear-gradient(#8fe86a 0%, #4fcb3a 50%, #2fa72a 100%); border: 4px solid #1d6a1a;
     box-shadow: inset 0 5px 0 #c8ff9e, inset 0 -7px 0 #23861f, 0 6px 0 #124e10, 0 10px 22px #000a; }
   .play-btn:active { transform: translateY(3px); box-shadow: inset 0 5px 0 #c8ff9e, inset 0 -7px 0 #23861f, 0 3px 0 #124e10, 0 6px 14px #000a; }
-  .pb-text { display: block; font-size: 42px; font-weight: 900; color: #fff; letter-spacing: .01em;
+  .pb-text { display: block; font-size: 31px; font-weight: 900; color: #fff; letter-spacing: .01em;
     text-shadow: 0 3px 0 #1d6a1a, 2px 0 0 #1d6a1a, -2px 0 0 #1d6a1a, 0 -2px 0 #1d6a1a; }
   /* bottom bar sits on the very bottom edge, through the home-indicator area */
   .home-nav { position: relative; flex: none; display: grid; grid-template-columns: 1fr 1fr 1.25fr 1fr 1fr; align-items: end;
@@ -202,12 +202,12 @@
     .avatar-btn { width: 48px; height: 48px; } .hpill { height: 36px; } .hpill b { font-size: 15px; } .hicon img { width: 28px; height: 28px; }
     .hpill small.full { display: none; } .gear { width: 40px; height: 40px; }
     .bubble { width: 70px; height: 70px; } .blabel { font-size: 11.5px; }
-    .pb-text { font-size: 34px; } .play-btn { min-width: 200px; }
+    .pb-text { font-size: 27px; } .play-btn { min-width: 160px; }
   }
   @media (max-height: 700px) {
     .bubbles { gap: 14px; } .bubble { width: 62px; height: 62px; } .blabel { font-size: 11px; padding: 1px 7px; bottom: -12px; }
     .home-nav button { height: 54px; } .home-nav button.center { height: 84px; margin-top: -32px; } .nicon img, .nicon canvas { width: 38px; height: 38px; }
-    .home-nav button.center .nicon img { width: 54px; height: 54px; } .pb-text { font-size: 34px; } .home-stage { padding-bottom: 12px; }
+    .home-nav button.center .nicon img { width: 54px; height: 54px; } .pb-text { font-size: 26px; } .home-stage { padding-bottom: 38px; }
   }
   .uiicon { -webkit-user-drag: none; user-select: none; pointer-events: none; object-fit: contain; }
   .touch-only { display: none; }
