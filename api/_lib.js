@@ -85,7 +85,7 @@ export async function submit({ name: rawName, token, best, level, look }) {
   return { status: 200, body: { name, ...next } };
 }
 
-export async function board(me) {
+export async function board(me, names) {
   const s = await blob();
   const rows = (await s.list('lb/')).map(parse).filter(Boolean)
     .sort((a, b) => b.best - a.best || b.level - a.level || a.name.localeCompare(b.name));
@@ -93,7 +93,14 @@ export async function board(me) {
   const seen = new Set(), uniq = rows.filter(r => !seen.has(r.name) && seen.add(r.name));
   const meName = cleanName(me);
   const myIndex = meName ? uniq.findIndex(r => r.name === meName) : -1;
-  return { status: 200, body: { players: uniq.length, top: uniq.slice(0, 100).map((r, i) => ({ rank: i + 1, ...r })), me: myIndex >= 0 ? { rank: myIndex + 1, ...uniq[myIndex] } : null } };
+  // friends: look up specific players (up to 50) wherever they are on the board
+  const wanted = [...new Set(String(names || '').split(',').map(cleanName).filter(Boolean))].slice(0, 50);
+  const friends = await Promise.all(wanted.map(async n => {
+    const i = uniq.findIndex(r => r.name === n);
+    if (i >= 0) return { rank: i + 1, ...uniq[i] };
+    return (await s.read(`accounts/${n}.json`)) ? { name: n, noScore: true } : { name: n, missing: true };
+  }));
+  return { status: 200, body: { players: uniq.length, top: uniq.slice(0, 100).map((r, i) => ({ rank: i + 1, ...r })), me: myIndex >= 0 ? { rank: myIndex + 1, ...uniq[myIndex] } : null, friends } };
 }
 
 export async function release({ name: rawName, token }) {

@@ -248,6 +248,16 @@
   .lb-row.top1 { border-color: #ffcf3a; background: linear-gradient(90deg, #4a3a08, #0c223a 60%); }
   .lb-row.top2 { border-color: #c9d6e8; } .lb-row.top3 { border-color: #d98a4a; }
   .lb-rank { font-weight: 900; font-size: 16px; color: #ffd75a; text-align: center; }
+  .friend-add { display: flex; gap: 8px; margin-bottom: 4px; }
+  .friend-add input { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 12px; border: 2px solid #2d6aa0; background: #08182a; color: #fff;
+    font: inherit; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+  .lb-row { grid-template-columns: 30px 34px 1fr auto auto 26px; }
+  .lb .lb-row:not(:has(.lb-x)) { grid-template-columns: 30px 34px 1fr auto auto; }
+  .lb-name small { display: block; font-size: 10px; font-weight: 800; color: #9fc4ff; letter-spacing: 0; }
+  .lb-name small.you { display: inline; margin-left: 4px; padding: 1px 6px; border-radius: 999px; color: #0b3a0d; background: linear-gradient(#c8ff8a, #4fcf3a); }
+  .lb-row.muted { opacity: .7; margin-top: 6px; }
+  .lb-x { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #2d6aa0; background: #08182a; color: #9fc4ff; font-size: 16px; line-height: 1; cursor: pointer; padding: 0; }
+  .lb-empty { text-align: center; margin: 14px 0; }
   .lb-face { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(#2a5a9a, #12305a); }
   .lb-name { font-weight: 900; color: #fff; letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; }
   .lb-lvl { font-size: 11px; font-weight: 800; color: #9fc4ff; }
@@ -455,6 +465,10 @@ function mergeSave(mine, theirs) {
         const a = saveObj(mv) || {}, b = saveObj(tv) || {}, r = { ...a };
         for (const f in b) if (typeof b[f] === 'number') r[f] = Math.max(typeof a[f] === 'number' ? a[f] : 0, b[f]);
         out[k] = JSON.stringify(r); break;
+      }
+      case 'bma.friends': {
+        const a = (saveObj(mv) || {}).names || [], b = (saveObj(tv) || {}).names || [];
+        out[k] = JSON.stringify({ names: [...new Set([...a, ...b])].slice(0, 50) }); break;
       }
       case 'bma.board': {
         const seen = new Set();
@@ -2465,6 +2479,7 @@ function claimMission(id) {
 // A player claims a unique name (3-5 letters/numbers) and gets a secret key kept on this device
 // (and inside the save code). Best score, highest level and look are sent to /api/score.
 let account = loadJSON('bma.account', { name: '', token: '' });
+let friends = (loadJSON('bma.friends', { names: [] }).names || []).filter(n => /^[A-Z0-9]{3,5}$/.test(n));
 let worldBoard = null, worldBoardAt = 0, myRank = null, submitTimer = 0, lastSent = '';
 async function api(path, body) {
   const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' } : { cache: 'no-store' });
@@ -2494,7 +2509,8 @@ function submitScore(now) {
 }
 async function refreshRank() {
   try {
-    worldBoard = await api('/api/leaderboard' + (account.name ? `?me=${encodeURIComponent(account.name)}` : ''));
+    const q = new URLSearchParams(); if (account.name) q.set('me', account.name); if (friends.length) q.set('friends', friends.join(','));
+    worldBoard = await api('/api/leaderboard' + (q.toString() ? '?' + q : ''));
     worldBoardAt = Date.now();
     myRank = worldBoard.me ? worldBoard.me.rank : null;
     refreshHome();
@@ -2569,7 +2585,7 @@ function openSheet(which, fromRefresh = false) {
   } else if (which === 'board') {
     title = 'Leaderboard';
     const tab = openSheet.boardTab || 'world';
-    let html = `<div class="tabs"><button data-tab="world" class="${tab === 'world' ? 'on' : ''}">World</button><button data-tab="mine" class="${tab === 'mine' ? 'on' : ''}">My runs</button></div>`;
+    let html = `<div class="tabs"><button data-tab="world" class="${tab === 'world' ? 'on' : ''}">World</button><button data-tab="friends" class="${tab === 'friends' ? 'on' : ''}">Friends</button></div>`;
     if (tab === 'world') {
       if (!account.name) html += `<div class="claim-cta"><p>Claim your player name to appear on the world leaderboard.</p><button class="gold-btn" id="goClaim">Claim a name</button></div>`;
       if (!fromRefresh) refreshRank();   // fetch fresh data; re-renders this sheet when it arrives
@@ -2582,15 +2598,43 @@ function openSheet(which, fromRefresh = false) {
         if (worldBoard.me && worldBoard.me.rank > 100) html += '<div class="lb">' + row(worldBoard.me) + '</div>';
       }
     } else {
-      html += board.length
-        ? '<p>Your best runs on this device.</p><table class="rows">' + board.map((r, i) =>
-            `<tr><td>${i + 1}.</td><td>${esc(r.name || 'Player')}</td><td>Level ${r.level}</td><td>${r.score.toLocaleString()}</td></tr>`).join('') + '</table>'
-        : '<p>No runs yet. Your best scores will show up here after your first game over.</p>';
+      // Friends: you and the friends you added, ranked against each other
+      html += `<div class="friend-add"><input id="friendName" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="FRIEND'S NAME"><button class="claim-btn" id="friendAddBtn">Add</button></div><div class="pname-hint" id="friendHint">Add friends by their player name to compare your scores.</div>`;
+      if (!fromRefresh) refreshRank();
+      const fb = worldBoard && worldBoard.friends || [];
+      const meRow = worldBoard && worldBoard.me ? [{ ...worldBoard.me, you: true }] : account.name ? [{ name: account.name, best, level: loadProgress().level, look: skinIndex, you: true, rank: null }] : [];
+      const scored = [...meRow, ...fb.filter(f => !f.missing && !f.noScore)].sort((x, y) => y.best - x.best || y.level - x.level);
+      const pending = fb.filter(f => f.noScore || f.missing || (!worldBoard && friends.includes(f.name)));
+      if (!friends.length) html += '<p class="lb-empty">No friends yet. Add your friends\' names above.</p>';
+      html += '<div class="lb">' + scored.map((r, i) => `<div class="lb-row ${r.you ? 'me' : ''} ${i < 3 ? 'top' + (i + 1) : ''}"><span class="lb-rank">${i + 1}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
+        `<span class="lb-name">${esc(r.name)}${r.you ? ' <small class="you">YOU</small>' : ''}${r.rank ? `<small class="wr">World #${r.rank}</small>` : ''}</span><span class="lb-lvl">Lv ${r.level}</span><b class="lb-score">${r.best.toLocaleString()}</b>` +
+        (r.you ? '<span></span>' : `<button class="lb-x" data-rm="${r.name}" aria-label="Remove ${r.name}">&times;</button>`) + '</div>').join('') + '</div>';
+      if (!worldBoard && friends.length) html += '<p class="lb-wait">Loading your friends…</p>';
+      html += pending.map(f => `<div class="lb-row muted"><span class="lb-rank">–</span><span></span><span class="lb-name">${esc(f.name)}<small class="wr">${f.missing ? 'No player with this name' : 'Hasn\'t played yet'}</small></span><span></span><span></span><button class="lb-x" data-rm="${f.name}" aria-label="Remove ${f.name}">&times;</button></div>`).join('');
     }
     body.innerHTML = html;
     body.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { openSheet.boardTab = b.dataset.tab; openSheet('board'); }));
     body.querySelectorAll('.lb-face').forEach(cv => paintAvatar(cv, 30, 'look:' + Math.min(+cv.dataset.look || 0, SKINS.length - 1)));
     if ($('goClaim')) $('goClaim').addEventListener('click', () => openSheet('profile'));
+    body.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      friends = friends.filter(n => n !== b.dataset.rm); saveJSON('bma.friends', { names: friends });
+      if (worldBoard && worldBoard.friends) worldBoard.friends = worldBoard.friends.filter(f => f.name !== b.dataset.rm);
+      openSheet('board', true);
+    }));
+    if ($('friendAddBtn')) {
+      const inp = $('friendName'), hint = $('friendHint');
+      inp.addEventListener('input', () => { const v = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); if (v !== inp.value) inp.value = v; });
+      const add = () => {
+        const v = inp.value;
+        if (!/^[A-Z0-9]{3,5}$/.test(v)) { hint.className = 'pname-hint bad'; hint.textContent = 'Player names are 3 to 5 letters or numbers.'; return; }
+        if (v === account.name) { hint.className = 'pname-hint bad'; hint.textContent = 'That is you!'; return; }
+        if (friends.includes(v)) { hint.className = 'pname-hint bad'; hint.textContent = `${v} is already in your friends.`; return; }
+        friends.push(v); saveJSON('bma.friends', { names: friends }); inp.value = '';
+        openSheet('board');   // refreshes from the server, which tells us if the name exists
+      };
+      $('friendAddBtn').addEventListener('click', add);
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+    }
   } else if (which === 'shop') {
     title = 'Shop · Skins';
     body.innerHTML = `<p>You have <b style="color:#ffd75a">${credits}</b> credits. Clear a look's level to get it free, or buy it now.</p><div class="skins"></div><div class="shop-msg"></div>`;
