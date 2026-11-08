@@ -85,8 +85,11 @@
      the strip above it shows the blurred copy and fades in softly */
   #home::before { content: ''; position: absolute; inset: calc(env(safe-area-inset-top) + 40px) 0 0; max-width: min(560px, 56.3vh); margin: 0 auto; z-index: -1;
     background: url(assets/home-bg.jpg) center top / cover no-repeat;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 56px); mask-image: linear-gradient(to bottom, transparent 0, #000 56px); }
-  #home::after { content: ''; position: absolute; inset: -40px; z-index: -2; background: url(assets/home-bg.jpg) center / cover; filter: blur(24px) brightness(.45); }
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px); mask-image: linear-gradient(to bottom, transparent 0, #000 22px); }
+  /* the strip above the artwork (behind the status bar and top bar) is a clean, sharp colour */
+  #home::after { content: ''; position: absolute; inset: 0; z-index: -2; background: linear-gradient(#060d18, #0a1626 120px, #0b1a2c); }
+  /* only on screens wider than the artwork: fill the sides with a soft copy of it */
+  @media (min-aspect-ratio: 3/5) { #home::after { inset: -40px; background: url(assets/home-bg.jpg) center / cover; filter: blur(24px) brightness(.45); } }
   .fireflies { position: absolute; inset: 0; pointer-events: none; }
   .fireflies i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #ffe58a;
     box-shadow: 0 0 8px 3px #ffd34d99; opacity: 0; animation: firefly 8s ease-in-out infinite; }
