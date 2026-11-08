@@ -79,4 +79,4 @@ Progress is stored in the browser (`localStorage` keys starting with `backman.` 
 
 ## Credits
 
-The home-screen and score-bar icons are from [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (3D style), used under the MIT License. A copy of the licence is in `icons/ui/LICENSE-fluentui-emoji.txt`.
+The Daily Reward, Daily Mission, Leaderboard, Stats, Shop and Skins badges are custom artwork made for this game. The other home-screen and score-bar icons are from [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (3D style), used under the MIT License. A copy of the licence is in `icons/ui/LICENSE-fluentui-emoji.txt`.

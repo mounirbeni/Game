@@ -1,7 +1,7 @@
 // Backman service worker: makes the game installable and playable offline.
 // The page itself is fetched network-first so updates show up as soon as you're online;
 // everything else is served from the cache first.
-const CACHE = 'bugmaze-v7';
+const CACHE = 'bugmaze-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -13,8 +13,8 @@ const ASSETS = [
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
   './assets/home-bg.jpg',
-  './icons/ui/coin.png', './icons/ui/heart.png', './icons/ui/gear.png', './icons/ui/gift.png', './icons/ui/target.png', './icons/ui/trophy.png',
-  './icons/ui/stats.png', './icons/ui/shop.png', './icons/ui/house.png', './icons/ui/map.png', './icons/ui/star.png',
+  './icons/ui/coin.png', './icons/ui/heart.png', './icons/ui/gear.png', './icons/ui/gift.webp', './icons/ui/mission.webp', './icons/ui/trophy.webp', './icons/ui/skins.webp',
+  './icons/ui/stats.webp', './icons/ui/shop.webp', './icons/ui/house.png', './icons/ui/map.png', './icons/ui/star.png',
 ];
 
 self.addEventListener('install', event => {

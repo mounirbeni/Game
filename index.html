@@ -124,14 +124,14 @@
   .xp-sub { position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%); white-space: nowrap; padding: 1px 12px; border-radius: 0 0 12px 12px;
     background: #0a1e52; border: 2px solid #4f86ff; border-top: 0; color: #cfe0ff; font-weight: 800; font-size: 11px; }
   .home-stage { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 18px; }
-  .bubbles { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 24px; }
+  .bubbles { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 30px; }
   .bubbles.left { left: 0; } .bubbles.right { right: 0; }
-  .bubble { position: relative; width: 76px; height: 76px; padding: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
-    background: radial-gradient(circle at 50% 30%, #3b5bb8 0%, #1d2d72 60%, #111a48 100%); border: 4px solid;
-    box-shadow: 0 0 0 2.5px #0b1236, 0 6px 0 #0b1236, 0 10px 16px #000a, inset 0 3px 0 #ffffff44, inset 0 -4px 6px #0006; }
+  .bubble { position: relative; width: 84px; height: 84px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+  .bubble .bicon { display: block; width: 100%; height: 100%; }
+  .bubble .blabel { bottom: -20px; }
+  .bubble .bicon img { width: 100%; height: 100%; display: block; filter: drop-shadow(0 4px 4px #000b); }
   .bubble:active { transform: translateY(3px); }
   .ring-pink { border-color: #ff6fa0; } .ring-red { border-color: #ff5b5b; } .ring-gold { border-color: #ffcf3a; } .ring-blue { border-color: #5aa8ff; }
-  .bicon img { width: 52px; height: 52px; display: block; filter: drop-shadow(0 3px 2px #0009); }
   .blabel { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 2px 9px; border-radius: 9px;
     font: 900 13px/1.2 ui-rounded, system-ui, sans-serif; color: #fff; text-shadow: 0 1px 1px #000; background: linear-gradient(#3a4fbf, #26338a); border: 2px solid #8fa4ff; }
   .blabel.go { background: linear-gradient(#4fd35a, #23902d); border-color: #b8ffb0; }
@@ -196,16 +196,16 @@
   .sheet-card .skins { margin-top: 4px; }
   #home .install, #home .hint { display: none !important; }
   @media (min-height: 860px) and (max-width: 440px) {
-    .bubble { width: 64px; height: 64px; } .bicon img { width: 44px; height: 44px; } .bubbles { gap: 112px; }
+    .bubble { width: 78px; height: 78px; } .bubbles { gap: 96px; }
   }
   @media (max-width: 380px) {
     .avatar-btn { width: 48px; height: 48px; } .hpill { height: 36px; } .hpill b { font-size: 15px; } .hicon img { width: 28px; height: 28px; }
     .hpill small.full { display: none; } .gear { width: 40px; height: 40px; }
-    .bubble { width: 62px; height: 62px; } .bicon img { width: 38px; height: 38px; } .blabel { font-size: 11.5px; }
+    .bubble { width: 70px; height: 70px; } .blabel { font-size: 11.5px; }
     .pb-text { font-size: 34px; } .play-btn { min-width: 200px; }
   }
   @media (max-height: 700px) {
-    .bubbles { gap: 14px; } .bubble { width: 54px; height: 54px; border-width: 3px; } .bicon img { width: 36px; height: 36px; } .blabel { font-size: 11px; padding: 1px 7px; bottom: -12px; }
+    .bubbles { gap: 14px; } .bubble { width: 62px; height: 62px; } .blabel { font-size: 11px; padding: 1px 7px; bottom: -12px; }
     .home-nav button { height: 54px; } .home-nav button.center { height: 84px; margin-top: -32px; } .nicon img, .nicon canvas { width: 38px; height: 38px; }
     .home-nav button.center .nicon img { width: 54px; height: 54px; } .pb-text { font-size: 34px; } .home-stage { padding-bottom: 12px; }
   }
@@ -274,12 +274,12 @@
     </button>
     <div class="home-stage">
       <div class="bubbles left">
-        <button class="bubble ring-pink" data-open="daily"><span class="bicon"><img class="uiicon" src="icons/ui/gift.png" alt="" draggable="false"></span><span class="blabel" id="dailyLabel">Claim!</span><i class="badge hidden" id="dailyBadge">!</i></button>
-        <button class="bubble ring-red" data-open="missions"><span class="bicon"><img class="uiicon" src="icons/ui/target.png" alt="" draggable="false"></span><span class="blabel" id="missionLabel">0/3</span><i class="badge hidden" id="missionBadge">!</i></button>
+        <button class="bubble ring-pink" data-open="daily"><span class="bicon"><img class="uiicon" src="icons/ui/gift.webp" alt="" draggable="false"></span><span class="blabel" id="dailyLabel">Claim!</span><i class="badge hidden" id="dailyBadge">!</i></button>
+        <button class="bubble ring-red" data-open="missions"><span class="bicon"><img class="uiicon" src="icons/ui/mission.webp" alt="" draggable="false"></span><span class="blabel" id="missionLabel">0/3</span><i class="badge hidden" id="missionBadge">!</i></button>
       </div>
       <div class="bubbles right">
-        <button class="bubble ring-gold" data-open="board"><span class="bicon"><img class="uiicon" src="icons/ui/trophy.png" alt="" draggable="false"></span><span class="blabel" id="bestLabel">Best</span></button>
-        <button class="bubble ring-blue" data-open="stats"><span class="bicon"><img class="uiicon" src="icons/ui/stats.png" alt="" draggable="false"></span><span class="blabel">Stats</span></button>
+        <button class="bubble ring-gold" data-open="board"><span class="bicon"><img class="uiicon" src="icons/ui/trophy.webp" alt="" draggable="false"></span><span class="blabel" id="bestLabel">Best</span></button>
+        <button class="bubble ring-blue" data-open="stats"><span class="bicon"><img class="uiicon" src="icons/ui/stats.webp" alt="" draggable="false"></span></button>
       </div>
       <button id="playBtn" class="play-btn"><span class="pb-text" id="playLevel">Level 1</span></button>
       <button class="install hidden" id="installBtn">Install app</button>
@@ -287,11 +287,11 @@
     </div>
   </div>
   <nav class="home-nav">
-    <button data-open="shop"><span class="nicon"><img class="uiicon" src="icons/ui/shop.png" alt="" draggable="false"></span><span class="nlabel">Shop</span></button>
-    <button data-open="board"><span class="nicon"><img class="uiicon" src="icons/ui/trophy.png" alt="" draggable="false"></span><span class="nlabel">Top</span></button>
+    <button data-open="shop"><span class="nicon"><img class="uiicon" src="icons/ui/shop.webp" alt="" draggable="false"></span><span class="nlabel">Shop</span></button>
+    <button data-open="board"><span class="nicon"><img class="uiicon" src="icons/ui/trophy.webp" alt="" draggable="false"></span><span class="nlabel">Top</span></button>
     <button class="center on" data-open="home"><span class="nicon"><img class="uiicon" src="icons/ui/house.png" alt="" draggable="false"></span><span class="nlabel">Home</span></button>
     <button data-open="levels"><span class="nicon"><img class="uiicon" src="icons/ui/map.png" alt="" draggable="false"></span><span class="nlabel">Levels</span></button>
-    <button data-open="shop" data-skins="1"><span class="nicon"><canvas id="navSkin" width="40" height="40"></canvas></span><span class="nlabel">Skins</span></button>
+    <button data-open="shop" data-skins="1"><span class="nicon"><img class="uiicon" src="icons/ui/skins.webp" alt="" draggable="false"></span><span class="nlabel">Skins</span></button>
   </nav>
   <div class="sheet hidden" id="sheet" role="dialog" aria-modal="true">
     <div class="sheet-card"><div class="sheet-head"><h3 id="sheetTitle"></h3><button class="sheet-x" id="sheetClose" aria-label="Close">&times;</button></div><div id="sheetBody"></div></div>
@@ -2112,10 +2112,7 @@ function refreshHome() {
   $('missionLabel').textContent = `${ms.filter(m => m.claimed).length}/${ms.length}`;
   $('missionLabel').classList.toggle('go', claimable);
   $('bestLabel').textContent = best > 0 ? best.toLocaleString() : 'Best';
-  const ns = $('navSkin'), d2 = Math.min(window.devicePixelRatio || 1, 3);
-  ns.width = ns.height = Math.round(40 * d2);
-  const g2 = ns.getContext('2d'); g2.setTransform(d2, 0, 0, d2, 0, 0); g2.clearRect(0, 0, 40, 40);
-  g2.translate(23, 22); drawBackman(g2, 11.5, SKINS[skinIndex]);
+
   const av = $('avatar'), d = Math.min(window.devicePixelRatio || 1, 3);
   av.width = av.height = Math.round(48 * d);
   const g = av.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, 48, 48);
