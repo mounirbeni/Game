@@ -81,7 +81,7 @@
   #home { position: fixed; left: 0; top: 0; width: 100%; height: var(--app-h, 100%); z-index: 40; overflow: hidden; isolation: isolate;
     display: flex; flex-direction: column; background: #050c12; }
   #home.hidden { display: none; }
-  #home::before { content: ''; position: absolute; inset: 0; max-width: min(560px, 51.6vh); margin: 0 auto; z-index: -1;
+  #home::before { content: ''; position: absolute; inset: 0; max-width: min(560px, 56.3vh); margin: 0 auto; z-index: -1;
     background: url(assets/home-bg.jpg) center top / cover no-repeat; }
   #home::after { content: ''; position: absolute; inset: -40px; z-index: -2; background: url(assets/home-bg.jpg) center / cover; filter: blur(24px) brightness(.45); }
   .fireflies { position: absolute; inset: 0; pointer-events: none; }
@@ -118,7 +118,7 @@
   .xp-sub { position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%); white-space: nowrap; padding: 1px 12px; border-radius: 0 0 12px 12px;
     background: #0a1e52; border: 2px solid #4f86ff; border-top: 0; color: #cfe0ff; font-weight: 800; font-size: 11px; }
   .home-stage { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 18px; }
-  .bubbles { position: absolute; top: 22%; display: flex; flex-direction: column; gap: 26px; }
+  .bubbles { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 24px; }
   .bubbles.left { left: 0; } .bubbles.right { right: 0; }
   .bubble { position: relative; width: 76px; height: 76px; padding: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
     background: radial-gradient(circle at 50% 30%, #3b5bb8 0%, #1d2d72 60%, #111a48 100%); border: 4px solid;
@@ -196,7 +196,7 @@
     .pb-text { font-size: 34px; } .play-btn { min-width: 200px; }
   }
   @media (max-height: 700px) {
-    .bubbles { gap: 18px; } .bubble { width: 58px; height: 58px; } .bicon svg { width: 36px; height: 36px; }
+    .bubbles { gap: 14px; } .bubble { width: 54px; height: 54px; border-width: 3px; } .bicon svg { width: 36px; height: 36px; } .blabel { font-size: 11px; padding: 1px 7px; bottom: -12px; }
     .home-nav button { height: 54px; } .home-nav button.center { height: 84px; margin-top: -32px; } .nicon svg, .nicon canvas { width: 38px; height: 38px; }
     .home-nav button.center .nicon svg { width: 54px; height: 54px; } .pb-text { font-size: 34px; } .home-stage { padding-bottom: 12px; }
   }
