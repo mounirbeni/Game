@@ -76,3 +76,7 @@ Progress is stored in the browser (`localStorage` keys starting with `backman.` 
 - **One address:** any other `*.vercel.app` address forwards the player to `backman-nu.vercel.app` and takes their save along. An installed app stays where it was installed.
 - **Save code:** Settings has *Copy* and *Load a save code*. Players can use it to move progress between Safari and the installed app, to another phone, or after reinstalling.
 - **Don't delete the installed app to update:** on iPhone, deleting a home-screen app deletes its data. Updates arrive on their own: close the app fully and reopen it.
+
+## Credits
+
+The home-screen and score-bar icons are from [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (3D style), used under the MIT License. A copy of the licence is in `icons/ui/LICENSE-fluentui-emoji.txt`.
