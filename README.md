@@ -2,7 +2,9 @@
 
 An original maze-chase arcade game in a single HTML file. No build step and no dependencies.
 
-Guide **Backman**, a little backpacker, through a hedge maze at night. Collect every glowing seed while four beetles hunt you down.
+Guide **Backman**, a little backpacker, through a series of garden mazes. Collect every glowing seed while four beetles hunt you down.
+
+Level 1 is the hand-made Night Garden. Every level after that is a new maze, generated from the level number. Each one has a theme (Autumn Grove, Frost Hollow, Rose Labyrinth, Mossy Ruins and Golden Meadow) and is checked to have no dead ends and every seed reachable.
 
 ## Play
 

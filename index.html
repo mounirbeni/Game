@@ -61,7 +61,7 @@
     <div id="overlay">
       <div class="card" id="startCard">
         <h1>BACKMAN</h1>
-        <p>Guide Backman through the night garden. Gather every glowing seed, and steer clear of the beetles.</p>
+        <p>Guide Backman through ever-changing gardens. Gather every glowing seed to reach the next one, and steer clear of the beetles.</p>
         <div class="legend">
           <span class="dot" style="background:#ffe8a3"></span><span>Seed: 10 pts</span>
           <span class="dot" style="background:#ffb02e;box-shadow:0 0 8px #ffb02e"></span><span>Lantern: beetles flee, catch them for big points</span>
@@ -90,7 +90,8 @@
 
 // ---------- Maze ----------
 // # hedge  . seed  o lantern  - beetle gate  E beetle den  P player start  (space) empty path
-const MAP = [
+// Level 1 is this hand-made garden; every later level is generated (see generateMaze).
+const HOME_MAP = [
   '#####################',
   '#.........#.........#',
   '#o###.###.#.###.###o#',
@@ -122,15 +123,116 @@ const MAP = [
   '#...................#',
   '#####################',
 ];
-const COLS = MAP[0].length, ROWS = MAP.length;
+// ---------- Level generation ----------
+// Mazes are symmetric: a depth-first maze on the left half, extra loops, mirrored, then the
+// beetle den, side tunnel and start row are stamped in and every dead end is knocked through.
+// Each level number always produces the same maze.
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function generateMaze(seed) {
+  const W = 21, H = 31, MID = 10, G = 14, TR = G + 1, PY = 23;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const rnd = mulberry32(seed * 7919 + attempt);
+    const g = Array.from({ length: H }, () => Array(W).fill('#'));
+    const set = (x, y, c) => { g[y][x] = c; g[y][W - 1 - x] = c; };
+    // protected tiles the carving must not touch: den block and the walls around the tunnel
+    const prot = (x, y) => (y >= G - 1 && y <= G + 3 && x >= 7 && x <= 13) || ((y === G || y === G + 2) && (x <= 6 || x >= 14));
+    // 1) depth-first maze on the left half (cells at odd x 1..9, odd y)
+    const seen = new Set(), stack = [[1, 1]]; seen.add('1,1'); set(1, 1, '.');
+    while (stack.length) {
+      const [x, y] = stack[stack.length - 1];
+      const nb = [[2, 0], [-2, 0], [0, 2], [0, -2]].map(([dx, dy]) => [x + dx, y + dy, x + dx / 2, y + dy / 2])
+        .filter(([nx, ny]) => nx >= 1 && nx <= 9 && ny >= 1 && ny <= H - 2 && !seen.has(nx + ',' + ny));
+      if (!nb.length) { stack.pop(); continue; }
+      const [nx, ny, wx, wy] = nb[Math.floor(rnd() * nb.length)];
+      seen.add(nx + ',' + ny); set(wx, wy, '.'); set(nx, ny, '.'); stack.push([nx, ny]);
+    }
+    // 2) extra loops so it plays like an arcade maze, not a labyrinth
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x <= 9; x++) {
+      const between = (x % 2 === 0) !== (y % 2 === 0); // a wall tile between two cells
+      if (between && g[y][x] === '#' && !prot(x, y) && rnd() < 0.22) set(x, y, '.');
+    }
+    // 3) a few crossings through the centre column
+    for (let y = 1; y < H - 1; y += 2) if (y < G - 1 || y > G + 3) { if (rnd() < 0.3) set(MID, y, '.'); }
+    // 4) stamp the beetle den, its ring road, the side tunnel and the start row
+    for (let x = 7; x <= 13; x++) { g[G - 1][x] = '.'; g[G + 3][x] = '.'; }
+    for (let y = G - 1; y <= G + 3; y++) { g[y][7] = '.'; g[y][13] = '.'; }
+    '##-##'.split('').forEach((c, i) => g[G][8 + i] = c);
+    '#EEE#'.split('').forEach((c, i) => g[TR][8 + i] = c);
+    '#####'.split('').forEach((c, i) => g[G + 2][8 + i] = c);
+    for (let x = 0; x <= 6; x++) { set(x, G, '#'); set(x, G + 2, '#'); set(x, TR, x <= 4 ? ' ' : '.'); }
+    for (let x = 7; x <= 13; x++) g[PY][x] = '.';
+    // 5) remove dead ends by knocking through a neighbouring wall
+    const open = (x, y) => { if (y === TR && (x < 0 || x >= W)) return true; if (x < 0 || x >= W || y < 0 || y >= H) return false; return g[y][x] !== '#' && g[y][x] !== '-'; };
+    let ok = true;
+    for (let pass = 0; pass < 50; pass++) {
+      let fixed = 0, stuck = 0;
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x <= MID; x++) {
+        if (!open(x, y) || g[y][x] === 'E') continue;
+        const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => open(x + dx, y + dy)).length;
+        if (n >= 2) continue;
+        const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => {
+          const wx = x + dx, wy = y + dy, bx = x + 2 * dx, by = y + 2 * dy;
+          return wx >= 1 && wx <= MID && wy >= 1 && wy < H - 1 && g[wy][wx] === '#' && !prot(wx, wy) && open(bx, by) || (bx > MID && wx === MID && g[wy][wx] === '#' && !prot(wx, wy) && wy % 2 === 1);
+        });
+        if (!opts.length) { stuck++; continue; }
+        const [dx, dy] = opts[Math.floor(rnd() * opts.length)];
+        set(x + dx, y + dy, '.'); fixed++;
+      }
+      if (!fixed) { ok = stuck === 0; break; }
+    }
+    if (!ok) continue;
+    // 6) lanterns, start, empty tunnel mouths
+    set(1, 3, 'o'); set(1, H - 4, 'o');
+    g[PY][MID] = 'P';
+    const rows = g.map(r => r.join(''));
+    if (validate(rows)) return rows;
+  }
+  return null;
+}
+function validate(M) {
+  const W = M[0].length, H = M.length, py = M.findIndex(r => r.includes('P')), px = M[py].indexOf('P');
+  const gy = M.findIndex(r => r.includes('-')), tr = gy + 1;
+  const open = (x, y) => { if (y === tr && (x < 0 || x >= W)) return true; if (x < 0 || x >= W || y < 0 || y >= H) return false; const c = M[y][x]; return c !== '#' && c !== '-' && c !== 'E'; };
+  const seen = new Set([px + ',' + py]), q = [[px, py]];
+  while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = (x + dx + W) % W, ny = y + dy; if (!open(nx, ny) || seen.has(nx + ',' + ny)) continue; seen.add(nx + ',' + ny); q.push([nx, ny]); } }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!open(x, y)) continue;
+    if (!seen.has(x + ',' + y)) return false;
+    const n = [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx, dy]) => open(x + dx, y + dy)).length;
+    if (n < 2) return false;
+  }
+  return M.every(r => r.length === W);
+}
+
+const THEMES = [
+  { name: 'Night Garden',   ground: '#0a1510', speck: ['#0e1d15', '#08120d'], dark: '#123722', mid: '#256b3e', light: '#3d9a5b', gate: '#e8a0c8' },
+  { name: 'Autumn Grove',   ground: '#140d07', speck: ['#1d130a', '#0d0804'], dark: '#4a2410', mid: '#a2521c', light: '#e0892f', gate: '#ffd36b' },
+  { name: 'Frost Hollow',   ground: '#08111a', speck: ['#0d1a26', '#050b11'], dark: '#1b3550', mid: '#3f78a8', light: '#9fd3f2', gate: '#ffffff' },
+  { name: 'Rose Labyrinth', ground: '#140810', speck: ['#1e0c18', '#0c0409'], dark: '#4a1430', mid: '#9c2f63', light: '#e86a9c', gate: '#ffd1e6' },
+  { name: 'Mossy Ruins',    ground: '#0c0f0e', speck: ['#141917', '#070908'], dark: '#2b3530', mid: '#56685e', light: '#8fa79a', gate: '#b6f0c8' },
+  { name: 'Golden Meadow',  ground: '#12100a', speck: ['#1a170d', '#0a0905'], dark: '#3e3a12', mid: '#8a7f22', light: '#d8c84a', gate: '#ffe9a8' },
+];
+
+let MAP, COLS, ROWS, GATE, TUNNEL_ROW, DEN_EXIT, DEN_CENTER, BONUS_TILE, START, TOTAL_SEEDS, THEME;
 const findTile = ch => { for (let y = 0; y < ROWS; y++) { const x = MAP[y].indexOf(ch); if (x >= 0) return { x, y }; } };
-const GATE = findTile('-');
-const TUNNEL_ROW = GATE.y + 1;
-const DEN_EXIT = { x: GATE.x, y: GATE.y - 1 };
-const DEN_CENTER = { x: GATE.x, y: GATE.y + 1 };
-const BONUS_TILE = { x: GATE.x, y: GATE.y + 3 };
-const START = findTile('P');
-const TOTAL_SEEDS = MAP.join('').split('').filter(c => c === '.' || c === 'o').length;
+const mapCache = {};
+function mapForLevel(n) {
+  if (n === 1) return HOME_MAP;
+  return mapCache[n] || (mapCache[n] = generateMaze(n) || HOME_MAP);
+}
+function applyLevelMap(n) {
+  MAP = mapForLevel(n);
+  COLS = MAP[0].length; ROWS = MAP.length;
+  GATE = findTile('-');
+  TUNNEL_ROW = GATE.y + 1;
+  DEN_EXIT = { x: GATE.x, y: GATE.y - 1 };
+  DEN_CENTER = { x: GATE.x, y: GATE.y + 1 };
+  BONUS_TILE = { x: GATE.x, y: GATE.y + 3 };
+  START = findTile('P');
+  TOTAL_SEEDS = MAP.join('').split('').filter(c => c === '.' || c === 'o').length;
+  THEME = THEMES[(n - 1) % THEMES.length];
+}
+applyLevelMap(1);
 
 const DIRS = {
   up: { x: 0, y: -1 }, left: { x: -1, y: 0 }, down: { x: 0, y: 1 }, right: { x: 1, y: 0 }, none: { x: 0, y: 0 },
@@ -199,10 +301,11 @@ let bonus = null;      // {x,y,timer,value}
 let popups = [];
 let extraLifeGiven = false;
 let time = 0;
+let levelIntro = false; // show the level name banner until play starts
 
 const player = { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: 1, walk: 0, trail: [], ox: 0, oy: 0 };
 
-const BEETLE_DEFS = [
+const beetleDefs = () => [
   { name: 'Bramble', color: '#ff5d5d', corner: { x: COLS - 2, y: -2 }, start: DEN_EXIT, release: 0 },
   { name: 'Moth',    color: '#ff9be4', corner: { x: 1, y: -2 },        start: DEN_CENTER, release: 2 },
   { name: 'Drift',   color: '#4fe0c8', corner: { x: COLS, y: ROWS },   start: { x: DEN_CENTER.x - 1, y: DEN_CENTER.y }, release: 5 },
@@ -243,7 +346,7 @@ function resetMaze() {
 
 function resetActors() {
   Object.assign(player, { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [], ox: 0, oy: 0 });
-  beetles = BEETLE_DEFS.map((d, i) => ({
+  beetles = beetleDefs().map((d, i) => ({
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
     mode: i === 0 ? 'active' : 'den',
@@ -258,7 +361,9 @@ function resetActors() {
 
 function newGame() {
   score = 0; lives = 3; level = 1; extraLifeGiven = false;
-  resetMaze(); resetActors();
+  applyLevelMap(level);
+  resetMaze(); resetActors(); resize();
+  levelIntro = true;
   popups = [];
   setState('ready', 2.2);
   sfx.start();
@@ -268,8 +373,10 @@ function newGame() {
 
 function nextLevel() {
   level++;
-  resetMaze(); resetActors();
-  setState('ready', 1.6);
+  applyLevelMap(level);
+  resetMaze(); resetActors(); resize();
+  levelIntro = true;
+  setState('ready', 2.4);
   updateHud();
 }
 
@@ -514,7 +621,7 @@ function update(dt) {
 
   if (state === 'ready') {
     stateTimer -= dt;
-    if (stateTimer <= 0) setState('play');
+    if (stateTimer <= 0) { setState('play'); levelIntro = false; }
     return;
   }
   if (state === 'play') {
@@ -614,11 +721,11 @@ function buildMaze(flash) {
   const g = c.getContext('2d');
   g.scale(dpr, dpr);
   // ground
-  g.fillStyle = '#0a1510';
+  g.fillStyle = THEME.ground;
   g.fillRect(0, 0, COLS * T, ROWS * T);
   const r = rng(42);
   for (let i = 0; i < COLS * ROWS * 0.6; i++) {
-    g.fillStyle = r() > 0.5 ? '#0e1d15' : '#08120d';
+    g.fillStyle = r() > 0.5 ? THEME.speck[0] : THEME.speck[1];
     g.fillRect(r() * COLS * T, r() * ROWS * T, 2, 2);
   }
   const isWall = (x, y) => {
@@ -626,9 +733,9 @@ function buildMaze(flash) {
     if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return true;
     return MAP[y][x] === '#';
   };
-  const dark = flash ? '#cfe9d6' : '#123722';
-  const mid = flash ? '#ffffff' : '#256b3e';
-  const light = flash ? '#ffffff' : '#3d9a5b';
+  const dark = flash ? '#cfe9d6' : THEME.dark;
+  const mid = flash ? '#ffffff' : THEME.mid;
+  const light = flash ? '#ffffff' : THEME.light;
   // base hedge mass
   g.fillStyle = dark;
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (isWall(x, y)) g.fillRect(x * T, y * T, T, T);
@@ -655,7 +762,7 @@ function buildMaze(flash) {
     }
   }
   // gate
-  g.fillStyle = '#e8a0c8';
+  g.fillStyle = THEME.gate;
   g.fillRect(GATE.x * T, GATE.y * T + T * 0.42, T, T * 0.16);
   return c;
 }
@@ -717,18 +824,25 @@ function draw(now) {
   drawOffscreenMarkers();
 
   // banners
-  if (state === 'ready') banner(level > 1 && time === 0 && score > 0 ? `LEVEL ${level}` : 'READY!', '#ffcf5a');
+  if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', '#ffcf5a', THEME.name.toUpperCase());
   if (state === 'clear' && stateTimer > 1.8) banner('GARDEN CLEARED!', '#7dffa1');
   if (paused && state !== 'title' && state !== 'over') banner('PAUSED', '#e9f5ec');
 }
 
-function banner(text, color) {
-  ctx.font = `900 ${Math.round(T * 0.9)}px ui-rounded, system-ui, sans-serif`;
+function banner(text, color, sub) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const x = viewW / 2, y = clamp(BONUS_TILE.y * T + T / 2 - camY, T, viewH - T);
+  ctx.lineJoin = 'round';
+  const x = viewW / 2, y = clamp(BONUS_TILE.y * T + T / 2 - camY, T, viewH - T * 2);
+  ctx.font = `900 ${Math.round(T * 0.9)}px ui-rounded, system-ui, sans-serif`;
   ctx.lineWidth = T * 0.22; ctx.strokeStyle = '#06100b';
   ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
+  if (sub) {
+    ctx.font = `800 ${Math.round(T * 0.5)}px ui-rounded, system-ui, sans-serif`;
+    ctx.lineWidth = T * 0.16;
+    ctx.strokeText(sub, x, y + T * 0.95);
+    ctx.fillStyle = '#e9f5ec'; ctx.fillText(sub, x, y + T * 0.95);
+  }
 }
 
 // Little arrows on the screen edge pointing at beetles outside the view.
@@ -1002,7 +1116,9 @@ requestAnimationFrame(frame);
 
 // Exposed for automated testing.
 window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
-  get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame };
+  get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
+  get theme() { return THEME.name; }, get map() { return MAP; },
+  skipToLevel(n) { level = n - 1; nextLevel(); } };
 })();
 </script>
 </body>
