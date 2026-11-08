@@ -275,6 +275,24 @@
   .lb-row.muted { opacity: .7; margin-top: 6px; }
   .lb-x { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #2d6aa0; background: #08182a; color: #9fc4ff; font-size: 16px; line-height: 1; cursor: pointer; padding: 0; }
   .lb-empty { text-align: center; margin: 14px 0; }
+  #duelChip { position: absolute; right: 8px; top: 8px; z-index: 2; padding: 4px 10px; border-radius: 999px; pointer-events: none; background: #2a0a12cc; border: 2px solid #ff5a6e;
+    box-shadow: 0 3px 8px #0009; font-size: 11px; font-weight: 900; color: #fff; line-height: 1.15; text-align: right; }
+  #duelChip.hidden { display: none; } #duelChip small { display: block; color: #ffd75a; font-size: 10px; }
+  .duels { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
+  .duels h4 { margin: 6px 0 0; font-size: 13px; color: #ffd75a; letter-spacing: .5px; }
+  .duel { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 14px; background: #2a0e1a; border: 2px solid #ff5a6e; }
+  .duel.done { background: #0c223a; border-color: #2d6aa0; } .duel.win { border-color: #7dff6a; } .duel.go { box-shadow: 0 0 10px #ff5a6e66; }
+  .duel .lb-face { width: 30px; height: 30px; }
+  .duel-txt { min-width: 0; font-size: 13px; font-weight: 900; color: #fff; line-height: 1.2; }
+  .duel-txt small { display: block; font-size: 11px; font-weight: 700; color: #cfe0ff; }
+  .duel button { flex: none; padding: 7px 12px; border-radius: 999px; border: 2px solid #7a0f1d; font: inherit; font-weight: 900; font-size: 13px; color: #fff; cursor: pointer;
+    background: linear-gradient(#ff8a7a, #e8344a); }
+  .duel button.gold { border-color: #7a5a0f; color: #3a2400; background: linear-gradient(#ffe58a, #ffb81f); }
+  .duel button:disabled { opacity: .5; }
+  .duel-pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: #cfe0ff; }
+  .duel-pick button { padding: 5px 10px; border-radius: 999px; border: 2px solid #ff5a6e; background: #2a0e1a; color: #fff; font: inherit; font-weight: 900; font-size: 12px; cursor: pointer; }
+  .duel-pick button svg { width: 12px; height: 12px; vertical-align: -1px; margin-right: 3px; }
+  .duel-msg { font-size: 12px; color: #ffb0b8; min-height: 0; }
   .lb-face { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(#2a5a9a, #12305a); }
   .lb-name { font-weight: 900; color: #fff; letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; }
   .lb-lvl { font-size: 11px; font-weight: 800; color: #9fc4ff; }
@@ -369,7 +387,7 @@
         <button class="bubble ring-red" data-open="missions"><span class="bicon"><img class="uiicon" src="icons/ui/mission.webp" alt="" draggable="false"></span><span class="blabel" id="missionLabel">0/3</span><i class="badge hidden" id="missionBadge">!</i></button>
       </div>
       <div class="bubbles right">
-        <button class="bubble ring-gold" data-open="board"><span class="bicon"><img class="uiicon" src="icons/ui/trophy.webp" alt="" draggable="false"></span><span class="blabel" id="bestLabel">Best</span></button>
+        <button class="bubble ring-gold" data-open="board"><span class="bicon"><img class="uiicon" src="icons/ui/trophy.webp" alt="" draggable="false"></span><span class="blabel" id="bestLabel">Best</span><i class="badge hidden" id="boardBadge">!</i></button>
         <button class="bubble ring-blue" data-open="stats"><span class="bicon"><img class="uiicon" src="icons/ui/stats.webp" alt="" draggable="false"></span></button>
       </div>
       <button id="playBtn" class="play-btn"><span class="pb-text" id="playLevel">Level 1</span></button>
@@ -412,7 +430,7 @@
     </div>
   </div>
   <div id="wrap">
-    <div id="stage"><canvas id="game"></canvas><div id="perkChip" aria-live="polite"><canvas id="perkFace"></canvas><span class="pk-text"><b id="perkName"></b><small id="perkState"></small></span></div></div>
+    <div id="stage"><canvas id="game"></canvas><div id="duelChip" class="hidden"></div><div id="perkChip" aria-live="polite"><canvas id="perkFace"></canvas><span class="pk-text"><b id="perkName"></b><small id="perkState"></small></span></div></div>
     <div id="overlay">
       <div class="card hidden" id="startCard">
         <h1>BACKMAN</h1>
@@ -445,6 +463,11 @@
         <button class="big" id="againBtn">Retry level</button>
         <p class="hint" id="creditHint"></p>
         <button class="install" id="overHomeBtn">Home</button>
+      </div>
+      <div class="card hidden" id="duelCard">
+        <h2 id="duelTitle">Challenge</h2>
+        <p id="duelText"></p>
+        <button class="big" id="duelBackBtn">Back to challenges</button>
       </div>
     </div>
   </div>
@@ -718,15 +741,17 @@ const LEVEL_SIZES = [
   [13, 15, 0.45], [13, 19, 0.38], [17, 19, 0.32], [17, 23, 0.28],
   [21, 23, 0.25], [21, 27, 0.23], [21, 31, 0.22], [25, 31, 0.2], [25, 35, 0.18],
 ];
-function mapForLevel(n) {
-  if (mapCache[n]) return mapCache[n];
+// A friend challenge uses the size of level n but its own maze (seed), the same for both players.
+function mapForLevel(n, seed) {
+  const key = seed ? `${n}:${seed}` : n;
+  if (mapCache[key]) return mapCache[key];
   const [w, h, loops] = LEVEL_SIZES[Math.min(n, LEVEL_SIZES.length) - 1];
   let m = null;
-  for (let k = 0; !m && k < 20; k++) m = generateMaze(n + k * 1000, w, h, loops);
-  return (mapCache[n] = m);
+  for (let k = 0; !m && k < 20; k++) m = generateMaze((seed || n) + k * 1000, w, h, loops);
+  return (mapCache[key] = m);
 }
-function applyLevelMap(n) {
-  MAP = mapForLevel(n);
+function applyLevelMap(n, seed) {
+  MAP = mapForLevel(n, seed);
   COLS = MAP[0].length; ROWS = MAP.length;
   GATE = findTile('-');
   TUNNEL_ROW = GATE.y + 1;
@@ -997,6 +1022,7 @@ function earnCredit(n, x, y) {
 }
 
 function levelCleared() {
+  if (duel) { sfx.clear(); finishDuel(true); return; }
   const flawless = deathsThisLevel === 0;
   track('clears'); if (flawless) track('flawless'); if (isChallenge(level)) track('challenges');
   const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1);
@@ -1029,11 +1055,12 @@ function newGame(startLevel) {
   if (typeof gateNeeded === 'function' && cloudReady && gateNeeded()) { updateGate(); return; }
   const saved = loadProgress();
   level = startLevel || saved.level;
-  score = level === saved.level ? saved.score : 0; lives = hasPerk('Ranger') ? 4 : 3; shieldUsed = false; extraLifeGiven = score >= 5000; deathsThisLevel = 0; creditsThisLevel = 0;
-  applyLevelMap(level);
+  score = !duel && level === saved.level ? saved.score : 0; lives = hasPerk('Ranger') ? 4 : 3; shieldUsed = false; extraLifeGiven = score >= 5000; deathsThisLevel = 0; creditsThisLevel = 0;
+  applyLevelMap(level, duel ? duel.seed : 0);
   resetMaze(); resetActors(); resize();
   levelIntro = true;
   popups = [];
+  updateDuelChip();
   setState('ready', 2.2);
   sfx.start();
   hideCards();
@@ -1152,7 +1179,7 @@ function addScore(n) {
   score += n;
   stats.totalScore += n; statsDirty = true;
   if (!extraLifeGiven && score >= 5000) { extraLifeGiven = true; lives++; sfx.life(); popup(player.tx, player.ty, '1UP', '#7dffa1'); }
-  if (score > best) { best = score; saveBest(best); }
+  if (!duel && score > best) { best = score; saveBest(best); }
   updateHud();
 }
 
@@ -1455,6 +1482,7 @@ function update(dt) {
 }
 
 function gameOver() {
+  if (duel) { finishDuel(false); return; }
   setState('over');
   stats.games++; statsDirty = true; recordRun();
   ui.overText.innerHTML = `Level ${level} got you this time. You keep your place: try level ${level} again.` +
@@ -2259,7 +2287,7 @@ function updateHud() {
     ui.lives.appendChild(s);
   }
 }
-function hideCards() { [ui.start, ui.pause, ui.over].forEach(c => c.classList.add('hidden')); }
+function hideCards() { [ui.start, ui.pause, ui.over, $('duelCard')].forEach(c => c.classList.add('hidden')); }
 function showCard(c) { hideCards(); c.classList.remove('hidden'); }
 
 // ---------- Input ----------
@@ -2653,6 +2681,116 @@ function recordRun() {
   saveJSON('bma.board', { runs: board });
 }
 
+// ---------- Friend challenges ----------
+// Challenge a friend: you both play the same maze once (one attempt each, all your lives), and the
+// higher score wins credits. The server keeps the maze seed, the scores and who collected the reward.
+var duels = [], duel = null, duelReward = { win: 10, draw: 5, lose: 1 }, duelsAt = 0;
+const SWORD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 4l10 10M4 4h4M4 4v4M20 4L10 14M20 4h-4M20 4v4M7 17l-3 3M17 17l3 3M8 14l2 2M16 14l-2 2"/></svg>';
+function duelNeedsMe(c) { return (!c.me && Date.now() < c.expires) || (c.result && c.claimed == null); }
+async function refreshDuels() {
+  if (!account.token) return;
+  try {
+    const r = await api('/api/challenge', { action: 'list', name: account.name, token: account.token });
+    duels = r.challenges || []; if (r.reward) duelReward = r.reward; duelsAt = Date.now();
+    if (state === 'title') refreshHome();
+    if (sheetOpen === 'board' && openSheet.boardTab === 'friends') openSheet('board', true);
+  } catch (e) { /* offline */ }
+}
+function duelMsg(t) { const m = $('duelMsg'); if (m) { m.textContent = t; } }
+async function createDuel(to) {
+  duelMsg('Sending the challenge…');
+  try {
+    const r = await api('/api/challenge', { action: 'create', name: account.name, token: account.token, to });
+    duels = [r.challenge, ...duels.filter(c => c.id !== r.challenge.id)];
+    duelMsg(''); openSheet('board', true); refreshHome();
+  } catch (e) { duelMsg(e.message || 'No connection. Try again.'); }
+}
+async function playDuel(id) {
+  const c = duels.find(x => x.id === id); if (!c) return;
+  duelMsg('Getting the maze ready…');
+  try {
+    const r = await api('/api/challenge', { action: 'start', name: account.name, token: account.token, id });
+    duels = duels.map(x => x.id === id ? r.challenge : x);
+    duel = { id, other: c.other, level: c.level, seed: c.seed, toBeat: c.them && c.them.done && !c.them.hidden ? c.them.score : null, done: false };
+    startPlay(c.level);
+  } catch (e) { duelMsg(e.message || 'No connection. Try again.'); refreshDuels(); }
+}
+async function claimDuel(id) {
+  try {
+    const r = await api('/api/challenge', { action: 'claim', name: account.name, token: account.token, id });
+    credits += r.reward; saveMeta(); sfx.coin(); updateHud();
+    duels = duels.map(x => x.id === id ? r.challenge : x);
+    openSheet('board', true); refreshHome();
+  } catch (e) { duelMsg(e.message || 'No connection. Try again.'); refreshDuels(); }
+}
+function updateDuelChip() {
+  const el = $('duelChip');
+  if (!duel) { el.classList.add('hidden'); return; }
+  el.innerHTML = `VS ${esc(duel.other)}<small>${duel.toBeat != null ? `Beat ${duel.toBeat.toLocaleString()}` : 'Set the score to beat'}</small>`;
+  el.classList.remove('hidden');
+}
+async function finishDuel(cleared, quiet) {
+  if (!duel || duel.done) return;
+  const d = duel; d.done = true;
+  const body = { action: 'finish', name: account.name, token: account.token, id: d.id, score, cleared };
+  if (quiet) { duel = null; updateDuelChip(); api('/api/challenge', body).then(refreshDuels, refreshDuels); return; }
+  setState('over'); stats.games++; statsDirty = true;
+  $('duelTitle').textContent = cleared ? 'Maze cleared!' : 'Run over';
+  $('duelText').innerHTML = `Your score: <b style="color:#ffd75a">${score.toLocaleString()}</b><br>Saving…`;
+  showCard($('duelCard'));
+  let c = null;
+  for (let i = 0; i < 3 && !c; i++) {
+    try { c = (await api('/api/challenge', body)).challenge; }
+    catch (e) { if (e.code && e.code !== 'server') break; await new Promise(r => setTimeout(r, 1500)); }
+  }
+  if (c) duels = duels.map(x => x.id === c.id ? c : x);
+  const vs = c && c.them && c.them.done && !c.them.hidden ? c.them.score : null;
+  $('duelText').innerHTML = `Your score: <b style="color:#ffd75a">${score.toLocaleString()}</b><br>` + (!c ? 'Could not save your score. Check your connection.'
+    : c.result === 'win' ? `You beat ${esc(d.other)} (${vs.toLocaleString()})! Collect <b>+${duelReward.win} credits</b>.`
+    : c.result === 'lose' ? `${esc(d.other)} scored ${vs.toLocaleString()}. So close! You still get +${duelReward.lose} credit.`
+    : c.result === 'draw' ? `A draw with ${esc(d.other)}! +${duelReward.draw} credits each.`
+    : `Now it's ${esc(d.other)}'s turn to beat it.`);
+}
+$('duelBackBtn').addEventListener('click', () => {
+  duel = null; showHome(); openSheet.boardTab = 'friends'; openSheet('board'); refreshDuels();
+});
+function duelsHtml() {
+  const now = Date.now(), open = new Set(duels.filter(c => c.expires > now && !c.result).map(c => c.other));
+  const free = friends.filter(n => !open.has(n) && (!worldBoard || !(worldBoard.friends || []).some(f => f.name === n && f.missing)));
+  const left = c => { const h = Math.max(0, Math.round((c.expires - now) / 3600000)); return h >= 24 ? `${Math.round(h / 24)}d left` : `${h}h left`; };
+  const sc = v => v.toLocaleString();
+  let h = '<div class="duels"><h4>CHALLENGES</h4>';
+  if (friends.length) h += `<div class="duel-pick">Challenge:${free.length ? free.map(n => `<button data-duel-new="${n}">${SWORD}${esc(n)}</button>`).join('') : ' <span>everyone already has one going</span>'}</div>`;
+  else h += '<div class="duel-pick">Add a friend below, then challenge them: you both play the same maze once, and the higher score wins credits.</div>';
+  h += '<div class="duel-msg" id="duelMsg"></div>';
+  for (const c of duels) {
+    const face = `<canvas class="lb-face" data-look="${(worldBoard && [...(worldBoard.friends || []), ...(worldBoard.top || [])].find(f => f.name === c.other && f.look != null) || {}).look || 0}"></canvas>`;
+    const them = c.them && c.them.done && !c.them.hidden ? c.them.score : null, mine = c.me && c.me.done ? c.me.score : null;
+    let cls = 'duel', txt = '', btn = '';
+    if (c.result) {
+      cls += ' done' + (c.result === 'win' ? ' win' : '');
+      txt = `${c.result === 'win' ? 'You beat' : c.result === 'lose' ? 'You lost to' : 'Draw with'} ${esc(c.other)}<small>${mine != null ? sc(mine) : 'Not played'} – ${them != null ? sc(them) : 'Not played'}</small>`;
+      btn = c.claimed == null ? `<button class="gold" data-duel-claim="${c.id}">+${duelReward[c.result]}</button>` : `<small style="color:#9fc4ff">+${c.claimed}</small>`;
+    } else if (!c.me) {
+      cls += ' go';
+      txt = c.from === account.name ? `You vs ${esc(c.other)}<small>Play first to set the score · ${left(c)}</small>`
+        : `${esc(c.other)} challenged you<small>${them != null ? `Beat ${sc(them)}` : 'Play the same maze'} · Level ${c.level} · ${left(c)}</small>`;
+      btn = `<button data-duel-play="${c.id}">Play</button>`;
+    } else if (!c.me.done) {
+      cls += ' done'; txt = `You vs ${esc(c.other)}<small>Your run was cut short · waiting for ${esc(c.other)}</small>`;
+    } else {
+      cls += ' done'; txt = `You vs ${esc(c.other)}<small>Your score ${sc(mine)} · waiting for ${esc(c.other)} · ${left(c)}</small>`;
+    }
+    h += `<div class="${cls}">${face}<span class="duel-txt">${txt}</span>${btn || '<span></span>'}</div>`;
+  }
+  return h + '</div>';
+}
+function wireDuels(body) {
+  body.querySelectorAll('[data-duel-new]').forEach(b => b.addEventListener('click', () => { b.disabled = true; createDuel(b.dataset.duelNew); }));
+  body.querySelectorAll('[data-duel-play]').forEach(b => b.addEventListener('click', () => { b.disabled = true; playDuel(b.dataset.duelPlay); }));
+  body.querySelectorAll('[data-duel-claim]').forEach(b => b.addEventListener('click', () => { b.disabled = true; claimDuel(b.dataset.duelClaim); }));
+}
+
 // ---------- home UI ----------
 const homeEl = $('home');
 let sheetOpen = null;
@@ -2672,11 +2810,15 @@ function refreshHome() {
   $('missionBadge').classList.toggle('hidden', !claimable);
   $('missionLabel').textContent = `${ms.filter(m => m.claimed).length}/${ms.length}`;
   $('missionLabel').classList.toggle('go', claimable);
+  const duelTodo = (duels || []).filter(duelNeedsMe).length;
+  $('boardBadge').classList.toggle('hidden', !duelTodo); $('boardBadge').textContent = duelTodo > 1 ? duelTodo : '!';
   $('bestLabel').textContent = myRank ? `#${myRank}` : best > 0 ? best.toLocaleString() : 'Best';
 
   paintAvatar($('avatar'), 48);
 }
 function showHome() {
+  if (duel) finishDuel(false, true);   // leaving a challenge run ends it with the score so far
+  updateDuelChip();
   flushStats();
   state = 'title'; paused = false; hideCards();
   closeSheet(); refreshHome();
@@ -2728,7 +2870,8 @@ function openSheet(which, fromRefresh = false) {
     } else {
       // Friends: you and the friends you added, ranked against each other
       html += `<div class="friend-add"><input id="friendName" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="FRIEND'S NAME"><button class="claim-btn" id="friendAddBtn">Add</button></div><div class="pname-hint" id="friendHint">Add friends by their player name to compare your scores.</div>`;
-      if (!fromRefresh) refreshRank();
+      if (!fromRefresh) { refreshRank(); refreshDuels(); }
+      if (account.token) html = html.replace('<div class="friend-add">', duelsHtml() + '<div class="friend-add">');
       const fb = worldBoard && worldBoard.friends || [];
       const meRow = worldBoard && worldBoard.me ? [{ ...worldBoard.me, you: true }] : account.name ? [{ name: account.name, best, level: loadProgress().level, look: skinIndex, you: true, rank: null }] : [];
       const scored = [...meRow, ...fb.filter(f => !f.missing && !f.noScore)].sort((x, y) => y.best - x.best || y.level - x.level);
@@ -2742,6 +2885,7 @@ function openSheet(which, fromRefresh = false) {
     }
     body.innerHTML = html;
     body.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { openSheet.boardTab = b.dataset.tab; openSheet('board'); }));
+    wireDuels(body);
     body.querySelectorAll('.lb-face').forEach(cv => paintAvatar(cv, 30, 'look:' + Math.min(+cv.dataset.look || 0, SKINS.length - 1)));
     if ($('goClaim')) $('goClaim').addEventListener('click', () => openSheet('profile'));
     body.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
@@ -3009,7 +3153,7 @@ restoreFromBackup().then(async local => {
     try { sessionStorage.setItem('bma.restored', '1'); } catch (e) { /* ignore */ }
     location.reload();   // start again with the restored progress
   } else backupNow();
-  submitScore(true); refreshRank(); cloudPush();
+  submitScore(true); refreshRank(); refreshDuels(); cloudPush();
 });
 
 // Coming back to an app that was left open: pick up progress or credits saved online meanwhile
@@ -3020,6 +3164,7 @@ document.addEventListener('visibilitychange', async () => {
   lastResumePull = Date.now();
   if (state !== 'title') return;
   if (await cloudPull() && state === 'title') location.reload();
+  else refreshDuels();
 });
 
 // Exposed for automated testing.
@@ -3027,7 +3172,7 @@ window.__backman = { get state() { return state; }, get score() { return score; 
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
-  skipToLevel(n) { level = n - 1; nextLevel(); } };
+  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
 })();
 </script>
 </body>

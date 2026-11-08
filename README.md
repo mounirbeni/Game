@@ -112,3 +112,14 @@ All home-screen and score-bar icons are custom artwork made for this game.
   - `POST /api/account` `{action: 'password', name, token, password}`: sets or changes the password.
 - **Cloud save:** with an account, progress is sent to the server a few seconds after every change and when the app closes, and merged back in (never lowering anything) when the game opens or after logging in.
 - **Secret key:** the key is saved on the device in `bma.account`. It is also included in the save code, so a player's name moves to a new phone with their progress.
+
+## Friend challenges
+
+In the leaderboard's Friends tab, tap a friend's name under **Challenges** to challenge them.
+You both play the same maze once (it has the size of the lower of your two levels). Each player
+gets one attempt with all their lives. The challenger usually plays first to set the score to beat.
+Leaving the run early ends it with the score so far. The higher score wins **+10 credits**, a draw
+gives +5 each, and the loser still gets +1. A challenge lasts 3 days, and a player can have 5
+challenges going at once. Challenge runs never change your saved level or best score.
+The server (`/api/challenge`) keeps the maze seed, each attempt and each collected reward, so
+each player can only play once and collect once.
