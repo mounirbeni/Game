@@ -81,8 +81,11 @@
   #home { position: fixed; left: 0; top: 0; width: 100%; height: var(--app-h, 100%); z-index: 40; overflow: hidden; isolation: isolate;
     display: flex; flex-direction: column; background: #050c12; }
   #home.hidden { display: none; }
-  #home::before { content: ''; position: absolute; inset: 0; max-width: min(560px, 56.3vh); margin: 0 auto; z-index: -1;
-    background: url(assets/home-bg.jpg) center top / cover no-repeat; }
+  /* the artwork starts a little lower so the ladybug above the logo sits below the level bar;
+     the strip above it shows the blurred copy and fades in softly */
+  #home::before { content: ''; position: absolute; inset: calc(env(safe-area-inset-top) + 40px) 0 0; max-width: min(560px, 56.3vh); margin: 0 auto; z-index: -1;
+    background: url(assets/home-bg.jpg) center top / cover no-repeat;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 56px); mask-image: linear-gradient(to bottom, transparent 0, #000 56px); }
   #home::after { content: ''; position: absolute; inset: -40px; z-index: -2; background: url(assets/home-bg.jpg) center / cover; filter: blur(24px) brightness(.45); }
   .fireflies { position: absolute; inset: 0; pointer-events: none; }
   .fireflies i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #ffe58a;
@@ -189,6 +192,9 @@
   .danger-btn { padding: 7px 14px; border-radius: 999px; border: 2px solid #ff6b6b; background: transparent; color: #ff8a8a; font: inherit; font-weight: 800; cursor: pointer; }
   .sheet-card .skins { margin-top: 4px; }
   #home .install, #home .hint { display: none !important; }
+  @media (min-height: 860px) and (max-width: 440px) {
+    .bubble { width: 64px; height: 64px; } .bicon svg { width: 44px; height: 44px; } .bubbles { gap: 112px; }
+  }
   @media (max-width: 380px) {
     .avatar-btn { width: 48px; height: 48px; } .hpill { height: 36px; } .hpill b { font-size: 15px; } .hicon svg { width: 28px; height: 28px; }
     .hpill small.full { display: none; } .gear { width: 40px; height: 40px; }
