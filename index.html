@@ -51,6 +51,19 @@
   button.big:active { transform: translateY(2px); box-shadow: 0 2px 0 #a06d12; }
   .hidden { display: none !important; }
   .icon-btn svg { width: 22px; height: 22px; }
+  .credit-val { display: inline-flex; align-items: center; gap: 4px; }
+  .coin { width: 18px; height: 18px; }
+  .card { max-height: 100%; overflow-y: auto; }
+  .picker-head { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px; font-weight: 800; font-size: 14px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; background: #13291c; border: 1px solid #2b6a40; border-radius: 999px; padding: 3px 10px 3px 4px; font-size: 13px; }
+  .skins { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .skin { position: relative; background: #0f2118; border: 2px solid #24503a; border-radius: 12px; padding: 4px 2px 3px; cursor: pointer; color: var(--text); font: inherit; }
+  .skin canvas { width: 52px; height: 52px; display: block; margin: 0 auto; }
+  .skin span { display: block; font-size: 10px; font-weight: 700; margin-top: 1px; }
+  .skin.sel { border-color: var(--accent); background: #2a2410; }
+  .skin.locked canvas { filter: brightness(0) opacity(0.45); }
+  .skin.locked span { color: var(--muted); }
+  .skin .lock { position: absolute; top: 14px; left: 50%; width: 20px; height: 20px; margin-left: -10px; color: #8fb39b; }
   button.install { margin-top: 10px; font: inherit; font-weight: 700; font-size: 15px; padding: 8px 20px; border-radius: 999px;
     background: transparent; color: var(--accent); border: 2px solid var(--accent); cursor: pointer; }
   .hint { font-size: 12px !important; }
@@ -64,7 +77,7 @@
   <div id="hud">
     <div class="stat"><small>Score</small><span id="score">0</span></div>
     <div class="stat" style="align-items:center"><small>Level</small><span id="level">1</span></div>
-    <div class="stat" style="align-items:center"><small>Best</small><span id="best">0</span></div>
+    <div class="stat" style="align-items:center"><small>Credits</small><span class="credit-val"><svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg><span id="credits">0</span></span></div>
     <div class="stat" style="align-items:center"><small>Lives</small><div id="lives"></div></div>
     <div id="controls">
       <button class="icon-btn" id="pauseBtn" aria-label="Pause"></button>
@@ -83,19 +96,25 @@
           <span class="dot" style="background:#e05a5a"></span><span>Mushroom: bonus snack</span>
         </div>
         <p>Arrows / WASD to move · P to pause · M to mute<br>Swipe anywhere on the screen to move</p>
+        <div class="picker-head"><span>Choose your Backman</span><span class="pill"><svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg><span id="creditsPill">0</span> credits</span></div>
+        <div class="skins" id="skinPicker"></div>
         <button class="big" id="startBtn">Play</button><br>
         <button class="install hidden" id="installBtn">Install app</button>
         <p class="hint hidden" id="iosHint">Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
       </div>
       <div class="card hidden" id="pauseCard">
         <h2>Paused</h2>
-        <p>Press P or tap to continue</p>
+        <p>Press P or tap Resume to continue</p>
+        <div class="picker-head"><span>Your look</span></div>
+        <div class="skins" id="skinPicker2"></div>
         <button class="big" id="resumeBtn">Resume</button>
       </div>
       <div class="card hidden" id="overCard">
         <h2 style="color:var(--danger)">Game Over</h2>
         <p id="overText"></p>
+        <button class="big" id="continueBtn">Continue</button><br>
         <button class="big" id="againBtn">Retry level</button>
+        <p class="hint" id="creditHint"></p>
       </div>
     </div>
   </div>
@@ -238,7 +257,7 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const $ = id => document.getElementById(id);
 const ui = {
-  score: $('score'), level: $('level'), best: $('best'), lives: $('lives'),
+  score: $('score'), level: $('level'), credits: $('credits'), lives: $('lives'),
   start: $('startCard'), pause: $('pauseCard'), over: $('overCard'), overText: $('overText'),
   muteBtn: $('muteBtn'), pauseBtn: $('pauseBtn'),
 };
@@ -431,6 +450,36 @@ function resetActors() {
   time = 0;
 }
 
+// Rewards that persist between games: credits, the highest level cleared (unlocks looks) and the chosen look.
+let credits = 0, highestCleared = 0, skinIndex = 0, deathsThisLevel = 0, clearMsg = '', unlockedSkin = null;
+function loadMeta() {
+  try {
+    credits = Math.max(0, parseInt(localStorage.getItem('backman.credits') || '0', 10) || 0);
+    highestCleared = Math.max(0, parseInt(localStorage.getItem('backman.cleared') || '0', 10) || 0);
+    skinIndex = Math.max(0, parseInt(localStorage.getItem('backman.skin') || '0', 10) || 0);
+  } catch (e) { /* ignore */ }
+  if (skinIndex > Math.min(highestCleared, SKINS.length - 1)) skinIndex = 0;
+}
+function saveMeta() {
+  try {
+    localStorage.setItem('backman.credits', String(credits));
+    localStorage.setItem('backman.cleared', String(highestCleared));
+    localStorage.setItem('backman.skin', String(skinIndex));
+  } catch (e) { /* ignore */ }
+}
+function levelCleared() {
+  const flawless = deathsThisLevel === 0;
+  const earned = flawless ? 2 : 1;
+  credits += earned;
+  unlockedSkin = null;
+  if (level > highestCleared) { highestCleared = level; if (SKINS[level]) unlockedSkin = SKINS[level]; }
+  saveMeta();
+  clearMsg = `+${earned} CREDIT${earned > 1 ? 'S' : ''}${flawless ? ' · FLAWLESS!' : ''}`;
+  setState('clear', unlockedSkin ? 4 : 2.8);
+  sfx.clear();
+  updateHud();
+}
+
 // Progress is saved: losing replays the level you were on, never back to level 1.
 function loadProgress() {
   try {
@@ -443,7 +492,7 @@ function saveProgress() {
 }
 function newGame() {
   const saved = loadProgress();
-  score = saved.score; lives = 3; level = saved.level; extraLifeGiven = score >= 5000;
+  score = saved.score; lives = 3; level = saved.level; extraLifeGiven = score >= 5000; deathsThisLevel = 0;
   applyLevelMap(level);
   resetMaze(); resetActors(); resize();
   levelIntro = true;
@@ -456,6 +505,7 @@ function newGame() {
 
 function nextLevel() {
   level++;
+  deathsThisLevel = 0;
   saveProgress();
   applyLevelMap(level);
   resetMaze(); resetActors(); resize();
@@ -554,7 +604,7 @@ function eatAt(x, y) {
     startFright();
   }
   if (seedsEaten === Math.round(TOTAL_SEEDS * 0.3) || seedsEaten === Math.round(TOTAL_SEEDS * 0.7)) spawnBonus();
-  if (seedsLeft === 0) { setState('clear', 2.4); sfx.clear(); }
+  if (seedsLeft === 0) levelCleared();
 }
 
 function addScore(n) {
@@ -682,7 +732,7 @@ function checkCollisions() {
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
       } else {
         lives--; updateHud();
-        setState('dying', 1.8); sfx.die();
+        setState('dying', 1.8); sfx.die(); deathsThisLevel++;
         return;
       }
     }
@@ -739,6 +789,13 @@ function gameOver() {
   ui.overText.innerHTML = `Level ${level} got you this time. You keep your place: try level ${level} again.` +
     (score >= best && score > 0 ? '<br>New best score!' : `<br>Best: ${best.toLocaleString()}`);
   $('againBtn').textContent = `Retry level ${level}`;
+  const canContinue = credits > 0;
+  $('continueBtn').classList.toggle('hidden', !canContinue);
+  $('continueBtn').innerHTML = `Continue here · 1 credit`;
+  $('againBtn').className = canContinue ? 'install' : 'big';
+  $('creditHint').innerHTML = canContinue
+    ? `You have ${credits} credit${credits > 1 ? 's' : ''}. Continuing gives you 1 extra life and keeps the seeds you've eaten.`
+    : 'Win levels to earn credits (2 for a flawless level). Spend them here to keep playing.';
   showCard(ui.over);
 }
 
@@ -910,7 +967,19 @@ function draw(now) {
 
   // banners
   if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', '#ffcf5a', THEME.name.toUpperCase());
-  if (state === 'clear' && stateTimer > 1.8) banner('GARDEN CLEARED!', '#7dffa1');
+  if (state === 'clear' && stateTimer > 1.8) {
+    ctx.fillStyle = 'rgba(4,10,7,0.6)'; ctx.fillRect(0, 0, viewW, viewH);
+    banner('GARDEN CLEARED!', '#7dffa1', clearMsg);
+    if (unlockedSkin) {
+      const y = clamp(BONUS_TILE.y * T + T / 2 - camY, T, viewH - T * 2);
+      const R = T * 0.75, bob = Math.sin(now / 160) * T * 0.08;
+      ctx.save(); ctx.translate(viewW / 2, y - T * 2.1 + bob); drawBackman(ctx, R, unlockedSkin); ctx.restore();
+      ctx.font = `800 ${Math.round(T * 0.48)}px ui-rounded, system-ui, sans-serif`;
+      ctx.lineWidth = T * 0.16; ctx.strokeStyle = '#06100b';
+      const t = `NEW LOOK UNLOCKED: ${unlockedSkin.name.toUpperCase()}`;
+      ctx.strokeText(t, viewW / 2, y + T * 1.8); ctx.fillStyle = '#ffcf5a'; ctx.fillText(t, viewW / 2, y + T * 1.8);
+    }
+  }
   if (paused && state !== 'title' && state !== 'over') banner('PAUSED', '#e9f5ec');
 }
 
@@ -980,6 +1049,81 @@ function drawMushroom(cx, cy, timer) {
   });
 }
 
+// ---------- Backman looks (one unlocks per level cleared) ----------
+const SKINS = [
+  { name: 'Backman',  body: ['#ffe08a', '#f2a93b'], hat: '#2f6b3f', band: '#e04f3c', pack: '#9a5b2a', packDark: '#7a431b', roll: '#3f7fbf', acc: null },
+  { name: 'Berry',    body: ['#ffc2d4', '#e8577e'], hat: '#6a2c91', band: '#ffd84a', pack: '#6b3d85', packDark: '#4f2a63', roll: '#49c6b6', acc: 'bow' },
+  { name: 'Frosty',   body: ['#e3f5ff', '#7cc4ef'], hat: '#1d4e89', band: '#ffffff', pack: '#3a5a7a', packDark: '#29435c', roll: '#ff8a5b', acc: 'glasses' },
+  { name: 'Sprout',   body: ['#efffc0', '#9ad13b'], hat: '#7a3b10', band: '#ffcf5a', pack: '#4a6b2a', packDark: '#36501e', roll: '#e04f3c', acc: null },
+  { name: 'Ember',    body: ['#ffd6a8', '#ff7a2f'], hat: '#2a2a2a', band: '#ff5d5d', pack: '#6b3a1a', packDark: '#4f2a12', roll: '#ffd84a', acc: 'mustache' },
+  { name: 'Minty',    body: ['#d2fff2', '#3fd3a7'], hat: '#ff7aa8', band: '#ffffff', pack: '#1f6b5a', packDark: '#164f42', roll: '#ffd84a', acc: 'glasses' },
+  { name: 'Midnight', body: ['#d4d0ff', '#6c63ff'], hat: '#ffcf5a', band: '#2a2a2a', pack: '#2b2a5a', packDark: '#1d1c40', roll: '#ff7aa8', acc: 'bow' },
+  { name: 'King',     body: ['#fff4b8', '#e0b000'], hat: null,      band: '#c0392b', pack: '#7a5a10', packDark: '#5a420b', roll: '#8e44ad', acc: 'crown' },
+];
+
+// Draws Backman facing right at the origin; R is the body radius.
+function drawBackman(g, R, sk, step = 0, blink = false, lookY = 0) {
+  // feet
+  g.fillStyle = '#3b2412';
+  g.beginPath(); g.ellipse(-R * 0.35 + step * R * 0.3, R * 0.88, R * 0.26, R * 0.16, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(R * 0.35 - step * R * 0.3, R * 0.88, R * 0.26, R * 0.16, 0, 0, Math.PI * 2); g.fill();
+  // backpack + bedroll
+  g.fillStyle = sk.pack; roundRect(g, -R * 1.25, -R * 0.55, R * 0.7, R * 1.15, R * 0.22); g.fill();
+  g.fillStyle = sk.packDark; roundRect(g, -R * 1.2, -R * 0.05, R * 0.6, R * 0.35, R * 0.12); g.fill();
+  g.fillStyle = '#d9a441'; g.fillRect(-R * 1.0, R * 0.05, R * 0.18, R * 0.1);
+  g.fillStyle = sk.roll; roundRect(g, -R * 1.3, -R * 0.82, R * 0.8, R * 0.32, R * 0.16); g.fill();
+  // body
+  const grad = g.createRadialGradient(-R * 0.3, -R * 0.4, R * 0.2, 0, 0, R * 1.1);
+  grad.addColorStop(0, sk.body[0]); grad.addColorStop(1, sk.body[1]);
+  g.fillStyle = grad; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill();
+  // strap
+  g.strokeStyle = sk.packDark; g.lineWidth = R * 0.16; g.lineCap = 'butt';
+  g.beginPath(); g.moveTo(-R * 0.55, -R * 0.75); g.quadraticCurveTo(-R * 0.1, 0, -R * 0.5, R * 0.75); g.stroke();
+  // hat or crown
+  if (sk.acc === 'crown') {
+    g.fillStyle = '#ffd23f'; g.strokeStyle = '#a07800'; g.lineWidth = R * 0.06; g.lineJoin = 'round';
+    g.beginPath();
+    g.moveTo(-R * 0.55, -R * 0.72); g.lineTo(-R * 0.62, -R * 1.25); g.lineTo(-R * 0.3, -R * 1.0); g.lineTo(-R * 0.02, -R * 1.38);
+    g.lineTo(R * 0.26, -R * 1.0); g.lineTo(R * 0.58, -R * 1.25); g.lineTo(R * 0.5, -R * 0.72); g.closePath();
+    g.fill(); g.stroke();
+    g.fillStyle = sk.band; g.beginPath(); g.arc(-R * 0.02, -R * 0.9, R * 0.09, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#3fa7ff'; g.beginPath(); g.arc(-R * 0.36, -R * 0.86, R * 0.06, 0, Math.PI * 2); g.arc(R * 0.3, -R * 0.86, R * 0.06, 0, Math.PI * 2); g.fill();
+  } else {
+    g.fillStyle = sk.hat;
+    g.beginPath(); g.ellipse(R * 0.1, -R * 0.78, R * 0.95, R * 0.2, -0.08, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(-R * 0.05, -R * 0.95, R * 0.55, R * 0.38, 0, Math.PI, 0); g.fill();
+    g.fillStyle = sk.band; g.fillRect(-R * 0.58, -R * 0.98, R * 1.06, R * 0.14);
+  }
+  // eye
+  g.fillStyle = '#fff';
+  g.beginPath(); g.ellipse(R * 0.45, -R * 0.2, R * 0.22, blink ? R * 0.04 : R * 0.25, 0, 0, Math.PI * 2); g.fill();
+  if (!blink) {
+    g.fillStyle = '#1b1b2a';
+    g.beginPath(); g.arc(R * 0.53, -R * 0.18 + lookY * R * 0.08, R * 0.11, 0, Math.PI * 2); g.fill();
+  }
+  // cheek + smile
+  g.fillStyle = 'rgba(255,110,90,0.5)';
+  g.beginPath(); g.arc(R * 0.35, R * 0.22, R * 0.13, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#7a3b10'; g.lineWidth = R * 0.08; g.lineCap = 'round';
+  g.beginPath(); g.arc(R * 0.62, R * 0.15, R * 0.18, 0.3, 1.9); g.stroke();
+  // accessories
+  if (sk.acc === 'glasses') {
+    g.strokeStyle = '#1b1b2a'; g.lineWidth = R * 0.07;
+    g.beginPath(); g.arc(R * 0.47, -R * 0.2, R * 0.3, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.moveTo(R * 0.17, -R * 0.24); g.lineTo(-R * 0.25, -R * 0.32); g.stroke();
+    g.fillStyle = 'rgba(160,220,255,0.25)'; g.beginPath(); g.arc(R * 0.47, -R * 0.2, R * 0.27, 0, Math.PI * 2); g.fill();
+  } else if (sk.acc === 'mustache') {
+    g.fillStyle = '#4a2a14';
+    g.beginPath(); g.ellipse(R * 0.62, R * 0.08, R * 0.2, R * 0.08, -0.3, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(R * 0.86, R * 0.06, R * 0.14, R * 0.07, 0.4, 0, Math.PI * 2); g.fill();
+  } else if (sk.acc === 'bow') {
+    g.fillStyle = sk.band;
+    g.beginPath(); g.moveTo(R * 0.3, R * 0.72); g.lineTo(R * 0.02, R * 0.56); g.lineTo(R * 0.02, R * 0.9); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(R * 0.3, R * 0.72); g.lineTo(R * 0.58, R * 0.56); g.lineTo(R * 0.58, R * 0.9); g.closePath(); g.fill();
+    g.beginPath(); g.arc(R * 0.3, R * 0.72, R * 0.08, 0, Math.PI * 2); g.fill();
+  }
+}
+
 function drawPlayer(now) {
   const lp = pos(player);
   const p = { x: lp.x + player.ox, y: lp.y + player.oy };
@@ -1001,52 +1145,11 @@ function drawPlayer(now) {
   ctx.scale(player.facing < 0 ? -1 : 1, 1);
   ctx.translate(0, -bounce);
   const R = T * 0.36;
-
   // shadow
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.ellipse(0, R * 1.05 + bounce, R * 0.8, R * 0.2, 0, 0, Math.PI * 2); ctx.fill();
-  // feet
-  ctx.fillStyle = '#3b2412';
-  ctx.beginPath(); ctx.ellipse(-R * 0.35 + step * R * 0.3, R * 0.88, R * 0.26, R * 0.16, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(R * 0.35 - step * R * 0.3, R * 0.88, R * 0.26, R * 0.16, 0, 0, Math.PI * 2); ctx.fill();
-  // backpack (on the back = left side when facing right)
-  ctx.fillStyle = '#9a5b2a';
-  roundRect(ctx, -R * 1.25, -R * 0.55, R * 0.7, R * 1.15, R * 0.22); ctx.fill();
-  ctx.fillStyle = '#7a431b';
-  roundRect(ctx, -R * 1.2, -R * 0.05, R * 0.6, R * 0.35, R * 0.12); ctx.fill();
-  ctx.fillStyle = '#d9a441';
-  ctx.fillRect(-R * 1.0, R * 0.05, R * 0.18, R * 0.1);
-  // bedroll on top of pack
-  ctx.fillStyle = '#3f7fbf';
-  roundRect(ctx, -R * 1.3, -R * 0.82, R * 0.8, R * 0.32, R * 0.16); ctx.fill();
-  // body
-  const grad = ctx.createRadialGradient(-R * 0.3, -R * 0.4, R * 0.2, 0, 0, R * 1.1);
-  grad.addColorStop(0, '#ffe08a'); grad.addColorStop(1, '#f2a93b');
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
-  // strap
-  ctx.strokeStyle = '#7a431b'; ctx.lineWidth = R * 0.16;
-  ctx.beginPath(); ctx.moveTo(-R * 0.55, -R * 0.75); ctx.quadraticCurveTo(-R * 0.1, 0, -R * 0.5, R * 0.75); ctx.stroke();
-  // hat
-  ctx.fillStyle = '#2f6b3f';
-  ctx.beginPath(); ctx.ellipse(R * 0.1, -R * 0.78, R * 0.95, R * 0.2, -0.08, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-R * 0.05, -R * 0.95, R * 0.55, R * 0.38, 0, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = '#e04f3c';
-  ctx.fillRect(-R * 0.58, -R * 0.98, R * 1.06, R * 0.14);
-  // eye
   const blink = (Math.floor(now / 140) % 28) === 0;
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.ellipse(R * 0.45, -R * 0.2, R * 0.22, blink ? R * 0.04 : R * 0.25, 0, 0, Math.PI * 2); ctx.fill();
-  if (!blink) {
-    ctx.fillStyle = '#1b1b2a';
-    const look = player.dir.y * R * 0.08;
-    ctx.beginPath(); ctx.arc(R * 0.53, -R * 0.18 + look, R * 0.11, 0, Math.PI * 2); ctx.fill();
-  }
-  // cheek + smile
-  ctx.fillStyle = 'rgba(255,110,90,0.5)';
-  ctx.beginPath(); ctx.arc(R * 0.35, R * 0.22, R * 0.13, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#7a3b10'; ctx.lineWidth = R * 0.08; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.arc(R * 0.62, R * 0.15, R * 0.18, 0.3, 1.9); ctx.stroke();
+  drawBackman(ctx, R, SKINS[skinIndex], step, blink, player.dir.y);
   ctx.restore();
 }
 
@@ -1114,12 +1217,13 @@ function drawBeetle(b, now) {
 function updateHud() {
   ui.score.textContent = (score || 0).toLocaleString();
   ui.level.textContent = level || 1;
-  ui.best.textContent = best.toLocaleString();
+  ui.credits.textContent = credits;
   const n = Math.max(0, (lives || 0) - (state === 'ready' || state === 'play' ? 1 : 0));
   ui.lives.innerHTML = '';
   for (let i = 0; i < Math.min(n, 6); i++) {
     const s = document.createElement('span');
-    s.style.cssText = 'width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe08a,#f2a93b);display:inline-block;box-shadow:-4px 0 0 #9a5b2a';
+    const sk = SKINS[skinIndex];
+    s.style.cssText = `width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,${sk.body[0]},${sk.body[1]});display:inline-block;box-shadow:-4px 0 0 ${sk.pack}`;
     ui.lives.appendChild(s);
   }
 }
@@ -1173,7 +1277,7 @@ function togglePause() {
   paused = !paused;
   ui.pauseBtn.innerHTML = paused ? ICONS.play : ICONS.pause;
   ui.pauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
-  if (paused) showCard(ui.pause); else hideCards();
+  if (paused) { renderPicker(); showCard(ui.pause); } else hideCards();
 }
 function toggleMute() {
   muted = !muted;
@@ -1191,6 +1295,41 @@ ui.muteBtn.innerHTML = muted ? ICONS.muted : ICONS.sound;
 ui.pauseBtn.innerHTML = ICONS.pause;
 document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && (state === 'play' || state === 'ready')) togglePause(); });
 window.addEventListener('resize', resize);
+
+// ---------- Look picker and credits ----------
+const LOCK_SVG = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+function renderPicker() {
+  $('creditsPill').textContent = credits;
+  for (const box of [$('skinPicker'), $('skinPicker2')]) { box.innerHTML = ''; SKINS.forEach((sk, i) => {
+    const unlocked = i <= highestCleared;
+    const b = document.createElement('button');
+    b.className = 'skin' + (i === skinIndex ? ' sel' : '') + (unlocked ? '' : ' locked');
+    b.setAttribute('aria-label', unlocked ? sk.name : `${sk.name}, unlocks after level ${i}`);
+    const c = document.createElement('canvas'); const d = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = c.height = Math.round(52 * d);
+    const g = c.getContext('2d'); g.scale(d, d); g.translate(29, 30); drawBackman(g, 15, sk);
+    b.appendChild(c);
+    const label = document.createElement('span'); label.textContent = unlocked ? sk.name : `Level ${i}`;
+    b.appendChild(label);
+    if (!unlocked) b.insertAdjacentHTML('beforeend', LOCK_SVG);
+    b.addEventListener('click', () => {
+      if (!unlocked) return;
+      skinIndex = i; saveMeta(); renderPicker(); updateHud();
+    });
+    box.appendChild(b);
+  }); }
+}
+$('continueBtn').addEventListener('click', () => {
+  if (credits <= 0 || state !== 'over') return;
+  unlockAudio();
+  credits--; saveMeta();
+  lives = 1;
+  resetActors();                 // the maze and eaten seeds stay as they were
+  hideCards();
+  setState('ready', 1.8);
+  sfx.life();
+  updateHud();
+});
 
 // ---------- Install as an app (PWA) ----------
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -1224,8 +1363,10 @@ function frame(now) {
 }
 
 // Title screen shows the maze in the background.
+loadMeta();
 { const saved = loadProgress(); level = saved.level; score = saved.score; }
 lives = 3;
+renderPicker();
 applyLevelMap(level);
 resetMaze(); resetActors();
 resize();
@@ -1235,7 +1376,8 @@ requestAnimationFrame(frame);
 // Exposed for automated testing.
 window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
-  get theme() { return THEME.name; }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
+  get theme() { return THEME.name; }, get credits() { return credits; }, get skin() { return SKINS[skinIndex].name; },
+  setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
   skipToLevel(n) { level = n - 1; nextLevel(); } };
 })();
 </script>
