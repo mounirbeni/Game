@@ -22,7 +22,7 @@ async function blob() {
       },
       async write(path, text) { await b.put(path, text, { ...opts, addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' }); },
       async read(path) {
-        const r = await b.get(path, opts).catch(() => null);
+        const r = await b.get(path, { ...opts, useCache: false }).catch(() => null);   // always the latest copy, never a cached one
         if (!r || r.statusCode !== 200) return null;
         return await new Response(r.stream).text();
       },
@@ -116,7 +116,9 @@ export async function login({ name: rawName, password }) {
   const token = randomBytes(24).toString('hex');
   acc.tokens = [...(acc.tokens || []), hash(token)].slice(-20);
   await (await blob()).write(`accounts/${name}.json`, JSON.stringify(acc));
-  return loadCloud({ name, token }).then(r => ({ status: 200, body: { ...r.body, token } }));
+  const text = await (await blob()).read(`saves/${name}.json`);
+  const rec = text ? JSON.parse(text) : null;
+  return { status: 200, body: { name, token, hasPassword: true, t: rec ? rec.t : 0, save: rec ? rec.save : null } };
 }
 // Set or change the password (needs this device's key).
 export async function setPassword({ name, token, password }) {
