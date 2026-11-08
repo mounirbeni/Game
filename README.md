@@ -51,6 +51,21 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 - **Continue:** when your lives run out, spend 1 credit to keep playing from the same spot with 1 extra life. Or retry the level from the start for free.
 - **Saved:** credits, looks and your level are all kept between visits.
 
+## Character powers
+
+| Look | Power |
+| --- | --- |
+| Backman | All-rounder: no special power |
+| ZOGHA | Sweet tooth: one extra mushroom per level; mushrooms give +2 credits |
+| ES | Deep freeze: lanterns last 50% longer |
+| Sprout | Harvest: seeds are worth 15 points |
+| FOX | Quick feet: runs 10% faster |
+| Minty | Lucky leaf: gold coins appear twice as often |
+| Midnight | Magic shield: survives the first beetle hit each level |
+| MBN | Royal treasury: double credits for clearing a level |
+| Shadow | Stealth: beetles notice you later |
+| Ranger | Survivor: starts each level with 4 lives |
+
 ## The beetles
 
 | Beetle | Behaviour |

@@ -267,6 +267,7 @@
   .skin.sel { border-color: var(--accent); background: #2a2410; }
   .skin.locked canvas { filter: brightness(0) opacity(0.45); }
   .skin.locked span { color: var(--muted); }
+  .skin .perk { display: block; font-size: 8.5px; font-weight: 800; color: #ffd75a; margin-top: 1px; line-height: 1.1; }
   .skin .price { display: inline-flex; align-items: center; gap: 2px; justify-content: center; color: var(--accent); }
   .skin .price .coin { width: 12px; height: 12px; }
   .skin.pending { border-color: var(--accent); }
@@ -829,14 +830,14 @@ function speeds() {
   // Difficulty curve: level 1 is gentle (beetles ~64% of Backman's speed); each level adds a
   // little, capped at 80% so Backman can always get away by moving.
   const l = Math.min(level - 1, 10);
-  const player = 7.5 + l * 0.1;
+  const player = (7.5 + l * 0.1) * (hasPerk('FOX') ? 1.1 : 1);
   return {
     player,
     beetle: isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2),
     fright: 4.2,
     tunnel: 3.6,
     eaten: 15,
-    frightTime: Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1),
+    frightTime: Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1) * (hasPerk('ES') ? 1.5 : 1),
   };
 }
 
@@ -915,7 +916,7 @@ function earnCredit(n, x, y) {
 function levelCleared() {
   const flawless = deathsThisLevel === 0;
   track('clears'); if (flawless) track('flawless'); if (isChallenge(level)) track('challenges');
-  const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1);
+  const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1);
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
   if (level > highestCleared) { highestCleared = level; if (SKINS[level] && !ownedSkins.has(level)) unlockedSkin = SKINS[level]; }
@@ -943,7 +944,7 @@ function saveProgress() {
 function newGame(startLevel) {
   const saved = loadProgress();
   level = startLevel || saved.level;
-  score = level === saved.level ? saved.score : 0; lives = 3; extraLifeGiven = score >= 5000; deathsThisLevel = 0; creditsThisLevel = 0;
+  score = level === saved.level ? saved.score : 0; lives = hasPerk('Ranger') ? 4 : 3; shieldUsed = false; extraLifeGiven = score >= 5000; deathsThisLevel = 0; creditsThisLevel = 0;
   applyLevelMap(level);
   resetMaze(); resetActors(); resize();
   levelIntro = true;
@@ -957,7 +958,8 @@ function newGame(startLevel) {
 function nextLevel() {
   mazeLayerFlash = null;
   level++;
-  deathsThisLevel = 0; creditsThisLevel = 0;
+  deathsThisLevel = 0; creditsThisLevel = 0; shieldUsed = false;
+  if (hasPerk('Ranger') && lives < 4) lives = 4;
   if (level >= loadProgress().level) saveProgress();   // replaying an old level never moves you back
   applyLevelMap(level);
   resetMaze(); resetActors(); resize();
@@ -1050,12 +1052,12 @@ function eatAt(x, y) {
   if (x < 0 || x >= COLS) return;
   const c = grid[y][x];
   if (c === '.') {
-    grid[y][x] = ' '; eraseSeed(x, y); track('seeds'); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(10); seedsLeft--; seedsEaten++; sfx.seed();
+    grid[y][x] = ' '; eraseSeed(x, y); track('seeds'); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(hasPerk('Sprout') ? 15 : 10); seedsLeft--; seedsEaten++; sfx.seed();
   } else if (c === 'o') {
     grid[y][x] = ' '; burst(x, y, '#ffb02e', 16, 4.5, 0.6, 0.1); addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
     startFright();
   }
-  if (seedsEaten === Math.round(TOTAL_SEEDS * 0.3) || seedsEaten === Math.round(TOTAL_SEEDS * 0.7)) spawnBonus();
+  if (seedsEaten === Math.round(TOTAL_SEEDS * 0.3) || seedsEaten === Math.round(TOTAL_SEEDS * 0.7) || (hasPerk('ZOGHA') && seedsEaten === Math.round(TOTAL_SEEDS * 0.5))) spawnBonus();
   if (seedsLeft === 0) levelCleared();
 }
 
@@ -1142,14 +1144,14 @@ const levelProgress = () => TOTAL_SEEDS ? seedsEaten / TOTAL_SEEDS : 0;
 function huntWeight(b) {
   const p = levelProgress(), n = beetles.length;
   // after losing a life (or at the start) beetles leave you alone for a while, easing back in
-  const breather = clamp((time - (isChallenge(level) ? 4 : 8)) / 6, 0, 1);
+  const breather = clamp((time - (isChallenge(level) ? 4 : 8) - (hasPerk('Shadow') ? 5 : 0)) / 6, 0, 1);
   if (isChallenge(level)) {   // challenge: everyone joins early and hunts hard near the end
     if (p >= 0.75) return breather;
     return breather * clamp((p - 0.1 - 0.3 * (b.i / Math.max(1, n - 1))) / 0.15, 0, 1);
   }
   // endgame: half of them hunt flat out, the rest only now and then
   if (p >= ENDGAME) return breather * (b.i < Math.ceil(n / 2) ? 1 : 0.55);
-  const start = n > 1 ? 0.3 + 0.45 * (b.i / (n - 1)) : 0.35;   // when this beetle starts to hunt
+  const start = (n > 1 ? 0.3 + 0.45 * (b.i / (n - 1)) : 0.35) + (hasPerk('Shadow') ? 0.1 : 0);   // when this beetle starts to hunt
   return breather * clamp((p - start) / 0.2, 0, 1);             // fades in over the next 20% of seeds
 }
 function roamTarget(b) {
@@ -1232,6 +1234,11 @@ function checkCollisions() {
         frightChain++;
         addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, '#ff3b3b', 16, 5, 0.55, 0.1); earnCredit(1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
+      } else if (hasPerk('Midnight') && !shieldUsed) {
+        // magic shield: the beetle bounces off and is sent home
+        shieldUsed = true;
+        b.mode = 'eaten'; b.frightened = false;
+        popup(pp.x, pp.y, 'SHIELD!', '#c9a6ff'); burst(pp.x, pp.y, '#b48cff', 22, 5, 0.7, 0.1); sfx.lantern();
       } else {
         lives--; updateHud();
         setState('dying', 1.8); sfx.die(); deathsThisLevel++; burst(pp.x, pp.y, SKINS[skinIndex].body[1], 18, 3.5, 0.9, 0.11);
@@ -1242,7 +1249,7 @@ function checkCollisions() {
   if (bonus) {
     if (Math.abs(pp.x - bonus.x) + Math.abs(pp.y - bonus.y) < 0.7) {
       addScore(bonus.value); popup(bonus.x, bonus.y, String(bonus.value), '#ffd36b'); sfx.bonus();
-      earnCredit(1, bonus.x, bonus.y);
+      earnCredit(hasPerk('ZOGHA') ? 2 : 1, bonus.x, bonus.y);
       bonus = null;
     }
   }
@@ -1250,7 +1257,7 @@ function checkCollisions() {
 
 // ---------- Gold coins that pop up in the maze ----------
 let coin = null, coinTimer = 0;
-function nextCoinDelay() { return 12 + Math.random() * 8; }
+function nextCoinDelay() { return (12 + Math.random() * 8) * (hasPerk('Minty') ? 0.5 : 1); }
 function spawnCoin() {
   const spots = [];
   for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) {
@@ -1811,6 +1818,23 @@ const SKINS = [
   { name: 'Shadow',   img: 'shadow', body: ['#d4d0ff', '#6c63ff'], hat: '#ffcf5a', band: '#2a2a2a', pack: '#2b2a5a', packDark: '#1d1c40', roll: '#ff7aa8', acc: 'bow' },
   { name: 'Ranger',   img: 'ranger', body: ['#d4d0ff', '#6c63ff'], hat: '#ffcf5a', band: '#2a2a2a', pack: '#2b2a5a', packDark: '#1d1c40', roll: '#ff7aa8', acc: 'bow' },
 ];
+// Every look has its own power in the game, so each one is worth unlocking for more than looks.
+const PERKS = {
+  Backman:  { title: 'All-rounder', desc: 'The classic. No special power, no weakness.' },
+  ZOGHA:    { title: 'Sweet tooth', desc: 'An extra mushroom appears every level, and mushrooms give +2 credits.' },
+  ES:       { title: 'Deep freeze', desc: 'Lanterns keep the beetles scared 50% longer.' },
+  Sprout:   { title: 'Harvest', desc: 'Every seed is worth 15 points instead of 10.' },
+  FOX:      { title: 'Quick feet', desc: 'Runs 10% faster than everyone else.' },
+  Minty:    { title: 'Lucky leaf', desc: 'Gold coins appear twice as often.' },
+  Midnight: { title: 'Magic shield', desc: 'Survives the first beetle hit in every level.' },
+  MBN:      { title: 'Royal treasury', desc: 'Clearing a level pays double credits.' },
+  Shadow:   { title: 'Stealth', desc: 'Beetles notice you later and give you a longer head start.' },
+  Ranger:   { title: 'Survivor', desc: 'Starts every level with 4 lives instead of 3.' },
+};
+const perk = () => SKINS[skinIndex].name;
+const hasPerk = n => perk() === n;
+let shieldUsed = false;
+
 
 // ---------- Backman sprite ----------
 // The custom Backman artwork, recoloured per look: body, hat, hat band and bag each take the
@@ -2207,12 +2231,12 @@ function renderPicker() {
       const g = c.getContext('2d'); g.scale(d, d); g.translate(29, 30); drawBackman(g, 15, sk);
       b.appendChild(c);
       const label = document.createElement('span');
-      if (unlocked) label.textContent = sk.name;
+      if (unlocked) label.innerHTML = `${sk.name}<small class="perk">${PERKS[sk.name].title}</small>`;
       else label.innerHTML = `<span class="price">${COIN_SVG}${skinPrice(i)}</span>`;
       b.appendChild(label);
       if (!unlocked) b.insertAdjacentHTML('beforeend', LOCK_SVG);
       b.addEventListener('click', () => {
-        if (unlocked) { skinIndex = i; pendingBuy = -1; shopNote = ''; saveMeta(); renderPicker(); updateHud(); return; }
+        if (unlocked) { skinIndex = i; pendingBuy = -1; shopNote = `<b style="color:var(--accent)">${sk.name}</b> · <b>${PERKS[sk.name].title}</b>: ${PERKS[sk.name].desc}`; saveMeta(); renderPicker(); updateHud(); return; }
         pendingBuy = i; shopNote = ''; renderPicker();
       });
       box.appendChild(b);
@@ -2221,11 +2245,11 @@ function renderPicker() {
     if (pendingBuy >= 0) {
       const sk = SKINS[pendingBuy], price = skinPrice(pendingBuy);
       if (credits >= price) {
-        msg.innerHTML = `Buy <b>${sk.name}</b> for ${price} credits? (or clear level ${pendingBuy} to get it free)<br>` +
+        msg.innerHTML = `<b>${PERKS[sk.name].title}</b>: ${PERKS[sk.name].desc}<br>Buy <b>${sk.name}</b> for ${price} credits? (or clear level ${pendingBuy} to get it free)<br>` +
           '<button class="buy">Buy</button><button class="cancel">Cancel</button>';
         msg.querySelector('.buy').addEventListener('click', () => buySkin(pendingBuy));
       } else {
-        msg.innerHTML = `<b>${sk.name}</b> costs ${price} credits. You have ${credits}: you need ${price - credits} more, or clear level ${pendingBuy} to get it free.<br>` +
+        msg.innerHTML = `<b>${PERKS[sk.name].title}</b>: ${PERKS[sk.name].desc}<br><b>${sk.name}</b> costs ${price} credits. You have ${credits}: you need ${price - credits} more, or clear level ${pendingBuy} to get it free.<br>` +
           '<button class="cancel">OK</button>';
       }
       msg.querySelector('.cancel').addEventListener('click', () => { pendingBuy = -1; renderPicker(); });
