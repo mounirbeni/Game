@@ -232,6 +232,10 @@
   .pname-fixed { font-size: 26px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #06112b; letter-spacing: .04em; }
   .online-tag { font-size: 10px; font-weight: 900; color: #0b3a0d; background: linear-gradient(#c8ff8a, #4fcf3a); border-radius: 999px; padding: 2px 8px; }
   .pname input { text-transform: uppercase; letter-spacing: .06em; }
+  .ppass { display: flex; align-items: center; gap: 6px; }
+  .ppass input { flex: 1; min-width: 0; font: inherit; font-size: 15px; font-weight: 800; color: #fff; background: transparent; border: 0; border-bottom: 2px dashed #ffffff44; padding: 4px 0; }
+  .ppass input:focus { outline: none; border-bottom-color: #ffcf3a; }
+  .plink { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; font-size: 12px; font-weight: 800; color: #8fc7ff; text-decoration: underline; cursor: pointer; }
   .claim-btn { flex: none; padding: 7px 12px; border-radius: 999px; border: 2px solid #0f4d12; font: inherit; font-weight: 900; font-size: 13px; color: #fff; cursor: pointer;
     text-shadow: 0 1px 0 #0f6a18; background: linear-gradient(#c8ff8a, #4fcf3a 55%, #1d8a22); }
   .claim-btn:disabled { filter: grayscale(.8); }
@@ -546,15 +550,15 @@ function idbDo(mode, fn) {
     tx.onerror = () => { db.close(); rej(tx.error); };
   }));
 }
-let backupTimer = 0, backupsEnabled = true;
+let backupTimer = 0, backupsEnabled = true, cloudReady = false;
 function backupNow() {
   if (!backupsEnabled) return;
   const m = readSave();
   if (Object.keys(m).length) idbDo('readwrite', st => st.put({ t: Date.now(), save: m }, 'save')).catch(() => {});
 }
-function backupSoon() { clearTimeout(backupTimer); backupTimer = setTimeout(backupNow, 700); }
-document.addEventListener('visibilitychange', () => { if (document.hidden) backupNow(); });
-window.addEventListener('pagehide', backupNow);
+function backupSoon() { clearTimeout(backupTimer); backupTimer = setTimeout(backupNow, 700); if (cloudReady) cloudSoon(); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) { backupNow(); if (cloudReady) cloudPush(true); } });
+window.addEventListener('pagehide', () => { backupNow(); if (cloudReady) cloudPush(true); });
 // Restore from the backup if it has more progress than what's here (e.g. site data was cleared).
 function restoreFromBackup() {
   return idbDo('readonly', st => st.get('save')).then(rec => {
@@ -2464,7 +2468,7 @@ function claimMission(id) {
 // ---------- Online leaderboard ----------
 // A player claims a unique name (3-5 letters/numbers) and gets a secret key kept on this device
 // (and inside the save code). Best score, highest level and look are sent to /api/score.
-let account = loadJSON('bma.account', { name: '', token: '' });
+let account = loadJSON('bma.account', { name: '', token: '', hasPassword: false });
 let worldBoard = null, worldBoardAt = 0, myRank = null, submitTimer = 0, lastSent = '';
 async function api(path, body) {
   const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' } : { cache: 'no-store' });
@@ -2472,14 +2476,64 @@ async function api(path, body) {
   if (!r.ok) { const e = new Error(data.message || 'Network error'); e.code = data.error; throw e; }
   return data;
 }
-async function claimName(raw) {
-  const res = await api('/api/claim', { name: raw });
-  account = { name: res.name, token: res.token };
+async function claimName(raw, password) {
+  const res = await api('/api/claim', { name: raw, password });
+  account = { name: res.name, token: res.token, hasPassword: !!res.hasPassword };
   saveJSON('bma.account', account);
   profile.name = res.name; saveJSON('bma.profile', profile);
   backupNow(); lastSent = '';
-  submitScore(true);
+  submitScore(true); cloudPush();
   return res.name;
+}
+// ---------- Cloud save ----------
+// With an account, the whole progress (levels, score, credits, looks, stats...) is kept on the
+// server too: sent a few seconds after every change and when the app is closed, and merged back
+// in (never lowering anything) when the game opens or the player logs in on another device.
+let cloudTimer = 0, cloudLast = '', cloudState = '';
+const cloudSave = () => { const m = readSave(); delete m['bma.account']; return m; };
+function cloudSoon() { if (!account.token) return; clearTimeout(cloudTimer); cloudTimer = setTimeout(() => cloudPush(), 3000); }
+function cloudPush(closing) {
+  if (!account.token || !backupsEnabled) return;
+  clearTimeout(cloudTimer);
+  const save = cloudSave(), text = JSON.stringify(save);
+  if (text === cloudLast) return;
+  const body = JSON.stringify({ action: 'save', name: account.name, token: account.token, save });
+  if (closing) {   // the page is going away: fire and forget
+    try { fetch('/api/account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: body.length < 60000 }); cloudLast = text; } catch (e) { /* ignore */ }
+    return;
+  }
+  api('/api/account', JSON.parse(body)).then(() => { cloudLast = text; cloudState = 'saved'; }).catch(() => { cloudState = 'offline'; });
+}
+// Merge a save from the server into this device. Returns true when it brought more progress.
+function mergeCloud(save) {
+  if (!save) return false;
+  const cur = readSave(), merged = mergeSave(cur, save);
+  const gained = ['backman.level', 'backman.cleared', 'backman.credits', 'backman.best', 'backman.owned', 'bma.stats']
+    .some(k => merged[k] !== cur[k]);
+  writeSave(merged); backupNow();
+  return gained;
+}
+async function cloudPull() {
+  if (!account.token) return false;
+  try {
+    const r = await api('/api/account', { action: 'load', name: account.name, token: account.token });
+    if (account.hasPassword !== r.hasPassword) { account.hasPassword = r.hasPassword; saveJSON('bma.account', account); }
+    cloudState = 'saved';
+    return mergeCloud(r.save);
+  } catch (e) { cloudState = 'offline'; return false; }
+}
+async function loginAccount(raw, password) {
+  const res = await api('/api/account', { action: 'login', name: raw, password });
+  flushStats();
+  account = { name: res.name, token: res.token, hasPassword: true };
+  saveJSON('bma.account', account);
+  mergeCloud(res.save);
+  profile = loadJSON('bma.profile', profile); profile.name = res.name; saveJSON('bma.profile', profile);
+  backupNow();
+}
+async function setAccountPassword(password) {
+  await api('/api/account', { action: 'password', name: account.name, token: account.token, password });
+  account.hasPassword = true; saveJSON('bma.account', account);
 }
 function submitScore(now) {
   if (!account.token) return;
@@ -2609,9 +2663,15 @@ function openSheet(which, fromRefresh = false) {
         <button class="pavatar" id="pAvatarBtn" aria-label="Change picture"><canvas id="pAvatar"></canvas><i class="pedit">&#9998;</i></button>
         <div class="pinfo">
           ${account.name
-            ? `<div class="pname"><span class="pname-fixed">${esc(account.name)}</span><span class="online-tag">ONLINE</span></div>`
-            : `<div class="pname"><input id="pName" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false" value="${esc((profile.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}" placeholder="NAME" aria-label="Player name"><button class="claim-btn" id="pClaim">Claim</button></div>
-               <div class="pname-hint" id="pHint">3 to 5 letters or numbers. Each name is unique.</div>`}
+            ? `<div class="pname"><span class="pname-fixed">${esc(account.name)}</span><span class="online-tag">ONLINE</span></div>
+               ${account.hasPassword
+                 ? `<div class="pname-hint">&#9729; Progress saved online. Log in with your name and password on any device.</div>`
+                 : `<div class="ppass"><input id="pPass" type="password" maxlength="64" autocomplete="new-password" placeholder="Set a password" aria-label="Password"><button class="claim-btn" id="pSetPass">Save</button></div>
+                    <div class="pname-hint" id="pHint">&#9729; Progress saved online. Set a password to log in on other devices.</div>`}`
+            : `<div class="pname"><input id="pName" maxlength="5" autocapitalize="characters" autocomplete="username" spellcheck="false" value="${esc((profile.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}" placeholder="NAME" aria-label="Player name"></div>
+               <div class="ppass"><input id="pPass" type="password" maxlength="64" autocomplete="${openSheet.login ? 'current-password' : 'new-password'}" placeholder="Password" aria-label="Password"><button class="claim-btn" id="pClaim">${openSheet.login ? 'Log in' : 'Claim'}</button></div>
+               <div class="pname-hint" id="pHint">${openSheet.login ? 'Log in to load your saved progress.' : '3 to 5 letters or numbers, password 6+ characters. Your progress is saved online.'}</div>
+               <button class="plink" id="pSwitch">${openSheet.login ? 'New player? Claim a name' : 'Already have an account? Log in'}</button>`}
           <div class="plevel"><img class="uiicon" src="icons/ui/star.webp" alt=""><span>Player level</span><b>${pl.lvl}</b></div>
           <div class="pbar"><i style="width:${Math.round(100 * pl.xp / pl.need)}%"></i><em>${pl.xp} / ${pl.need}</em></div>
         </div>
@@ -2634,14 +2694,30 @@ function openSheet(which, fromRefresh = false) {
       </div>`;
     paintAvatar($('pAvatar'), 92);
     if (!account.name) {
-      const inp = $('pName'), hint = $('pHint');
-      inp.addEventListener('input', () => { const v = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); if (v !== inp.value) inp.value = v; hint.className = 'pname-hint'; hint.textContent = '3 to 5 letters or numbers. Each name is unique.'; });
+      const inp = $('pName'), pass = $('pPass'), hint = $('pHint'), login = !!openSheet.login;
+      inp.addEventListener('input', () => { const v = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); if (v !== inp.value) inp.value = v; hint.className = 'pname-hint'; });
+      $('pSwitch').addEventListener('click', () => { openSheet.login = !login; openSheet('profile'); });
       $('pClaim').addEventListener('click', async () => {
-        const v = inp.value;
-        if (!/^[A-Z0-9]{3,5}$/.test(v) || !/[A-Z]/.test(v)) { hint.className = 'pname-hint bad'; hint.textContent = 'Use 3 to 5 letters or numbers (at least one letter).'; return; }
-        $('pClaim').disabled = true; hint.className = 'pname-hint'; hint.textContent = 'Checking…';
-        try { await claimName(v); refreshHome(); openSheet('profile'); }
-        catch (e) { $('pClaim').disabled = false; hint.className = 'pname-hint bad'; hint.textContent = e.code === 'taken' ? `${v} is already taken. Try another name.` : e.code === 'invalid' ? 'That name is not allowed. Try another.' : 'No connection. Try again when you are online.'; }
+        const v = inp.value, pw = pass.value;
+        const bad = t => { hint.className = 'pname-hint bad'; hint.textContent = t; };
+        if (!/^[A-Z0-9]{3,5}$/.test(v) || !/[A-Z]/.test(v)) return bad('Use 3 to 5 letters or numbers (at least one letter).');
+        if (pw.length < 6) return bad('The password needs at least 6 characters.');
+        $('pClaim').disabled = true; hint.className = 'pname-hint'; hint.textContent = login ? 'Logging in…' : 'Checking…';
+        try {
+          if (login) { await loginAccount(v, pw); hint.textContent = 'Welcome back! Loading your progress…'; setTimeout(() => location.reload(), 400); return; }
+          await claimName(v, pw); refreshHome(); openSheet('profile');
+        } catch (e) {
+          $('pClaim').disabled = false;
+          bad(e.code === 'login' ? 'Wrong name or password.' : e.code === 'taken' ? `${v} is already taken. Try another name, or log in.` : e.code === 'invalid' ? 'That name is not allowed. Try another.' : e.code === 'password' ? 'The password needs 6 to 64 characters.' : 'No connection. Try again when you are online.');
+        }
+      });
+    } else if (!account.hasPassword) {
+      const pass = $('pPass'), hint = $('pHint');
+      $('pSetPass').addEventListener('click', async () => {
+        if (pass.value.length < 6) { hint.className = 'pname-hint bad'; hint.textContent = 'The password needs at least 6 characters.'; return; }
+        $('pSetPass').disabled = true; hint.className = 'pname-hint'; hint.textContent = 'Saving…';
+        try { await setAccountPassword(pass.value); openSheet('profile'); }
+        catch (e) { $('pSetPass').disabled = false; hint.className = 'pname-hint bad'; hint.textContent = e.code === 'auth' ? 'This device\'s key is no longer valid.' : 'No connection. Try again when you are online.'; }
       });
     }
     $('pAvatarBtn').addEventListener('click', () => {
@@ -2676,13 +2752,13 @@ function openSheet(which, fromRefresh = false) {
       <div class="set-row"><span>How to play</span></div>
       <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins for credits. Mushrooms freeze every beetle for 3 seconds. Each level the garden grows and one more beetle joins in.</p>
       <div class="set-row"><span>Save code</span><button class="toggle on" id="copySave">Copy</button></div>
-      <p>Your progress is saved on this device. Copy your save code and keep it somewhere safe (Notes, a message to yourself) before deleting the app or changing phone.</p>
+      <p>${account.token ? 'Your progress is saved on this device and online with your account.' : 'Your progress is saved on this device. Claim a name in your profile to also save it online.'} You can also copy your save code and keep it somewhere safe (Notes, a message to yourself) before deleting the app or changing phone.</p>
       <div class="set-row"><span>Load a save code</span><button class="toggle" id="loadSaveBtn">Paste</button></div>
       <div id="loadSaveBox" class="hidden"><textarea id="saveInput" rows="3" placeholder="BM1..." style="width:100%;border-radius:10px;border:2px solid #2d6aa0;background:#08182a;color:#fff;font:12px ui-monospace,monospace;padding:8px"></textarea>
         <button class="gold-btn" id="applySave" style="margin-top:8px">Load progress</button><p id="saveMsg"></p></div>
       <p style="font-size:12px">Loading a code never lowers your progress: you keep the highest level, credits and looks from both.</p>
       <div class="set-row"><span>Reset all progress</span><button class="danger-btn" id="resetBtn">Reset</button></div>
-      <p style="font-size:12px">Bug Maze Adventure · progress is saved on this device.</p>`;
+      <p style="font-size:12px">Bug Maze Adventure · ${account.token ? 'progress is saved on this device and online.' : 'progress is saved on this device.'}</p>`;
     $('openProfile').addEventListener('click', () => openSheet('profile'));
     $('soundToggle').addEventListener('click', () => { toggleMute(); openSheet('settings'); });
     $('copySave').addEventListener('click', async e => {
@@ -2804,14 +2880,16 @@ resize();
 updateHud();
 showHome();
 requestAnimationFrame(frame);
-restoreFromBackup().then(gained => {
+cloudReady = true;
+restoreFromBackup().then(async local => {
+  const gained = (await cloudPull()) || local;
   let reloaded = false;
   try { reloaded = sessionStorage.getItem('bma.restored') === '1'; } catch (e) { /* ignore */ }
   if (gained && state === 'title' && !reloaded) {
     try { sessionStorage.setItem('bma.restored', '1'); } catch (e) { /* ignore */ }
     location.reload();   // start again with the restored progress
   } else backupNow();
-  submitScore(true); refreshRank();
+  submitScore(true); refreshRank(); cloudPush();
 });
 
 // Exposed for automated testing.

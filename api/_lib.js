@@ -1,11 +1,12 @@
 // Shared helpers for the online leaderboard (Vercel Functions + a private Vercel Blob store).
 //
 // Storage layout:
-//   accounts/<NAME>.json            { name, tokenHash, created }   created once, never overwritten
+//   accounts/<NAME>.json            { name, tokenHash, tokens[], passHash, created }
+//   saves/<NAME>.json               { t, save }   the player's whole progress (cloud save)
 //   lb/<NAME>/<best>-<level>-<look> empty marker; the pathname itself carries the player's best
 //                                   score, highest level and chosen look, so the whole board is
 //                                   read with a single list() call.
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
 let store;
 async function blob() {
@@ -47,24 +48,84 @@ const hash = t => createHash('sha256').update(String(t)).digest('hex');
 const pad = (n, w) => String(Math.max(0, Math.floor(n))).padStart(w, '0');
 const parse = p => { const m = p.match(/^lb\/([A-Z0-9]{3,5})\/(\d+)-(\d+)-(\d+)$/); return m && { name: m[1], best: +m[2], level: +m[3], look: +m[4] }; };
 
-export async function claim(rawName) {
+export const PASS_RULE = 'Passwords are 6 to 64 characters.';
+const okPass = p => typeof p === 'string' && p.length >= 6 && p.length <= 64;
+function passHash(p) { const salt = randomBytes(16).toString('hex'); return `${salt}:${scryptSync(p, salt, 32).toString('hex')}`; }
+function passOk(p, stored) {
+  if (!stored || typeof p !== 'string') return false;
+  const [salt, h] = stored.split(':'), a = Buffer.from(h, 'hex'), b = scryptSync(p, salt, 32);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+const tokenHashes = acc => [acc.tokenHash, ...(acc.tokens || [])].filter(Boolean);
+
+export async function claim(rawName, password) {
   const name = cleanName(rawName);
   if (!name) return { status: 400, body: { error: 'invalid', message: NAME_RULE } };
+  if (password != null && !okPass(password)) return { status: 400, body: { error: 'password', message: PASS_RULE } };
   const s = await blob();
   const token = randomBytes(24).toString('hex');
-  const ok = await s.create(`accounts/${name}.json`, JSON.stringify({ name, tokenHash: hash(token), created: Date.now() }));
+  const acc = { name, tokenHash: hash(token), created: Date.now() };
+  if (password != null) acc.passHash = passHash(password);
+  const ok = await s.create(`accounts/${name}.json`, JSON.stringify(acc));
   if (!ok) return { status: 409, body: { error: 'taken', message: `${name} is already taken. Try another name.` } };
-  return { status: 200, body: { name, token } };
+  return { status: 200, body: { name, token, hasPassword: !!acc.passHash } };
 }
 
-async function authed(rawName, token) {
+async function getAccount(name) {
+  const text = await (await blob()).read(`accounts/${name}.json`);
+  return text ? JSON.parse(text) : null;
+}
+async function authedAccount(rawName, token) {
   const name = cleanName(rawName);
   if (!name || !token) return null;
-  const s = await blob();
-  const text = await s.read(`accounts/${name}.json`);
-  if (!text) return null;
-  const acc = JSON.parse(text);
-  return acc.tokenHash === hash(token) ? name : null;
+  const acc = await getAccount(name);
+  return acc && tokenHashes(acc).includes(hash(token)) ? acc : null;
+}
+async function authed(rawName, token) { const acc = await authedAccount(rawName, token); return acc ? acc.name : null; }
+const AUTH_FAIL = { status: 401, body: { error: 'auth', message: 'Unknown player or wrong key.' } };
+
+// ---------- Cloud save ----------
+const MAX_SAVE = 200000;
+function cleanSave(save) {
+  if (!save || typeof save !== 'object' || Array.isArray(save)) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(save))
+    if ((k.startsWith('backman.') || k.startsWith('bma.')) && k !== 'bma.account' && typeof v === 'string' && v.length < 20000) out[k] = v;
+  return JSON.stringify(out).length <= MAX_SAVE ? out : null;
+}
+export async function saveCloud({ name, token, save }) {
+  const acc = await authedAccount(name, token);
+  if (!acc) return AUTH_FAIL;
+  const clean = cleanSave(save);
+  if (!clean) return { status: 400, body: { error: 'invalid', message: 'That save does not look right.' } };
+  const t = Date.now();
+  await (await blob()).write(`saves/${acc.name}.json`, JSON.stringify({ t, save: clean }));
+  return { status: 200, body: { saved: t } };
+}
+export async function loadCloud({ name, token }) {
+  const acc = await authedAccount(name, token);
+  if (!acc) return AUTH_FAIL;
+  const text = await (await blob()).read(`saves/${acc.name}.json`);
+  const rec = text ? JSON.parse(text) : null;
+  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, t: rec ? rec.t : 0, save: rec ? rec.save : null } };
+}
+// Log in on a new device with name + password: hands out a new key for that device.
+export async function login({ name: rawName, password }) {
+  const name = cleanName(rawName), acc = name && await getAccount(name);
+  if (!acc || !passOk(password, acc.passHash)) return { status: 401, body: { error: 'login', message: 'Wrong name or password.' } };
+  const token = randomBytes(24).toString('hex');
+  acc.tokens = [...(acc.tokens || []), hash(token)].slice(-20);
+  await (await blob()).write(`accounts/${name}.json`, JSON.stringify(acc));
+  return loadCloud({ name, token }).then(r => ({ status: 200, body: { ...r.body, token } }));
+}
+// Set or change the password (needs this device's key).
+export async function setPassword({ name, token, password }) {
+  const acc = await authedAccount(name, token);
+  if (!acc) return AUTH_FAIL;
+  if (!okPass(password)) return { status: 400, body: { error: 'password', message: PASS_RULE } };
+  acc.passHash = passHash(password);
+  await (await blob()).write(`accounts/${acc.name}.json`, JSON.stringify(acc));
+  return { status: 200, body: { hasPassword: true } };
 }
 
 export async function submit({ name: rawName, token, best, level, look }) {
@@ -98,9 +159,9 @@ export async function board(me) {
 
 export async function release({ name: rawName, token }) {
   const name = await authed(rawName, token);
-  if (!name) return { status: 401, body: { error: 'auth', message: 'Unknown player or wrong key.' } };
+  if (!name) return AUTH_FAIL;
   const s = await blob();
-  await s.remove([...(await s.list(`lb/${name}/`)), `accounts/${name}.json`]);
+  await s.remove([...(await s.list(`lb/${name}/`)), `accounts/${name}.json`, `saves/${name}.json`]);
   return { status: 200, body: { released: name } };
 }
 

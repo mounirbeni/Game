@@ -102,8 +102,13 @@ All home-screen and score-bar icons are custom artwork made for this game.
 - **Score updates:** the game sends each player's best score, highest level and current look to the server.
 - **The board:** the Leaderboard has a **World** tab (top 100, your rank highlighted) and a **My runs** tab.
 - **Server:** Vercel Functions in `api/`, storing data in a private Vercel Blob store (`BLOB_READ_WRITE_TOKEN`):
-  - `POST /api/claim` `{name}`: reserves the name and returns a secret key for this player.
+  - `POST /api/claim` `{name, password}`: reserves the name and returns a secret key for this player.
   - `POST /api/score` `{name, token, best, level, look}`: keeps the highest values sent.
   - `GET /api/leaderboard?me=NAME`: returns the ranking.
   - `POST /api/release` `{name, token}`: frees the name.
+  - `POST /api/account` `{action: 'save', name, token, save}`: stores the player's whole progress online (`saves/<NAME>.json`).
+  - `POST /api/account` `{action: 'load', name, token}`: returns the saved progress.
+  - `POST /api/account` `{action: 'login', name, password}`: logs in on a new device and returns a new key plus the saved progress.
+  - `POST /api/account` `{action: 'password', name, token, password}`: sets or changes the password.
+- **Cloud save:** with an account, progress is sent to the server a few seconds after every change and when the app closes, and merged back in (never lowering anything) when the game opens or after logging in.
 - **Secret key:** the key is saved on the device in `bma.account`. It is also included in the save code, so a player's name moves to a new phone with their progress.
