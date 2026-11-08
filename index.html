@@ -322,27 +322,33 @@ const player = { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, prog
 
 const beetleDefs = () => [
   { name: 'Bramble', color: '#ff5d5d', corner: { x: COLS - 2, y: -2 }, start: DEN_EXIT, release: 0 },
-  { name: 'Moth',    color: '#ff9be4', corner: { x: 1, y: -2 },        start: DEN_CENTER, release: 2 },
-  { name: 'Drift',   color: '#4fe0c8', corner: { x: COLS, y: ROWS },   start: { x: DEN_CENTER.x - 1, y: DEN_CENTER.y }, release: 5 },
-  { name: 'Hush',    color: '#b78cff', corner: { x: -1, y: ROWS },     start: { x: DEN_CENTER.x + 1, y: DEN_CENTER.y }, release: 8 },
+  { name: 'Moth',    color: '#ff9be4', corner: { x: 1, y: -2 },        start: DEN_CENTER, release: 5 },
+  { name: 'Drift',   color: '#4fe0c8', corner: { x: COLS, y: ROWS },   start: { x: DEN_CENTER.x - 1, y: DEN_CENTER.y }, release: 11 },
+  { name: 'Hush',    color: '#b78cff', corner: { x: -1, y: ROWS },     start: { x: DEN_CENTER.x + 1, y: DEN_CENTER.y }, release: 17 },
 ];
 let beetles = [];
 
 function modeSchedule() {
   // [scatter, chase, scatter, chase, ...] seconds
-  return level < 3 ? [7, 20, 7, 20, 5, 20, 5, Infinity] : [5, 22, 5, 22, 3, 30, 1, Infinity];
+  // Early levels give long breathers where the beetles wander back to their corners.
+  if (level <= 2) return [10, 15, 10, 15, 7, 20, 5, Infinity];
+  if (level <= 4) return [7, 20, 7, 20, 5, 20, 5, Infinity];
+  return [5, 22, 5, 22, 3, 30, 1, Infinity];
 }
 const isChaseMode = () => modeIndex % 2 === 1;
 
 function speeds() {
-  const l = Math.min(level - 1, 8);
+  // Difficulty curve: level 1 is gentle (beetles ~72% of Backman's speed) and each
+  // level adds a little, but beetles never outrun Backman.
+  const l = Math.min(level - 1, 10);
+  const player = 7.5 + l * 0.1;
   return {
-    player: 7.2 + l * 0.18,
-    beetle: 6.6 + l * 0.3,
+    player,
+    beetle: Math.min(player * 0.97, 5.4 + l * 0.32),
     fright: 4.2,
-    tunnel: 3.8,
+    tunnel: 3.6,
     eaten: 15,
-    frightTime: Math.max(1.5, 7 - (level - 1) * 0.7),
+    frightTime: Math.max(2, 9 - (level - 1) * 0.8),
   };
 }
 
@@ -365,7 +371,7 @@ function resetActors() {
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
     mode: i === 0 ? 'active' : 'den',
-    releaseAt: Math.max(0, d.release - (level - 1) * 0.6),
+    releaseAt: d.release * Math.max(0.3, 1 - (level - 1) * 0.15),
     frightened: false, bob: Math.random() * 6,
   }));
   frightTimer = 0; frightChain = 0;
@@ -490,7 +496,7 @@ function eatAt(x, y) {
 
 function addScore(n) {
   score += n;
-  if (!extraLifeGiven && score >= 10000) { extraLifeGiven = true; lives++; sfx.life(); popup(player.tx, player.ty, '1UP', '#7dffa1'); }
+  if (!extraLifeGiven && score >= 5000) { extraLifeGiven = true; lives++; sfx.life(); popup(player.tx, player.ty, '1UP', '#7dffa1'); }
   if (score > best) { best = score; saveBest(best); }
   updateHud();
 }
@@ -604,7 +610,7 @@ function checkCollisions() {
   for (const b of beetles) {
     if (b.mode === 'den' || b.mode === 'eaten') continue;
     const bp = pos(b);
-    if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.75) {
+    if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.6) {
       if (b.frightened) {
         b.frightened = false; b.mode = 'eaten';
         const pts = 200 * 2 ** Math.min(frightChain, 3);

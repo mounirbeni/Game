@@ -33,8 +33,8 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 - **Seed**: 10 points. Clear them all to finish the level.
 - **Lantern**: 50 points. For a few seconds the beetles turn blue and flee. Catch them for 200, 400, 800, then 1600 points.
 - **Mushroom**: a bonus snack that appears twice per level.
-- You get an extra life at 10,000 points.
-- Each level makes the beetles faster and shortens the lantern time.
+- You get an extra life at 5,000 points.
+- Level 1 is gentle. Each level makes the beetles a little faster, lets them out of the den sooner and shortens the lantern time, but they never outrun Backman.
 
 ## The beetles
 
