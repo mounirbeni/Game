@@ -171,6 +171,19 @@
   /* sheets (Daily reward, Shop, Missions, ...) */
   .sheet { position: absolute; inset: 0; background: #020810aa; display: flex; align-items: flex-end; justify-content: center; z-index: 5; }
   .sheet.hidden { display: none; }
+  #gate { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: #020810e6; }
+  #gate.hidden { display: none; }
+  .gate-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 10px; padding: 20px 18px; border-radius: 24px; text-align: center; color: #fff;
+    background: linear-gradient(#123456, #0a1e33); border: 2px solid #2d6aa0; box-shadow: 0 10px 40px #000c; }
+  .gate-logo { width: 84px; height: 84px; margin: -58px auto 0; border-radius: 22px; border: 3px solid #2d6aa0; box-shadow: 0 6px 16px #000a; }
+  .gate-card h3 { margin: 4px 0 0; font-size: 22px; color: #ffd75a; }
+  .gate-card p { margin: 0; color: #b9d2f0; font-size: 14px; line-height: 1.45; }
+  .gate-card input { font: inherit; font-size: 17px; font-weight: 800; color: #fff; background: #08182a; border: 2px solid #2d6aa0; border-radius: 12px; padding: 10px 12px; text-align: center; }
+  .gate-card input:focus { outline: none; border-color: #ffcf3a; }
+  #gName { text-transform: uppercase; letter-spacing: .08em; }
+  .gate-msg { min-height: 18px; font-size: 13px; font-weight: 800; color: #ffd75a; }
+  .gate-msg.bad { color: #ff8a8a; }
+  .gate-card .plink { align-self: center; }
   .sheet-card { width: 100%; max-width: 560px; max-height: 86%; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 14px 16px calc(env(safe-area-inset-bottom) + 18px);
     background: linear-gradient(#123456, #0a1e33); border: 2px solid #2d6aa0; border-bottom: 0; box-shadow: 0 -8px 30px #000a; color: #fff; }
   .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -363,6 +376,18 @@
   </nav>
   <div class="sheet hidden" id="sheet" role="dialog" aria-modal="true">
     <div class="sheet-card"><div class="sheet-head"><h3 id="sheetTitle"></h3><button class="sheet-x" id="sheetClose" aria-label="Close">&times;</button></div><div id="sheetBody"></div></div>
+  </div>
+</div>
+<div id="gate" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+  <div class="gate-card">
+    <img class="gate-logo" src="icons/icon-192.png" alt="">
+    <h3 id="gateTitle"></h3>
+    <p id="gateText"></p>
+    <input id="gName" maxlength="5" autocapitalize="characters" autocomplete="username" spellcheck="false" placeholder="NAME" aria-label="Player name">
+    <input id="gPass" type="password" maxlength="64" placeholder="Password (6+ characters)" aria-label="Password">
+    <button class="gold-btn" id="gGo"></button>
+    <div class="gate-msg" id="gMsg"></div>
+    <button class="plink" id="gSwitch"></button>
   </div>
 </div>
 <div id="app">
@@ -984,6 +1009,7 @@ function saveProgress() {
   backupSoon();
 }
 function newGame(startLevel) {
+  if (typeof gateNeeded === 'function' && cloudReady && gateNeeded()) { updateGate(); return; }
   const saved = loadProgress();
   level = startLevel || saved.level;
   score = level === saved.level ? saved.score : 0; lives = hasPerk('Ranger') ? 4 : 3; shieldUsed = false; extraLifeGiven = score >= 5000; deathsThisLevel = 0; creditsThisLevel = 0;
@@ -2531,6 +2557,50 @@ async function loginAccount(raw, password) {
   profile = loadJSON('bma.profile', profile); profile.name = res.name; saveJSON('bma.profile', profile);
   backupNow();
 }
+// ---------- Account gate ----------
+// Everyone must have an online account (name + password) before playing, so progress is always
+// saved on the server. Players who claimed a name before passwords existed must set one.
+const gateNeeded = () => !account.token || !account.hasPassword;
+let gateMode = 'claim';
+function updateGate() {
+  const g = $('gate');
+  if (!gateNeeded()) { g.classList.add('hidden'); return; }
+  const setPass = !!account.token, login = !setPass && gateMode === 'login';
+  $('gateTitle').textContent = setPass ? 'Protect your account' : login ? 'Welcome back!' : 'Create your account';
+  $('gateText').textContent = setPass ? `Set a password for ${account.name} to keep playing. Your progress is saved online and you can log in on any device.`
+    : login ? 'Log in with your name and password to load your saved progress.'
+    : 'Choose a name and a password to play. Your levels, score, credits and looks are saved online automatically.';
+  $('gName').classList.toggle('hidden', setPass);
+  if (!$('gName').value && profile.name && profile.name !== 'Player') $('gName').value = (profile.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+  $('gPass').autocomplete = login ? 'current-password' : 'new-password';
+  $('gGo').textContent = setPass ? 'Save password' : login ? 'Log in' : 'Create account';
+  $('gSwitch').classList.toggle('hidden', setPass);
+  $('gSwitch').textContent = login ? 'New player? Create an account' : 'Already have an account? Log in';
+  $('gMsg').textContent = ''; $('gMsg').className = 'gate-msg'; $('gGo').disabled = false;
+  if (state === 'playing') paused = true;
+  g.classList.remove('hidden');
+}
+$('gName').addEventListener('input', () => { const n = $('gName'), v = n.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); if (v !== n.value) n.value = v; });
+$('gSwitch').addEventListener('click', () => { gateMode = gateMode === 'login' ? 'claim' : 'login'; updateGate(); });
+$('gPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('gGo').click(); });
+$('gGo').addEventListener('click', async () => {
+  const msg = $('gMsg'), go = $('gGo'), v = $('gName').value, pw = $('gPass').value, setPass = !!account.token, login = !setPass && gateMode === 'login';
+  const bad = t => { msg.className = 'gate-msg bad'; msg.textContent = t; go.disabled = false; };
+  if (!setPass && (!/^[A-Z0-9]{3,5}$/.test(v) || !/[A-Z]/.test(v))) return bad('Name: 3 to 5 letters or numbers (at least one letter).');
+  if (pw.length < 6) return bad('The password needs at least 6 characters.');
+  go.disabled = true; msg.className = 'gate-msg'; msg.textContent = 'Please wait…';
+  try {
+    if (setPass) await setAccountPassword(pw);
+    else if (login) { await loginAccount(v, pw); msg.textContent = 'Welcome back! Loading your progress…'; setTimeout(() => location.reload(), 400); return; }
+    else await claimName(v, pw);
+    $('gPass').value = ''; updateGate(); refreshHome();
+  } catch (e) {
+    bad(e.code === 'login' ? 'Wrong name or password.' : e.code === 'taken' ? `${v} is already taken. Try another name, or log in.`
+      : e.code === 'invalid' ? 'That name is not allowed. Try another.' : e.code === 'password' ? 'The password needs 6 to 64 characters.'
+      : e.code === 'auth' ? 'This device\'s key is no longer valid. Log in again.' : 'No connection. Connect to the internet to continue.');
+    if (e.code === 'auth') { account = { name: '', token: '', hasPassword: false }; saveJSON('bma.account', account); gateMode = 'login'; setTimeout(updateGate, 1200); }
+  }
+});
 async function setAccountPassword(password) {
   await api('/api/account', { action: 'password', name: account.name, token: account.token, password });
   account.hasPassword = true; saveJSON('bma.account', account);
@@ -2595,6 +2665,7 @@ function showHome() {
 }
 function startPlay(levelNo) {
   unlockAudio();
+  if (gateNeeded()) { updateGate(); return; }
   homeEl.classList.add('hidden'); closeSheet();
   newGame(levelNo);
 }
@@ -2881,8 +2952,10 @@ updateHud();
 showHome();
 requestAnimationFrame(frame);
 cloudReady = true;
+if (!account.token) updateGate();
 restoreFromBackup().then(async local => {
   const gained = (await cloudPull()) || local;
+  updateGate();
   let reloaded = false;
   try { reloaded = sessionStorage.getItem('bma.restored') === '1'; } catch (e) { /* ignore */ }
   if (gained && state === 'title' && !reloaded) {
