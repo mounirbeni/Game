@@ -8,7 +8,17 @@ Level 1 is the hand-made Night Garden. Every level after that is a new maze, gen
 
 ## Play
 
-Open `index.html` in any modern browser.
+Open `index.html` in any modern browser, or play the live version at https://backman-nu.vercel.app.
+
+### Install it as an app
+
+Backman is a Progressive Web App. Once installed it opens full screen with its own icon, and it works offline.
+
+- **iPhone / iPad (Safari):** tap Share, then **Add to Home Screen**.
+- **Android (Chrome):** tap **Install app** on the start screen, or use the browser menu and choose **Install app**.
+- **Desktop (Chrome / Edge):** click the install icon in the address bar.
+
+The service worker (`sw.js`) only runs when the game is served over http(s), not from a `file://` URL.
 
 | Control | Action |
 | --- | --- |

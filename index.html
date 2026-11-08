@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Backman</title>
+<meta name="description" content="Guide Backman through ever-changing garden mazes, gather the glowing seeds and dodge the beetles.">
+<meta name="theme-color" content="#07110c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Backman">
 <style>
   :root {
     --bg: #07110c;
@@ -16,7 +25,8 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     font-family: ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif; overflow: hidden;
-    touch-action: none; user-select: none; -webkit-user-select: none; }
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   #app { display: flex; flex-direction: column; align-items: center; height: 100%; gap: 6px;
     padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
   #hud { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 720px; font-weight: 700; gap: 10px; padding: 0 6px; }
@@ -39,6 +49,9 @@
     border-radius: 999px; background: var(--accent); color: #3a2400; cursor: pointer; box-shadow: 0 4px 0 #a06d12; }
   button.big:active { transform: translateY(2px); box-shadow: 0 2px 0 #a06d12; }
   .hidden { display: none !important; }
+  button.install { margin-top: 10px; font: inherit; font-weight: 700; font-size: 15px; padding: 8px 20px; border-radius: 999px;
+    background: transparent; color: var(--accent); border: 2px solid var(--accent); cursor: pointer; }
+  .hint { font-size: 12px !important; }
   #controls { display: flex; gap: 6px; }
   .icon-btn { font: inherit; font-size: 18px; line-height: 1; background: var(--panel); color: var(--text);
     border: 1px solid #24503a; border-radius: 10px; width: 40px; height: 40px; cursor: pointer; padding: 0; }
@@ -68,7 +81,9 @@
           <span class="dot" style="background:#e05a5a"></span><span>Mushroom: bonus snack</span>
         </div>
         <p>Arrows / WASD to move · P to pause · M to mute<br>Swipe anywhere on the screen to move</p>
-        <button class="big" id="startBtn">Play</button>
+        <button class="big" id="startBtn">Play</button><br>
+        <button class="install hidden" id="installBtn">Install app</button>
+        <p class="hint hidden" id="iosHint">Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
       </div>
       <div class="card hidden" id="pauseCard">
         <h2>Paused</h2>
@@ -1096,6 +1111,27 @@ ui.muteBtn.addEventListener('click', toggleMute);
 ui.muteBtn.textContent = muted ? '🔇' : '🔊';
 document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && (state === 'play' || state === 'ready')) togglePause(); });
 window.addEventListener('resize', resize);
+
+// ---------- Install as an app (PWA) ----------
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  if (!isStandalone()) $('installBtn').classList.remove('hidden');
+});
+$('installBtn').addEventListener('click', async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  try { await installPrompt.userChoice; } catch (e) { /* ignore */ }
+  installPrompt = null;
+  $('installBtn').classList.add('hidden');
+});
+window.addEventListener('appinstalled', () => $('installBtn').classList.add('hidden'));
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone()) $('iosHint').classList.remove('hidden');
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 
 // ---------- Loop ----------
 let last = performance.now();
