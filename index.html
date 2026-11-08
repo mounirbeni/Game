@@ -60,6 +60,8 @@
   #perkChip { position: absolute; left: 8px; top: 8px; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px;
     pointer-events: none; background: #08142acc; border: 2px solid #ffcf3a; box-shadow: 0 3px 8px #0009; transition: opacity .3s; }
   #perkChip.hidden { display: none; }
+  /* the player asked for a clear view while playing: no cards over the maze */
+  #perkChip, #duelChip { display: none !important; }
   #perkFace { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(#2a5a9a, #12305a); }
   #perkChip .pk-text { display: flex; flex-direction: column; line-height: 1.05; }
   #perkChip b { font-size: 12px; color: #ffd75a; font-weight: 900; }

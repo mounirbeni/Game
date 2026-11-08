@@ -1,7 +1,7 @@
 // Backman service worker: makes the game installable and playable offline.
 // The page itself is fetched network-first so updates show up as soon as you're online;
 // everything else is served from the cache first.
-const CACHE = 'bugmaze-v23';
+const CACHE = 'bugmaze-v24';
 const ASSETS = [
   './',
   './index.html',
