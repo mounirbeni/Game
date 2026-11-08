@@ -253,42 +253,101 @@ function loadBest() { try { return parseInt(localStorage.getItem('backman.best')
 function saveBest(v) { try { localStorage.setItem('backman.best', String(v)); } catch (e) { /* ignore */ } }
 
 // ---------- Audio ----------
-let actx = null, muted = false;
+// Sound effects are synthesised on the fly, no files: filtered noise gives crunchy bites and
+// pops, short low "thumps" give them body, and a little random pitch keeps repeats natural.
+// iPhone needs two extra things: the audio must be started from a touch, and a silent looping
+// <audio> element must be playing, otherwise the ring/silent switch mutes Web Audio.
+let actx = null, master = null, noiseBuf = null, muted = false, unlockEl = null;
 try { muted = localStorage.getItem('backman.muted') === '1'; } catch (e) { /* ignore */ }
+const SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 function audio() {
-  // Ask iOS to treat game audio as playback so it still plays with the silent switch on.
-  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) { /* ignore */ }
-  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
-  if (actx && actx.state === 'suspended') actx.resume();
+  if (!actx) {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* ignore */ }
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      master = actx.createDynamicsCompressor();
+      master.threshold.value = -12; master.ratio.value = 4;
+      master.connect(actx.destination);
+      noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { actx = null; }
+  }
   return actx;
 }
-function tone(freq, dur, { type = 'square', vol = 0.06, to = null, delay = 0 } = {}) {
+function unlockAudio() {
   if (muted) return;
   const a = audio(); if (!a) return;
-  const t0 = a.currentTime + delay;
-  const o = a.createOscillator(), g = a.createGain();
-  o.type = type; o.frequency.setValueAtTime(freq, t0);
-  if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + dur);
-  g.gain.setValueAtTime(vol, t0);
+  if (a.state !== 'running') a.resume().catch(() => {});
+  try { const s = a.createBufferSource(); s.buffer = a.createBuffer(1, 1, 22050); s.connect(a.destination); s.start(0); } catch (e) { /* ignore */ }
+  if (!document.hidden) {
+    if (!unlockEl) { unlockEl = new Audio(SILENT_WAV); unlockEl.loop = true; unlockEl.setAttribute('playsinline', ''); }
+    if (unlockEl.paused) unlockEl.play().catch(() => {});
+  }
+}
+['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (unlockEl) unlockEl.pause(); }
+  else if (actx && !muted) actx.resume().catch(() => {});
+});
+
+const jitter = (v, amt) => v * (1 + (Math.random() * 2 - 1) * amt);
+function play(fn) {
+  if (muted) return;
+  const a = audio(); if (!a) return;
+  if (a.state !== 'running') { a.resume().catch(() => {}); return; }
+  fn(a.currentTime + 0.005);
+}
+// a burst of filtered noise: crunch, pop, whoosh
+function noise(t0, dur, { type = 'bandpass', f = 1500, f2 = null, q = 1, vol = 0.3 } = {}) {
+  const src = actx.createBufferSource(); src.buffer = noiseBuf;
+  const fl = actx.createBiquadFilter(); fl.type = type; fl.Q.value = q;
+  fl.frequency.setValueAtTime(f, t0);
+  if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.004);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g).connect(a.destination);
+  src.connect(fl).connect(g).connect(master);
+  src.start(t0, Math.random() * 0.8); src.stop(t0 + dur + 0.02);
+}
+// a short pitched body under the noise
+function thump(t0, f, f2, dur, vol) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.003);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(master);
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
-let seedFlip = false;
+function munch(t) {
+  noise(t, 0.05, { f: jitter(2300, 0.2), q: 1.3, vol: 0.5 });
+  noise(t + 0.022, 0.04, { f: jitter(1300, 0.2), q: 1.5, vol: 0.28 });
+  thump(t, jitter(165, 0.1), 70, 0.055, 0.26);
+}
 const sfx = {
-  seed() {
-    // a little two-note munch: alternating up/down sweeps with a soft pop on top
-    seedFlip = !seedFlip;
-    tone(seedFlip ? 330 : 620, 0.075, { type: 'triangle', vol: 0.11, to: seedFlip ? 620 : 330 });
-    tone(seedFlip ? 990 : 880, 0.03, { type: 'sine', vol: 0.035 });
-  },
-  lantern() { tone(300, 0.35, { type: 'sawtooth', vol: 0.05, to: 900 }); },
-  eat() { tone(200, 0.25, { type: 'square', vol: 0.06, to: 1400 }); },
-  bonus() { [700, 900, 1200].forEach((f, i) => tone(f, 0.1, { type: 'triangle', vol: 0.07, delay: i * 0.07 })); },
-  die() { tone(700, 1.1, { type: 'sawtooth', vol: 0.06, to: 60 }); },
-  start() { [392, 523, 659, 784, 659, 784].forEach((f, i) => tone(f, 0.14, { type: 'triangle', vol: 0.07, delay: i * 0.13 })); },
-  clear() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.16, { type: 'triangle', vol: 0.07, delay: i * 0.1 })); },
-  life() { [880, 1175, 1568].forEach((f, i) => tone(f, 0.1, { type: 'square', vol: 0.05, delay: i * 0.08 })); },
+  seed() { play(munch); },                                   // crunchy bite
+  lantern() { play(t => {                                    // lantern flares up
+    thump(t, 110, 55, 0.12, 0.3);
+    noise(t, 0.4, { f: 500, f2: 5500, q: 0.8, vol: 0.16 });
+  }); },
+  eat() { play(t => {                                        // crunching a beetle
+    [0, 0.055, 0.11].forEach((d, i) => noise(t + d, 0.07, { type: 'lowpass', f: 2800 - i * 600, q: 0.7, vol: 0.32 }));
+    thump(t, 230, 50, 0.2, 0.38);
+  }); },
+  bonus() { play(t => { munch(t); munch(t + 0.09); noise(t + 0.18, 0.12, { type: 'highpass', f: 5000, vol: 0.08 }); }); },
+  die() { play(t => {                                        // squashed: falling poof
+    noise(t, 0.75, { type: 'lowpass', f: 4000, f2: 140, q: 0.6, vol: 0.3 });
+    thump(t, 300, 40, 0.65, 0.34);
+  }); },
+  start() { play(t => noise(t, 0.45, { f: 300, f2: 2400, q: 0.7, vol: 0.5 })); },   // soft whoosh
+  clear() { play(t => [0, 0.09, 0.18].forEach((d, i) => {   // three rising pops
+    thump(t + d, 420 + i * 160, 820 + i * 220, 0.08, 0.16);
+    noise(t + d, 0.03, { type: 'highpass', f: 3000, vol: 0.07 });
+  })); },
+  life() { play(t => [0, 0.08].forEach(d => thump(t + d, 650, 1150, 0.07, 0.15))); },
 };
 
 // ---------- Game state ----------
@@ -1120,10 +1179,11 @@ function toggleMute() {
   muted = !muted;
   try { localStorage.setItem('backman.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
   ui.muteBtn.innerHTML = muted ? ICONS.muted : ICONS.sound;
+  if (muted) { if (unlockEl) unlockEl.pause(); } else unlockAudio();
 }
-$('startBtn').addEventListener('click', () => { audio(); newGame(); });
+$('startBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
 { const saved = loadProgress(); if (saved.level > 1) $('startBtn').textContent = `Continue: level ${saved.level}`; }
-$('againBtn').addEventListener('click', () => { audio(); newGame(); });
+$('againBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
 $('resumeBtn').addEventListener('click', togglePause);
 ui.pauseBtn.addEventListener('click', togglePause);
 ui.muteBtn.addEventListener('click', toggleMute);
@@ -1175,7 +1235,7 @@ requestAnimationFrame(frame);
 // Exposed for automated testing.
 window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
-  get theme() { return THEME.name; }, get map() { return MAP; },
+  get theme() { return THEME.name; }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
   skipToLevel(n) { level = n - 1; nextLevel(); } };
 })();
 </script>
