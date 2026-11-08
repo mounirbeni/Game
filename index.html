@@ -1801,19 +1801,19 @@ function drawMushroom(cx, cy, timer) {
 // ---------- Backman looks (one unlocks per level cleared) ----------
 const SKINS = [
   { name: 'Backman',  body: ['#ffe08a', '#f2a93b'], hat: '#2f6b3f', band: '#e04f3c', pack: '#9a5b2a', packDark: '#7a431b', roll: '#3f7fbf', acc: null },
-  { name: 'Berry',    body: ['#ffc2d4', '#e8577e'], hat: '#6a2c91', band: '#ffd84a', pack: '#6b3d85', packDark: '#4f2a63', roll: '#49c6b6', acc: 'bow' },
-  { name: 'Frosty',   body: ['#e3f5ff', '#7cc4ef'], hat: '#1d4e89', band: '#ffffff', pack: '#3a5a7a', packDark: '#29435c', roll: '#ff8a5b', acc: 'glasses' },
-  { name: 'Sprout',   body: ['#efffc0', '#9ad13b'], hat: '#7a3b10', band: '#ffcf5a', pack: '#4a6b2a', packDark: '#36501e', roll: '#e04f3c', acc: null },
-  { name: 'Ember',    body: ['#ffd6a8', '#ff7a2f'], hat: '#2a2a2a', band: '#ff5d5d', pack: '#6b3a1a', packDark: '#4f2a12', roll: '#ffd84a', acc: 'mustache' },
-  { name: 'Minty',    body: ['#d2fff2', '#3fd3a7'], hat: '#ff7aa8', band: '#ffffff', pack: '#1f6b5a', packDark: '#164f42', roll: '#ffd84a', acc: 'glasses' },
+  { name: 'ZOGHA', img: 'zogha',    body: ['#ffc2d4', '#e8577e'], hat: '#6a2c91', band: '#ffd84a', pack: '#6b3d85', packDark: '#4f2a63', roll: '#49c6b6', acc: 'bow' },
+  { name: 'ES', img: 'es',   body: ['#e3f5ff', '#7cc4ef'], hat: '#1d4e89', band: '#ffffff', pack: '#3a5a7a', packDark: '#29435c', roll: '#ff8a5b', acc: 'glasses' },
+  { name: 'Sprout', img: 'sprout',   body: ['#efffc0', '#9ad13b'], hat: '#7a3b10', band: '#ffcf5a', pack: '#4a6b2a', packDark: '#36501e', roll: '#e04f3c', acc: null },
+  { name: 'FOX', img: 'fox',    body: ['#ffd6a8', '#ff7a2f'], hat: '#2a2a2a', band: '#ff5d5d', pack: '#6b3a1a', packDark: '#4f2a12', roll: '#ffd84a', acc: 'mustache' },
+  { name: 'Minty', img: 'minty',    body: ['#d2fff2', '#3fd3a7'], hat: '#ff7aa8', band: '#ffffff', pack: '#1f6b5a', packDark: '#164f42', roll: '#ffd84a', acc: 'glasses' },
   { name: 'Midnight', body: ['#d4d0ff', '#6c63ff'], hat: '#ffcf5a', band: '#2a2a2a', pack: '#2b2a5a', packDark: '#1d1c40', roll: '#ff7aa8', acc: 'bow' },
-  { name: 'King',     body: ['#fff4b8', '#e0b000'], hat: null,      band: '#c0392b', pack: '#7a5a10', packDark: '#5a420b', roll: '#8e44ad', acc: 'crown' },
+  { name: 'MBN', img: 'mbn',     body: ['#fff4b8', '#e0b000'], hat: null,      band: '#c0392b', pack: '#7a5a10', packDark: '#5a420b', roll: '#8e44ad', acc: 'crown' },
 ];
 
 // ---------- Backman sprite ----------
 // The custom Backman artwork, recoloured per look: body, hat, hat band and bag each take the
 // look's colours while keeping the artwork's shading. Until it loads, the drawn Backman is used.
-const heroSprite = { img: null, byLook: {} };
+const heroSprite = { img: null, byLook: {}, skins: {} };
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
@@ -1827,6 +1827,7 @@ function hsvToRgb(h, s, v) {
   return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
 }
 function heroFor(sk) {
+  if (sk.img && heroSprite.skins[sk.img]) return heroSprite.skins[sk.img];   // character with its own artwork
   const img = heroSprite.img; if (!img) return null;
   if (sk === SKINS[0]) return img;
   const key = sk.name;
@@ -1856,6 +1857,12 @@ function heroFor(sk) {
     try { renderPicker(); refreshHome(); } catch (e) { /* home not built yet */ }
   };
   img.src = 'assets/backman.webp';
+  SKINS.forEach(sk => {
+    if (!sk.img) return;
+    const im = new Image();
+    im.onload = () => { heroSprite.skins[sk.img] = im; try { renderPicker(); refreshHome(); } catch (e) { /* not ready */ } };
+    im.src = `assets/skins/${sk.img}.webp`;
+  });
 })();
 
 // Draws Backman facing right at the origin; R is the body radius.
