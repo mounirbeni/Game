@@ -496,8 +496,11 @@ function mergeSave(mine, theirs) {
         out[k] = JSON.stringify(r); break;
       }
       case 'bma.friends': {
-        const a = (saveObj(mv) || {}).names || [], b = (saveObj(tv) || {}).names || [];
-        out[k] = JSON.stringify({ names: [...new Set([...a, ...b])].slice(0, 50) }); break;
+        // the most recently edited list wins, so removing a friend sticks; old saves without a time are joined
+        const a = saveObj(mv) || {}, b = saveObj(tv) || {};
+        if ((a.t || 0) || (b.t || 0)) out[k] = (b.t || 0) > (a.t || 0) ? tv : mv;
+        else out[k] = JSON.stringify({ names: [...new Set([...(a.names || []), ...(b.names || [])])].slice(0, 50) });
+        break;
       }
       case 'bma.board': {
         const seen = new Set();
@@ -2742,7 +2745,7 @@ function openSheet(which, fromRefresh = false) {
     body.querySelectorAll('.lb-face').forEach(cv => paintAvatar(cv, 30, 'look:' + Math.min(+cv.dataset.look || 0, SKINS.length - 1)));
     if ($('goClaim')) $('goClaim').addEventListener('click', () => openSheet('profile'));
     body.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
-      friends = friends.filter(n => n !== b.dataset.rm); saveJSON('bma.friends', { names: friends });
+      friends = friends.filter(n => n !== b.dataset.rm); saveJSON('bma.friends', { names: friends, t: Date.now() });
       if (worldBoard && worldBoard.friends) worldBoard.friends = worldBoard.friends.filter(f => f.name !== b.dataset.rm);
       openSheet('board', true);
     }));
@@ -2754,7 +2757,7 @@ function openSheet(which, fromRefresh = false) {
         if (!/^[A-Z0-9]{3,5}$/.test(v)) { hint.className = 'pname-hint bad'; hint.textContent = 'Player names are 3 to 5 letters or numbers.'; return; }
         if (v === account.name) { hint.className = 'pname-hint bad'; hint.textContent = 'That is you!'; return; }
         if (friends.includes(v)) { hint.className = 'pname-hint bad'; hint.textContent = `${v} is already in your friends.`; return; }
-        friends.push(v); saveJSON('bma.friends', { names: friends }); inp.value = '';
+        friends.push(v); saveJSON('bma.friends', { names: friends, t: Date.now() }); inp.value = '';
         openSheet('board');   // refreshes from the server, which tells us if the name exists
       };
       $('friendAddBtn').addEventListener('click', add);
