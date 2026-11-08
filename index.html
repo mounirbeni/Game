@@ -1245,6 +1245,7 @@ function drawCoin(now) {
   glow.addColorStop(0, 'rgba(255,207,90,0.45)'); glow.addColorStop(1, 'rgba(255,207,90,0)');
   ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, T * 0.75, 0, Math.PI * 2); ctx.fill();
   ctx.save(); ctx.translate(cx, cy); ctx.scale(w, 1);
+  if (mapArt.coin) { const S = T * 0.72; ctx.drawImage(mapArt.coin, -S / 2, -S / 2, S, S); ctx.restore(); return; }
   ctx.fillStyle = '#c98a0c'; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.arc(0, 0, R * 0.84, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#c98a0c'; ctx.beginPath();
@@ -1370,6 +1371,12 @@ function buildSeeds() {
   const sprite = document.createElement('canvas');
   sprite.width = sprite.height = Math.ceil(T * dpr);
   const sg = sprite.getContext('2d'); sg.scale(dpr, dpr); sg.translate(T / 2, T / 2);
+  if (mapArt.seed) {
+    const glow = sg.createRadialGradient(0, 0, 0, 0, 0, T * 0.34);
+    glow.addColorStop(0, 'rgba(255,200,60,0.35)'); glow.addColorStop(1, 'rgba(255,200,60,0)');
+    sg.fillStyle = glow; sg.beginPath(); sg.arc(0, 0, T * 0.34, 0, Math.PI * 2); sg.fill();
+    const S = T * 0.34; sg.drawImage(mapArt.seed, -S / 2, -S / 2, S, S);
+  } else {
   const glow = sg.createRadialGradient(0, 0, 0, 0, 0, T * 0.32);
   glow.addColorStop(0, 'rgba(255,226,140,0.42)'); glow.addColorStop(1, 'rgba(255,226,140,0)');
   sg.fillStyle = glow; sg.beginPath(); sg.arc(0, 0, T * 0.32, 0, Math.PI * 2); sg.fill();
@@ -1377,6 +1384,7 @@ function buildSeeds() {
   core.addColorStop(0, '#fffbe6'); core.addColorStop(0.6, '#ffe39a'); core.addColorStop(1, '#e8b445');
   sg.fillStyle = core; sg.beginPath(); sg.arc(0, 0, T * 0.105, 0, Math.PI * 2); sg.fill();
   sg.fillStyle = 'rgba(255,255,255,0.9)'; sg.beginPath(); sg.arc(-T * 0.035, -T * 0.035, T * 0.03, 0, Math.PI * 2); sg.fill();
+  }
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     if (grid[y][x] === '.') seedCtx.drawImage(sprite, x * T, y * T, T, T);
   }
@@ -1407,6 +1415,29 @@ function cornerRect(g, x, y, w, h, tl, tr, br, bl) {
   g.closePath();
 }
 
+// ---------- Maze artwork ----------
+// Stone floor and blue stone wall textures, plus seed, lantern, mushroom and coin sprites.
+// Until they load (or if one fails) the drawn versions are used.
+const mapArt = {};
+(function loadMapArt() {
+  const files = { floor: 'floor', wall: 'wall', seed: 'seed', lantern: 'lantern', mushroom: 'mushroom', coin: 'coin-sprite' };
+  let left = Object.keys(files).length;
+  for (const [k, f] of Object.entries(files)) {
+    const im = new Image();
+    im.onload = () => { mapArt[k] = im; if (--left === 0 && grid && T) resize(); };
+    im.onerror = () => { if (--left === 0 && grid && T) resize(); };
+    im.src = `assets/${f}.webp`;
+  }
+})();
+// A repeating pattern from a texture, sized so one copy of the texture spans `size` CSS pixels.
+function texPattern(g, img, size) {
+  const c = document.createElement('canvas'), px = Math.max(8, Math.round(size * dpr));
+  c.width = c.height = px; c.getContext('2d').drawImage(img, 0, 0, px, px);
+  const pat = g.createPattern(c, 'repeat');
+  try { pat.setTransform(new DOMMatrix().scale(1 / dpr)); } catch (e) { /* older browsers: slightly larger texture */ }
+  return pat;
+}
+
 // The maze is drawn once per level onto its own canvas: textured ground, then raised hedges
 // with a ground shadow, a darker side, a lit top face and some leaves.
 function buildMaze(flash) {
@@ -1426,15 +1457,17 @@ function buildMaze(flash) {
     !isWall(x + 1, y) && !isWall(x, y + 1) ? rad : 0, !isWall(x - 1, y) && !isWall(x, y + 1) ? rad : 0,
   ];
 
-  // ground: base colour, soft soil patches and fine grain
-  g.fillStyle = THEME.ground; g.fillRect(0, 0, W, H);
-  for (let i = 0; i < COLS * ROWS * 0.25; i++) {
+  // ground: stone floor texture, or (fallback) base colour, soft soil patches and fine grain
+  const art = !flash && mapArt.floor && mapArt.wall;
+  if (art) { g.fillStyle = texPattern(g, mapArt.floor, T * 5); g.fillRect(0, 0, W, H); }
+  else g.fillStyle = THEME.ground, g.fillRect(0, 0, W, H);
+  if (!art) for (let i = 0; i < COLS * ROWS * 0.25; i++) {
     const x = r() * W, y = r() * H, rad = T * (0.8 + r() * 1.6), col = r() > 0.5 ? THEME.speck[0] : THEME.speck[1];
     const gr = g.createRadialGradient(x, y, 0, x, y, rad);
     gr.addColorStop(0, col + 'cc'); gr.addColorStop(1, col + '00');
     g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
   }
-  for (let i = 0; i < COLS * ROWS * 3; i++) {
+  if (!art) for (let i = 0; i < COLS * ROWS * 3; i++) {
     g.fillStyle = r() > 0.5 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.18)';
     const s2 = 0.6 + r() * 1.2; g.fillRect(r() * W, r() * H, s2, s2);
   }
@@ -1452,11 +1485,13 @@ function buildMaze(flash) {
     cornerRect(g, x * T + T * 0.05, y * T + T * 0.16, T, T, a1, a2, a3, a4); g.fill();
   }
   // hedge body (its darker colour shows as the side below the top face)
-  g.fillStyle = dark;
+  const wallPat = art ? texPattern(g, mapArt.wall, T * 4) : null;
+  g.fillStyle = art ? wallPat : dark;
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     if (!isWall(x, y)) continue;
     const [a1, a2, a3, a4] = corners(x, y, R);
     cornerRect(g, x * T - 0.3, y * T - 0.3, T + 0.6, T + 0.6, a1, a2, a3, a4); g.fill();
+    if (art) { g.fillStyle = 'rgba(2,8,40,0.55)'; g.fill(); g.fillStyle = wallPat; }   // the side is the stone, in shade
   }
   // lit top face, raised a little: thin rim at the top, a deeper side at the bottom
   const insX = T * 0.1, insTop = T * 0.07, insBot = T * 0.2, R2 = T * 0.24;
@@ -1471,11 +1506,21 @@ function buildMaze(flash) {
     const [a1, a2, a3, a4] = corners(x, y, R2);
     const grad = g.createLinearGradient(0, fy, 0, fy + fh);
     grad.addColorStop(0, flash ? '#ffffff' : light); grad.addColorStop(0.35, mid); grad.addColorStop(1, mid);
+    if (art) {
+      cornerRect(g, fx, fy, fw, fh, a1, a2, a3, a4);
+      g.fillStyle = wallPat; g.fill();
+      if (!isWall(x, y - 1)) {   // light catching the top edge
+        const hl = g.createLinearGradient(0, fy, 0, fy + fh * 0.5);
+        hl.addColorStop(0, 'rgba(160,220,255,0.45)'); hl.addColorStop(1, 'rgba(160,220,255,0)');
+        g.fillStyle = hl; g.fill();
+      }
+      continue;
+    }
     g.fillStyle = isWall(x, y - 1) ? mid : grad;
     cornerRect(g, fx, fy, fw, fh, a1, a2, a3, a4); g.fill();
   }
   // leaves on the top face: light and dark dabs, fewer on the inside of big blocks
-  if (!flash) for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+  if (!flash && !art) for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     if (!isWall(x, y)) continue;
     const edge = !isWall(x - 1, y) || !isWall(x + 1, y) || !isWall(x, y - 1) || !isWall(x, y + 1);
     const [fx, fy, fw, fh] = faceRect(x, y);
@@ -1658,6 +1703,7 @@ function drawLantern(cx, cy, pulse) {
   glow.addColorStop(1, 'rgba(255,190,70,0)');
   ctx.fillStyle = glow;
   ctx.beginPath(); ctx.arc(cx, cy, T * 0.8, 0, Math.PI * 2); ctx.fill();
+  if (mapArt.lantern) { const S = T * (0.78 + pulse * 0.06); ctx.drawImage(mapArt.lantern, cx - S / 2, cy - S / 2, S, S); return; }
   // body
   ctx.fillStyle = '#5a3a14';
   ctx.fillRect(cx - T * 0.14, cy - T * 0.3, T * 0.28, T * 0.07);
@@ -1672,6 +1718,7 @@ function drawMushroom(cx, cy, timer) {
   if (timer < 2 && Math.floor(timer * 8) % 2 === 0) return;
   const bob = Math.sin(performance.now() / 200) * T * 0.04;
   cy += bob;
+  if (mapArt.mushroom) { const S = T * 0.85; ctx.drawImage(mapArt.mushroom, cx - S / 2, cy - S / 2, S, S); return; }
   ctx.fillStyle = '#f3e6cf';
   roundRect(ctx, cx - T * 0.1, cy - T * 0.02, T * 0.2, T * 0.3, T * 0.06); ctx.fill();
   ctx.fillStyle = '#e05a5a';
