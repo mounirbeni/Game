@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Bug Maze Adventure</title>
 <meta name="description" content="Bug Maze Adventure: guide Backman through glowing garden mazes, gather the seeds and dodge the beetles.">
-<meta name="theme-color" content="#07110c">
+<meta name="theme-color" content="#060d18">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Bug Maze">
 <style>
   :root {
@@ -2293,10 +2293,18 @@ function saveProgressIfCurrent() { /* progress is saved when a level starts; not
 // ---------- Full-height layout ----------
 // An installed iPhone web app with a translucent status bar reports a viewport that is short
 // by the status bar height, leaving an empty strip at the bottom. Use the real screen height.
+// The status bar is now opaque ("black"), so the game starts below it and iOS has nothing to
+// blur behind the clock. An app installed while the bar was translucent may still draw under
+// it (content under the status bar shows up as a top safe-area inset); only then is the real
+// screen height needed to avoid the empty strip at the bottom.
+const safeTopProbe = document.createElement('div');
+safeTopProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none';
+document.body.appendChild(safeTopProbe);
 function fitAppHeight() {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const h = standalone && /iphone|ipod/i.test(navigator.userAgent)
-    ? (window.innerWidth < window.innerHeight ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height))
+  const underStatusBar = safeTopProbe.offsetHeight > 0 && window.innerWidth < window.innerHeight;
+  const h = standalone && underStatusBar && /iphone|ipod/i.test(navigator.userAgent)
+    ? Math.max(screen.width, screen.height)
     : window.innerHeight;
   document.documentElement.style.setProperty('--app-h', h + 'px');
 }
