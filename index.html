@@ -448,7 +448,7 @@ function speeds() {
     fright: 4.2,
     tunnel: 3.6,
     eaten: 15,
-    frightTime: Math.max(2, 9 - (level - 1) * 0.8),
+    frightTime: Math.max(4, 12 - (level - 1) * 0.7),
   };
 }
 
@@ -623,7 +623,7 @@ function updatePlayer(dt) {
   // Forgiving corners: a turn asked for just after passing a junction is still taken.
   // The small position correction is eased out visually via ox/oy.
   const w = player.want;
-  if (player.progress > 0 && player.progress < 0.3 && (w.x || w.y) &&
+  if (player.progress > 0 && player.progress < 0.45 && (w.x || w.y) &&
       !sameDir(w, player.dir) && !opposite(w, player.dir) &&
       canEnter(player.tx + w.x, player.ty + w.y, false)) {
     const before = pos(player);
@@ -723,6 +723,31 @@ function chooseDir(b, target, allowReverse, gateOk) {
   return best;
 }
 
+// Beetles start out wandering the garden. As Backman eats the seeds they join the hunt one at
+// a time, and at first only now and then (so it's hard to notice). Near the end they all hunt.
+const ENDGAME = 0.85;
+const levelProgress = () => TOTAL_SEEDS ? seedsEaten / TOTAL_SEEDS : 0;
+function huntWeight(b) {
+  const p = levelProgress();
+  if (p >= ENDGAME) return 1;
+  const n = beetles.length;
+  const start = n > 1 ? 0.15 + 0.55 * (b.i / (n - 1)) : 0.2;   // when this beetle starts to hunt
+  return clamp((p - start) / 0.15, 0, 1);                       // fades in over the next 15% of seeds
+}
+function roamTarget(b) {
+  const near = b.roam && Math.abs(b.tx - b.roam.x) + Math.abs(b.ty - b.roam.y) < 3;
+  if (!b.roam || near || time > b.roamUntil) {
+    b.roam = null;
+    for (let k = 0; k < 30 && !b.roam; k++) {
+      const x = 1 + Math.floor(Math.random() * (COLS - 2)), y = 1 + Math.floor(Math.random() * (ROWS - 2));
+      if (canEnter(x, y, false) && tileAt(x, y) !== 'E' && Math.abs(x - player.tx) + Math.abs(y - player.ty) > 6) b.roam = { x, y };
+    }
+    if (!b.roam) b.roam = b.corner;
+    b.roamUntil = time + 6 + Math.random() * 5;
+  }
+  return b.roam;
+}
+
 function updateBeetles(dt) {
   const sp = speeds();
   for (const b of beetles) {
@@ -752,8 +777,12 @@ function updateBeetles(dt) {
       }
       let target;
       if (e.frightened) target = null;
-      else if (isChaseMode()) target = chaseTarget(e);
-      else target = e.corner;
+      else {
+        const w = huntWeight(e);
+        if (w >= 1 && levelProgress() >= ENDGAME) target = chaseTarget(e);        // endgame: everyone hunts
+        else if (Math.random() < w) target = isChaseMode() ? chaseTarget(e) : e.corner;
+        else target = roamTarget(e);                                              // wandering the garden
+      }
       e.dir = chooseDir(e, target, false, false);
     });
   }
@@ -1359,17 +1388,29 @@ document.addEventListener('touchstart', e => {
   const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY };
   e.preventDefault();
 }, { passive: false });
+// A short drag in any direction steers; keep dragging to change direction again without lifting.
+const SWIPE_MIN = 10;
+function swipeDir(dx, dy, min) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (Math.max(ax, ay) < min) return null;
+  return ax > ay ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+}
 document.addEventListener('touchmove', e => {
   if (!touchStart) return;
   const t = e.touches[0];
-  const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
-  if (Math.hypot(dx, dy) > 18) {
-    setWant(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
-    touchStart = { x: t.clientX, y: t.clientY };
-  }
+  const d = swipeDir(t.clientX - touchStart.x, t.clientY - touchStart.y, SWIPE_MIN);
+  if (d) { setWant(d); touchStart = { x: t.clientX, y: t.clientY, used: true }; }
   e.preventDefault();
 }, { passive: false });
-document.addEventListener('touchend', () => { touchStart = null; });
+document.addEventListener('touchend', e => {
+  // a very quick flick may end before a touchmove arrives: read it from the release point
+  if (touchStart && !touchStart.used && e.changedTouches[0]) {
+    const t = e.changedTouches[0];
+    const d = swipeDir(t.clientX - touchStart.x, t.clientY - touchStart.y, 6);
+    if (d) setWant(d);
+  }
+  touchStart = null;
+});
 
 const ICONS = {
   pause: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg>',
@@ -1514,7 +1555,7 @@ requestAnimationFrame(frame);
 // Exposed for automated testing.
 window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
-  get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get skin() { return SKINS[skinIndex].name; },
+  get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
   skipToLevel(n) { level = n - 1; nextLevel(); } };
 })();

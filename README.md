@@ -60,4 +60,6 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 
 Ember, Glint, Shade and Thistle join from level 5 onwards and reuse these four chase styles.
 
+Beetles don't all chase you from the start. They leave the den and wander the garden. As you eat the seeds they join the hunt one at a time, at first only now and then. Once about 85% of the seeds are gone, they all hunt you together.
+
 Every so often the beetles switch between chasing you and retreating to their corners. Use the side tunnel to escape, because beetles slow down inside it.
