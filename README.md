@@ -40,7 +40,11 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 ## Looks and credits
 
 - **Looks:** every level you clear unlocks a new look for Backman: Berry, Frosty, Sprout, Ember, Minty, Midnight and King. Some come with glasses, a bow tie, a moustache or a crown. Pick one on the start screen or the pause screen.
-- **Credits:** clearing a level earns 1 credit, or 2 if you didn't lose a life.
+- **Credits:** you earn them while you play:
+  - **Gold coins:** pop up in the maze every 12–20 seconds and vanish after 9. Each is worth +1.
+  - **Beetles:** +1 for each one you catch after eating a lantern.
+  - **Mushrooms:** +1 each.
+  - **Clearing a level:** +2, or +4 if you didn't lose a life.
 - **Shop:** tap a locked look to buy it with credits. Berry costs 2, and each look after it costs 1 more, up to 8 for King. Clearing the look's level still unlocks it for free.
 - **Continue:** when your lives run out, spend 1 credit to keep playing from the same spot with 1 extra life. Or retry the level from the start for free.
 - **Saved:** credits, looks and your level are all kept between visits.
