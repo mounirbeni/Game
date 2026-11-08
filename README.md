@@ -41,7 +41,7 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 
 ## Looks and credits
 
-- **Looks:** every level you clear unlocks a new look for Backman: ZOGHA, ES, Sprout, FOX, Minty, Midnight and MBN, each with its own outfit. Pick one on the start screen or the pause screen.
+- **Looks:** every level you clear unlocks a new look for Backman: ZOGHA, ES, Sprout, FOX, Minty, Midnight, MBN, Shadow and Ranger, each with its own outfit. Pick one on the start screen or the pause screen.
 - **Credits:** you earn them while you play:
   - **Gold coins:** pop up in the maze every 12–20 seconds and vanish after 9. Each is worth +1.
   - **Beetles:** +1 for each one you catch after eating a lantern.
