@@ -481,6 +481,14 @@ function loadMeta() {
     highestCleared = Math.max(0, parseInt(localStorage.getItem('backman.cleared') || '0', 10) || 0);
     skinIndex = Math.max(0, parseInt(localStorage.getItem('backman.skin') || '0', 10) || 0);
     ownedSkins = new Set(JSON.parse(localStorage.getItem('backman.owned') || '[]').filter(n => Number.isInteger(n)));
+    // Players who passed levels before looks and credits existed: count those levels as cleared
+    // (unlocking their looks) and pay 1 credit for each, once.
+    const reached = Math.max(1, parseInt(localStorage.getItem('backman.level') || '1', 10) || 1);
+    if (highestCleared < reached - 1) {
+      if (localStorage.getItem('backman.cleared') === null) credits += (reached - 1) - highestCleared;
+      highestCleared = reached - 1;
+      saveMeta();
+    }
   } catch (e) { /* ignore */ }
   if (!isSkinUnlocked(skinIndex)) skinIndex = 0;
 }
