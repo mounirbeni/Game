@@ -79,4 +79,4 @@ Progress is stored in the browser (`localStorage` keys starting with `backman.` 
 
 ## Credits
 
-All home-screen and score-bar icons are custom artwork made for this game, except the Levels map, which is from [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (3D style), used under the MIT License. A copy of the licence is in `icons/ui/LICENSE-fluentui-emoji.txt`.
+All home-screen and score-bar icons are custom artwork made for this game.
