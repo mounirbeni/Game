@@ -229,6 +229,29 @@
   .pstat img { position: absolute; top: -24px; width: 52px; height: 52px; filter: drop-shadow(0 3px 3px #0009); }
   .pstat span { color: #9fc4ff; font-weight: 800; font-size: 13px; }
   .pstat b { color: #fff; font-size: 22px; font-weight: 900; }
+  .pname-fixed { font-size: 26px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #06112b; letter-spacing: .04em; }
+  .online-tag { font-size: 10px; font-weight: 900; color: #0b3a0d; background: linear-gradient(#c8ff8a, #4fcf3a); border-radius: 999px; padding: 2px 8px; }
+  .pname input { text-transform: uppercase; letter-spacing: .06em; }
+  .claim-btn { flex: none; padding: 7px 12px; border-radius: 999px; border: 2px solid #0f4d12; font: inherit; font-weight: 900; font-size: 13px; color: #fff; cursor: pointer;
+    text-shadow: 0 1px 0 #0f6a18; background: linear-gradient(#c8ff8a, #4fcf3a 55%, #1d8a22); }
+  .claim-btn:disabled { filter: grayscale(.8); }
+  .pname-hint { font-size: 11px; color: #9fc4ff; font-weight: 700; }
+  .pname-hint.bad { color: #ff9a9a; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .tabs button { padding: 8px; border-radius: 999px; border: 2px solid #2d6aa0; background: #0c223a; color: #9fc4ff; font: inherit; font-weight: 900; cursor: pointer; }
+  .tabs button.on { background: linear-gradient(#ffe36b, #ffb21a); color: #4a2a05; border-color: #e08a00; }
+  .claim-cta { text-align: center; margin-bottom: 10px; }
+  .lb { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .lb-count { margin: 0 0 6px; font-size: 12px; text-align: right; }
+  .lb-row { display: grid; grid-template-columns: 30px 34px 1fr auto auto; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 14px; background: #0c223a; border: 2px solid #2d6aa0; }
+  .lb-row.me { border-color: #7dff6a; box-shadow: 0 0 10px #7dff6a55; }
+  .lb-row.top1 { border-color: #ffcf3a; background: linear-gradient(90deg, #4a3a08, #0c223a 60%); }
+  .lb-row.top2 { border-color: #c9d6e8; } .lb-row.top3 { border-color: #d98a4a; }
+  .lb-rank { font-weight: 900; font-size: 16px; color: #ffd75a; text-align: center; }
+  .lb-face { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(#2a5a9a, #12305a); }
+  .lb-name { font-weight: 900; color: #fff; letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; }
+  .lb-lvl { font-size: 11px; font-weight: 800; color: #9fc4ff; }
+  .lb-score { color: #ffd75a; font-size: 15px; }
   .pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .pchoice { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 14px; cursor: pointer;
     border: 2px solid #2d6aa0; background: radial-gradient(#2a5a9a, #12305a); color: #fff; font: inherit; font-size: 10px; font-weight: 800; }
@@ -937,6 +960,7 @@ function levelCleared() {
   saveMeta();
   clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${isChallenge(level) ? ' · CHALLENGE BEATEN!' : flawless ? ' · FLAWLESS!' : ''}`;
   setState('clear', unlockedSkin ? 4 : 2.8);
+  submitScore();
   sfx.clear();
   updateHud();
 }
@@ -2368,7 +2392,7 @@ function paintAvatar(cv, size, id = profile.avatar || 'auto') {
   cv.width = cv.height = Math.round(size * d);
   const g = cv.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, size, size);
   if (id.startsWith('img:') && avatarImgs[id.slice(4)]) { g.drawImage(avatarImgs[id.slice(4)], 0, 0, size, size); return; }
-  const sk = id.startsWith('look:') && isSkinUnlocked(+id.slice(5)) ? SKINS[+id.slice(5)] : SKINS[skinIndex];
+  const sk = id.startsWith('look:') && SKINS[+id.slice(5)] ? SKINS[+id.slice(5)] : SKINS[skinIndex];
   g.translate(size * 0.56, size * 0.56); drawBackman(g, size * 0.31, sk);
 }
 let daily = loadJSON('bma.daily', { last: '', streak: 0 });
@@ -2437,9 +2461,51 @@ function claimMission(id) {
 }
 
 // Leaderboard: your ten best runs on this device.
+// ---------- Online leaderboard ----------
+// A player claims a unique name (3-5 letters/numbers) and gets a secret key kept on this device
+// (and inside the save code). Best score, highest level and look are sent to /api/score.
+let account = loadJSON('bma.account', { name: '', token: '' });
+let worldBoard = null, worldBoardAt = 0, myRank = null, submitTimer = 0, lastSent = '';
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' } : { cache: 'no-store' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(data.message || 'Network error'); e.code = data.error; throw e; }
+  return data;
+}
+async function claimName(raw) {
+  const res = await api('/api/claim', { name: raw });
+  account = { name: res.name, token: res.token };
+  saveJSON('bma.account', account);
+  profile.name = res.name; saveJSON('bma.profile', profile);
+  backupNow(); lastSent = '';
+  submitScore(true);
+  return res.name;
+}
+function submitScore(now) {
+  if (!account.token) return;
+  clearTimeout(submitTimer);
+  submitTimer = setTimeout(async () => {
+    const payload = { name: account.name, token: account.token, best, level: loadProgress().level, look: skinIndex };
+    const key = `${payload.best}|${payload.level}|${payload.look}`;
+    if (key === lastSent) return;
+    try { const r = await api('/api/score', payload); lastSent = key; refreshRank(); return r; }
+    catch (e) { if (e.code === 'auth') { /* key no longer valid */ } }
+  }, now ? 0 : 1500);
+}
+async function refreshRank() {
+  try {
+    worldBoard = await api('/api/leaderboard' + (account.name ? `?me=${encodeURIComponent(account.name)}` : ''));
+    worldBoardAt = Date.now();
+    myRank = worldBoard.me ? worldBoard.me.rank : null;
+    refreshHome();
+    if (sheetOpen === 'board') openSheet('board', true);
+  } catch (e) { /* offline: keep what we have */ }
+}
+
 function recordRun() {
   if (score <= 0) return;
   board.push({ score, level, name: profile.name, date: today() });
+  submitScore();
   board.sort((a, b) => b.score - a.score); board = board.slice(0, 10);
   saveJSON('bma.board', { runs: board });
 }
@@ -2463,7 +2529,7 @@ function refreshHome() {
   $('missionBadge').classList.toggle('hidden', !claimable);
   $('missionLabel').textContent = `${ms.filter(m => m.claimed).length}/${ms.length}`;
   $('missionLabel').classList.toggle('go', claimable);
-  $('bestLabel').textContent = best > 0 ? best.toLocaleString() : 'Best';
+  $('bestLabel').textContent = myRank ? `#${myRank}` : best > 0 ? best.toLocaleString() : 'Best';
 
   paintAvatar($('avatar'), 48);
 }
@@ -2481,7 +2547,7 @@ function startPlay(levelNo) {
 function closeSheet() { sheetOpen = null; $('sheet').classList.add('hidden'); }
 
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-function openSheet(which) {
+function openSheet(which, fromRefresh = false) {
   if (which === 'home') { closeSheet(); return; }
   sheetOpen = which;
   const body = $('sheetBody'); let title = '';
@@ -2502,10 +2568,29 @@ function openSheet(which) {
     body.querySelectorAll('button[data-m]').forEach(b => b.addEventListener('click', () => claimMission(b.dataset.m)));
   } else if (which === 'board') {
     title = 'Leaderboard';
-    body.innerHTML = board.length
-      ? '<p>Your best runs on this device.</p><table class="rows">' + board.map((r, i) =>
-          `<tr><td>${i + 1}.</td><td>${esc(r.name || 'Player')}</td><td>Level ${r.level}</td><td>${r.score.toLocaleString()}</td></tr>`).join('') + '</table>'
-      : '<p>No runs yet. Your best scores will show up here after your first game over.</p>';
+    const tab = openSheet.boardTab || 'world';
+    let html = `<div class="tabs"><button data-tab="world" class="${tab === 'world' ? 'on' : ''}">World</button><button data-tab="mine" class="${tab === 'mine' ? 'on' : ''}">My runs</button></div>`;
+    if (tab === 'world') {
+      if (!account.name) html += `<div class="claim-cta"><p>Claim your player name to appear on the world leaderboard.</p><button class="gold-btn" id="goClaim">Claim a name</button></div>`;
+      if (!fromRefresh) refreshRank();   // fetch fresh data; re-renders this sheet when it arrives
+      if (!worldBoard) html += '<p class="lb-wait">Loading the world leaderboard…</p>';
+      else if (!worldBoard.top.length) html += '<p>No one is on the board yet. Be the first!</p>';
+      else {
+        const row = r => `<div class="lb-row ${account.name === r.name ? 'me' : ''} ${r.rank <= 3 ? 'top' + r.rank : ''}"><span class="lb-rank">${r.rank}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
+          `<span class="lb-name">${esc(r.name)}</span><span class="lb-lvl">Lv ${r.level}</span><b class="lb-score">${r.best.toLocaleString()}</b></div>`;
+        html += `<p class="lb-count">${worldBoard.players} player${worldBoard.players === 1 ? '' : 's'}</p><div class="lb">` + worldBoard.top.map(row).join('') + '</div>';
+        if (worldBoard.me && worldBoard.me.rank > 100) html += '<div class="lb">' + row(worldBoard.me) + '</div>';
+      }
+    } else {
+      html += board.length
+        ? '<p>Your best runs on this device.</p><table class="rows">' + board.map((r, i) =>
+            `<tr><td>${i + 1}.</td><td>${esc(r.name || 'Player')}</td><td>Level ${r.level}</td><td>${r.score.toLocaleString()}</td></tr>`).join('') + '</table>'
+        : '<p>No runs yet. Your best scores will show up here after your first game over.</p>';
+    }
+    body.innerHTML = html;
+    body.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { openSheet.boardTab = b.dataset.tab; openSheet('board'); }));
+    body.querySelectorAll('.lb-face').forEach(cv => paintAvatar(cv, 30, 'look:' + Math.min(+cv.dataset.look || 0, SKINS.length - 1)));
+    if ($('goClaim')) $('goClaim').addEventListener('click', () => openSheet('profile'));
   } else if (which === 'shop') {
     title = 'Shop · Skins';
     body.innerHTML = `<p>You have <b style="color:#ffd75a">${credits}</b> credits. Clear a look's level to get it free, or buy it now.</p><div class="skins"></div><div class="shop-msg"></div>`;
@@ -2523,7 +2608,10 @@ function openSheet(which) {
     body.innerHTML = `<div class="pcard">
         <button class="pavatar" id="pAvatarBtn" aria-label="Change picture"><canvas id="pAvatar"></canvas><i class="pedit">&#9998;</i></button>
         <div class="pinfo">
-          <div class="pname"><input id="pName" maxlength="14" value="${esc(profile.name || 'Player')}" aria-label="Name"><i class="pedit small">&#9998;</i></div>
+          ${account.name
+            ? `<div class="pname"><span class="pname-fixed">${esc(account.name)}</span><span class="online-tag">ONLINE</span></div>`
+            : `<div class="pname"><input id="pName" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false" value="${esc((profile.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}" placeholder="NAME" aria-label="Player name"><button class="claim-btn" id="pClaim">Claim</button></div>
+               <div class="pname-hint" id="pHint">3 to 5 letters or numbers. Each name is unique.</div>`}
           <div class="plevel"><img class="uiicon" src="icons/ui/star.webp" alt=""><span>Player level</span><b>${pl.lvl}</b></div>
           <div class="pbar"><i style="width:${Math.round(100 * pl.xp / pl.need)}%"></i><em>${pl.xp} / ${pl.need}</em></div>
         </div>
@@ -2545,8 +2633,17 @@ function openSheet(which) {
         ${card('icons/ui/house.webp', 'Time played', mins < 60 ? mins + ' min' : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min')}
       </div>`;
     paintAvatar($('pAvatar'), 92);
-    $('pName').addEventListener('input', e => { profile.name = e.target.value.trim().slice(0, 14) || 'Player'; saveJSON('bma.profile', profile); refreshHome(); });
-    body.querySelectorAll('.pedit.small').forEach(el => el.addEventListener('click', () => $('pName').focus()));
+    if (!account.name) {
+      const inp = $('pName'), hint = $('pHint');
+      inp.addEventListener('input', () => { const v = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); if (v !== inp.value) inp.value = v; hint.className = 'pname-hint'; hint.textContent = '3 to 5 letters or numbers. Each name is unique.'; });
+      $('pClaim').addEventListener('click', async () => {
+        const v = inp.value;
+        if (!/^[A-Z0-9]{3,5}$/.test(v) || !/[A-Z]/.test(v)) { hint.className = 'pname-hint bad'; hint.textContent = 'Use 3 to 5 letters or numbers (at least one letter).'; return; }
+        $('pClaim').disabled = true; hint.className = 'pname-hint'; hint.textContent = 'Checking…';
+        try { await claimName(v); refreshHome(); openSheet('profile'); }
+        catch (e) { $('pClaim').disabled = false; hint.className = 'pname-hint bad'; hint.textContent = e.code === 'taken' ? `${v} is already taken. Try another name.` : e.code === 'invalid' ? 'That name is not allowed. Try another.' : 'No connection. Try again when you are online.'; }
+      });
+    }
     $('pAvatarBtn').addEventListener('click', () => {
       const box = $('pAvatars');
       if (!box.classList.toggle('hidden')) {
@@ -2714,6 +2811,7 @@ restoreFromBackup().then(gained => {
     try { sessionStorage.setItem('bma.restored', '1'); } catch (e) { /* ignore */ }
     location.reload();   // start again with the restored progress
   } else backupNow();
+  submitScore(true); refreshRank();
 });
 
 // Exposed for automated testing.

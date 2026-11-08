@@ -95,3 +95,15 @@ Progress is stored in the browser (`localStorage` keys starting with `backman.` 
 ## Credits
 
 All home-screen and score-bar icons are custom artwork made for this game.
+
+## Online leaderboard
+
+- **Claiming a name:** in the Profile, players claim a unique name of 3 to 5 letters or numbers. Names are case-insensitive, so `mbn` and `MBN` are the same name.
+- **Score updates:** the game sends each player's best score, highest level and current look to the server.
+- **The board:** the Leaderboard has a **World** tab (top 100, your rank highlighted) and a **My runs** tab.
+- **Server:** Vercel Functions in `api/`, storing data in a private Vercel Blob store (`BLOB_READ_WRITE_TOKEN`):
+  - `POST /api/claim` `{name}`: reserves the name and returns a secret key for this player.
+  - `POST /api/score` `{name, token, best, level, look}`: keeps the highest values sent.
+  - `GET /api/leaderboard?me=NAME`: returns the ranking.
+  - `POST /api/release` `{name, token}`: frees the name.
+- **Secret key:** the key is saved on the device in `bma.account`. It is also included in the save code, so a player's name moves to a new phone with their progress.
