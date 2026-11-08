@@ -1793,7 +1793,8 @@ const ladySprites = { ready: false, byColor: {}, scared: null, flash: null };
 function recolor(img, fn) {
   const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
   const g = c.getContext('2d'); g.drawImage(img, 0, 0);
-  const d = g.getImageData(0, 0, c.width, c.height), px = d.data;
+  let d; try { d = g.getImageData(0, 0, c.width, c.height); } catch (e) { return img; } // e.g. opened from file://
+  const px = d.data;
   for (let i = 0; i < px.length; i += 4) if (px[i + 3]) fn(px, i);
   g.putImageData(d, 0, 0);
   return c;
