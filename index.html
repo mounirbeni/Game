@@ -2238,19 +2238,12 @@ function saveProgressIfCurrent() { /* progress is saved when a level starts; not
 // ---------- Full-height layout ----------
 // An installed iPhone web app with a translucent status bar reports a viewport that is short
 // by the status bar height, leaving an empty strip at the bottom. Use the real screen height.
-// The status bar is now opaque ("black"), so the game starts below it and iOS has nothing to
-// blur behind the clock. An app installed while the bar was translucent may still draw under
-// it (content under the status bar shows up as a top safe-area inset); only then is the real
-// screen height needed to avoid the empty strip at the bottom.
-const safeTopProbe = document.createElement('div');
-safeTopProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none';
-document.body.appendChild(safeTopProbe);
+// The status bar is opaque ("black"), so the page starts below it and the visible area is
+// exactly the window: size the layout from window.innerHeight. (Earlier builds used the full
+// screen height for the translucent status bar; with an opaque bar that made the page taller
+// than the screen and pushed the bottom bar off the edge.)
 function fitAppHeight() {
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const underStatusBar = safeTopProbe.offsetHeight > 0 && window.innerWidth < window.innerHeight;
-  const h = standalone && underStatusBar && /iphone|ipod/i.test(navigator.userAgent)
-    ? Math.max(screen.width, screen.height)
-    : window.innerHeight;
+  const h = window.innerHeight;
   document.documentElement.style.setProperty('--app-h', h + 'px');
 }
 fitAppHeight();
