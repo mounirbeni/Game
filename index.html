@@ -51,6 +51,19 @@
   button.big:active { transform: translateY(2px); box-shadow: 0 2px 0 #a06d12; }
   .hidden { display: none !important; }
   .icon-btn svg { width: 22px; height: 22px; }
+  .touch-only { display: none; }
+  @media (pointer: coarse) { .kbd-only { display: none; } .touch-only { display: inline; } }
+  @media (max-width: 380px) {
+    #hud { gap: 4px; padding: 0 2px; }
+    .stat small { font-size: 9px; letter-spacing: .06em; }
+    .stat span { font-size: 16px; }
+    .icon-btn { width: 34px; height: 34px; }
+    .icon-btn svg { width: 18px; height: 18px; }
+    #controls { gap: 4px; }
+    #lives span { width: 12px !important; height: 12px !important; }
+    .card { padding: 16px 14px; }
+    .card h1 { font-size: 32px; }
+  }
   .credit-val { display: inline-flex; align-items: center; gap: 4px; }
   .coin { width: 18px; height: 18px; }
   .card { max-height: 100%; overflow-y: auto; }
@@ -63,6 +76,14 @@
   .skin.sel { border-color: var(--accent); background: #2a2410; }
   .skin.locked canvas { filter: brightness(0) opacity(0.45); }
   .skin.locked span { color: var(--muted); }
+  .skin .price { display: inline-flex; align-items: center; gap: 2px; justify-content: center; color: var(--accent); }
+  .skin .price .coin { width: 12px; height: 12px; }
+  .skin.pending { border-color: var(--accent); }
+  .shop-msg { min-height: 0; font-size: 13px; margin-top: 6px; color: var(--muted); }
+  .shop-msg:empty { display: none; }
+  .shop-msg button { font: inherit; font-weight: 800; font-size: 13px; margin: 6px 3px 0; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  .shop-msg .buy { background: var(--accent); color: #3a2400; border: 0; }
+  .shop-msg .cancel { background: transparent; color: var(--text); border: 1px solid #2b6a40; }
   .skin .lock { position: absolute; top: 14px; left: 50%; width: 20px; height: 20px; margin-left: -10px; color: #8fb39b; }
   button.install { margin-top: 10px; font: inherit; font-weight: 700; font-size: 15px; padding: 8px 20px; border-radius: 999px;
     background: transparent; color: var(--accent); border: 2px solid var(--accent); cursor: pointer; }
@@ -95,9 +116,10 @@
           <span class="dot" style="background:#ffb02e;box-shadow:0 0 8px #ffb02e"></span><span>Lantern: beetles flee, catch them for big points</span>
           <span class="dot" style="background:#e05a5a"></span><span>Mushroom: bonus snack</span>
         </div>
-        <p>Arrows / WASD to move · P to pause · M to mute<br>Swipe anywhere on the screen to move</p>
-        <div class="picker-head"><span>Choose your Backman</span><span class="pill"><svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg><span id="creditsPill">0</span> credits</span></div>
+        <p><span class="kbd-only">Arrows / WASD to move · P to pause · M to mute</span><span class="touch-only">Swipe anywhere on the screen to move</span></p>
+        <div class="picker-head"><span>Choose your Backman</span><span class="pill"><svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg><span id="creditsPill">0</span>&nbsp;<span id="creditsWord">credits</span></span></div>
         <div class="skins" id="skinPicker"></div>
+        <div class="shop-msg" id="shopMsg"></div>
         <button class="big" id="startBtn">Play</button><br>
         <button class="install hidden" id="installBtn">Install app</button>
         <p class="hint hidden" id="iosHint">Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
@@ -107,6 +129,7 @@
         <p>Press P or tap Resume to continue</p>
         <div class="picker-head"><span>Your look</span></div>
         <div class="skins" id="skinPicker2"></div>
+        <div class="shop-msg" id="shopMsg2"></div>
         <button class="big" id="resumeBtn">Resume</button>
       </div>
       <div class="card hidden" id="overCard">
@@ -451,20 +474,25 @@ function resetActors() {
 }
 
 // Rewards that persist between games: credits, the highest level cleared (unlocks looks) and the chosen look.
-let credits = 0, highestCleared = 0, skinIndex = 0, deathsThisLevel = 0, clearMsg = '', unlockedSkin = null;
+let credits = 0, highestCleared = 0, skinIndex = 0, ownedSkins = new Set(), deathsThisLevel = 0, clearMsg = '', unlockedSkin = null;
 function loadMeta() {
   try {
     credits = Math.max(0, parseInt(localStorage.getItem('backman.credits') || '0', 10) || 0);
     highestCleared = Math.max(0, parseInt(localStorage.getItem('backman.cleared') || '0', 10) || 0);
     skinIndex = Math.max(0, parseInt(localStorage.getItem('backman.skin') || '0', 10) || 0);
+    ownedSkins = new Set(JSON.parse(localStorage.getItem('backman.owned') || '[]').filter(n => Number.isInteger(n)));
   } catch (e) { /* ignore */ }
-  if (skinIndex > Math.min(highestCleared, SKINS.length - 1)) skinIndex = 0;
+  if (!isSkinUnlocked(skinIndex)) skinIndex = 0;
 }
+// A look is unlocked by clearing its level for free, or by buying it with credits.
+const skinPrice = i => i + 1;   // Berry 2 ... King 8
+const isSkinUnlocked = i => i < SKINS.length && (i <= highestCleared || ownedSkins.has(i));
 function saveMeta() {
   try {
     localStorage.setItem('backman.credits', String(credits));
     localStorage.setItem('backman.cleared', String(highestCleared));
     localStorage.setItem('backman.skin', String(skinIndex));
+    localStorage.setItem('backman.owned', JSON.stringify([...ownedSkins]));
   } catch (e) { /* ignore */ }
 }
 function levelCleared() {
@@ -472,7 +500,7 @@ function levelCleared() {
   const earned = flawless ? 2 : 1;
   credits += earned;
   unlockedSkin = null;
-  if (level > highestCleared) { highestCleared = level; if (SKINS[level]) unlockedSkin = SKINS[level]; }
+  if (level > highestCleared) { highestCleared = level; if (SKINS[level] && !ownedSkins.has(level)) unlockedSkin = SKINS[level]; }
   saveMeta();
   clearMsg = `+${earned} CREDIT${earned > 1 ? 'S' : ''}${flawless ? ' · FLAWLESS!' : ''}`;
   setState('clear', unlockedSkin ? 4 : 2.8);
@@ -1250,7 +1278,7 @@ window.addEventListener('keydown', e => {
 let touchStart = null;
 const isButton = el => el && el.closest && el.closest('button');
 document.addEventListener('touchstart', e => {
-  if (isButton(e.target)) return;
+  if (isButton(e.target) || (e.target.closest && e.target.closest('.card'))) return; // let buttons and cards (scrolling) work
   const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY };
   e.preventDefault();
 }, { passive: false });
@@ -1277,7 +1305,7 @@ function togglePause() {
   paused = !paused;
   ui.pauseBtn.innerHTML = paused ? ICONS.play : ICONS.pause;
   ui.pauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
-  if (paused) { renderPicker(); showCard(ui.pause); } else hideCards();
+  if (paused) { pendingBuy = -1; shopNote = ''; renderPicker(); showCard(ui.pause); } else hideCards();
 }
 function toggleMute() {
   muted = !muted;
@@ -1297,27 +1325,60 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && !pa
 window.addEventListener('resize', resize);
 
 // ---------- Look picker and credits ----------
+const COIN_SVG = '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg>';
 const LOCK_SVG = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+let pendingBuy = -1, shopNote = '';
 function renderPicker() {
   $('creditsPill').textContent = credits;
-  for (const box of [$('skinPicker'), $('skinPicker2')]) { box.innerHTML = ''; SKINS.forEach((sk, i) => {
-    const unlocked = i <= highestCleared;
-    const b = document.createElement('button');
-    b.className = 'skin' + (i === skinIndex ? ' sel' : '') + (unlocked ? '' : ' locked');
-    b.setAttribute('aria-label', unlocked ? sk.name : `${sk.name}, unlocks after level ${i}`);
-    const c = document.createElement('canvas'); const d = Math.min(window.devicePixelRatio || 1, 2);
-    c.width = c.height = Math.round(52 * d);
-    const g = c.getContext('2d'); g.scale(d, d); g.translate(29, 30); drawBackman(g, 15, sk);
-    b.appendChild(c);
-    const label = document.createElement('span'); label.textContent = unlocked ? sk.name : `Level ${i}`;
-    b.appendChild(label);
-    if (!unlocked) b.insertAdjacentHTML('beforeend', LOCK_SVG);
-    b.addEventListener('click', () => {
-      if (!unlocked) return;
-      skinIndex = i; saveMeta(); renderPicker(); updateHud();
+  $('creditsWord').textContent = credits === 1 ? 'credit' : 'credits';
+  for (const [box, msg] of [[$('skinPicker'), $('shopMsg')], [$('skinPicker2'), $('shopMsg2')]]) {
+    box.innerHTML = '';
+    SKINS.forEach((sk, i) => {
+      const unlocked = isSkinUnlocked(i);
+      const b = document.createElement('button');
+      b.className = 'skin' + (i === skinIndex ? ' sel' : '') + (unlocked ? '' : ' locked') + (i === pendingBuy ? ' pending' : '');
+      b.setAttribute('aria-label', unlocked ? sk.name : `${sk.name}: buy for ${skinPrice(i)} credits or clear level ${i}`);
+      const c = document.createElement('canvas'); const d = Math.min(window.devicePixelRatio || 1, 2);
+      c.width = c.height = Math.round(52 * d);
+      const g = c.getContext('2d'); g.scale(d, d); g.translate(29, 30); drawBackman(g, 15, sk);
+      b.appendChild(c);
+      const label = document.createElement('span');
+      if (unlocked) label.textContent = sk.name;
+      else label.innerHTML = `<span class="price">${COIN_SVG}${skinPrice(i)}</span>`;
+      b.appendChild(label);
+      if (!unlocked) b.insertAdjacentHTML('beforeend', LOCK_SVG);
+      b.addEventListener('click', () => {
+        if (unlocked) { skinIndex = i; pendingBuy = -1; shopNote = ''; saveMeta(); renderPicker(); updateHud(); return; }
+        pendingBuy = i; shopNote = ''; renderPicker();
+      });
+      box.appendChild(b);
     });
-    box.appendChild(b);
-  }); }
+    // confirmation / info line under the picker
+    if (pendingBuy >= 0) {
+      const sk = SKINS[pendingBuy], price = skinPrice(pendingBuy);
+      if (credits >= price) {
+        msg.innerHTML = `Buy <b>${sk.name}</b> for ${price} credits? (or clear level ${pendingBuy} to get it free)<br>` +
+          '<button class="buy">Buy</button><button class="cancel">Cancel</button>';
+        msg.querySelector('.buy').addEventListener('click', () => buySkin(pendingBuy));
+      } else {
+        msg.innerHTML = `<b>${sk.name}</b> costs ${price} credits. You have ${credits}: you need ${price - credits} more, or clear level ${pendingBuy} to get it free.<br>` +
+          '<button class="cancel">OK</button>';
+      }
+      msg.querySelector('.cancel').addEventListener('click', () => { pendingBuy = -1; renderPicker(); });
+    } else msg.innerHTML = shopNote;
+  }
+}
+function buySkin(i) {
+  const price = skinPrice(i);
+  if (isSkinUnlocked(i) || credits < price) return;
+  credits -= price;
+  ownedSkins.add(i);
+  skinIndex = i;
+  pendingBuy = -1;
+  shopNote = `<b style="color:var(--accent)">${SKINS[i].name}</b> is yours!`;
+  saveMeta();
+  sfx.bonus();
+  renderPicker(); updateHud();
 }
 $('continueBtn').addEventListener('click', () => {
   if (credits <= 0 || state !== 'over') return;
