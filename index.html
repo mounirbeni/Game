@@ -3012,6 +3012,16 @@ restoreFromBackup().then(async local => {
   submitScore(true); refreshRank(); cloudPush();
 });
 
+// Coming back to an app that was left open: pick up progress or credits saved online meanwhile
+// (another device, or a gift). Only on the home screen, so a run in progress is never interrupted.
+let lastResumePull = Date.now();
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden || !account.token || Date.now() - lastResumePull < 20000) return;
+  lastResumePull = Date.now();
+  if (state !== 'title') return;
+  if (await cloudPull() && state === 'title') location.reload();
+});
+
 // Exposed for automated testing.
 window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
