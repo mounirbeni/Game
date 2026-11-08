@@ -57,6 +57,16 @@
   #wrap { position: relative; flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
   /* night vignette as a GPU-composited overlay (free compared to painting it on the canvas) */
   #stage { position: relative; border-radius: 10px; }
+  #perkChip { position: absolute; left: 8px; top: 8px; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px;
+    pointer-events: none; background: #08142acc; border: 2px solid #ffcf3a; box-shadow: 0 3px 8px #0009; transition: opacity .3s; }
+  #perkChip.hidden { display: none; }
+  #perkFace { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(#2a5a9a, #12305a); }
+  #perkChip .pk-text { display: flex; flex-direction: column; line-height: 1.05; }
+  #perkChip b { font-size: 12px; color: #ffd75a; font-weight: 900; }
+  #perkChip small { font-size: 10px; color: #cfe0ff; font-weight: 700; }
+  #perkChip.used { opacity: .55; filter: grayscale(.7); }
+  @keyframes perkPop { 0% { transform: scale(1); } 35% { transform: scale(1.18); box-shadow: 0 0 18px #ffcf3a; } 100% { transform: scale(1); } }
+  #perkChip.pop { animation: perkPop .5s ease-out; }
   #stage::after { content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none;
     background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.42) 100%); }
   canvas { display: block; border-radius: 10px; box-shadow: 0 0 0 2px #163323, 0 10px 40px #000a; }
@@ -340,7 +350,7 @@
     </div>
   </div>
   <div id="wrap">
-    <div id="stage"><canvas id="game"></canvas></div>
+    <div id="stage"><canvas id="game"></canvas><div id="perkChip" aria-live="polite"><canvas id="perkFace"></canvas><span class="pk-text"><b id="perkName"></b><small id="perkState"></small></span></div></div>
     <div id="overlay">
       <div class="card hidden" id="startCard">
         <h1>BACKMAN</h1>
@@ -953,6 +963,7 @@ function newGame(startLevel) {
   sfx.start();
   hideCards();
   updateHud();
+  pulsePerk();
 }
 
 function nextLevel() {
@@ -966,6 +977,7 @@ function nextLevel() {
   levelIntro = true;
   setState('ready', 2.4);
   updateHud();
+  pulsePerk();
 }
 
 function setState(s, t = 0) { state = s; stateTimer = t; }
@@ -1074,6 +1086,7 @@ function spawnBonus() {
 }
 
 function startFright() {
+  if (hasPerk('ES')) pulsePerk();
   const sp = speeds();
   frightTimer = sp.frightTime;
   frightChain = 0;
@@ -1236,7 +1249,7 @@ function checkCollisions() {
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
       } else if (hasPerk('Midnight') && !shieldUsed) {
         // magic shield: the beetle bounces off and is sent home
-        shieldUsed = true;
+        shieldUsed = true; updatePerkChip(); pulsePerk();
         b.mode = 'eaten'; b.frightened = false;
         popup(pp.x, pp.y, 'SHIELD!', '#c9a6ff'); burst(pp.x, pp.y, '#b48cff', 22, 5, 0.7, 0.1); sfx.lantern();
       } else {
@@ -1249,7 +1262,7 @@ function checkCollisions() {
   if (bonus) {
     if (Math.abs(pp.x - bonus.x) + Math.abs(pp.y - bonus.y) < 0.7) {
       addScore(bonus.value); popup(bonus.x, bonus.y, String(bonus.value), '#ffd36b'); sfx.bonus();
-      earnCredit(hasPerk('ZOGHA') ? 2 : 1, bonus.x, bonus.y);
+      earnCredit(hasPerk('ZOGHA') ? 2 : 1, bonus.x, bonus.y); if (hasPerk('ZOGHA')) pulsePerk();
       bonus = null;
     }
   }
@@ -1276,7 +1289,7 @@ function updateCoin(dt) {
     if (coin.timer <= 0) coin = null;
     else {
       const pp = pos(player);
-      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { track('coins'); burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(1, coin.x, coin.y); coin = null; coinTimer = nextCoinDelay(); }
+      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { track('coins'); if (hasPerk('Minty')) pulsePerk(); burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(1, coin.x, coin.y); coin = null; coinTimer = nextCoinDelay(); }
     }
   } else if ((coinTimer -= dt) <= 0) { spawnCoin(); coinTimer = nextCoinDelay(); }
 }
@@ -2118,7 +2131,37 @@ function drawBeetle(b, now) {
 }
 
 // ---------- HUD ----------
+// Shows the current character's power on the game screen, with its live state where it has one.
+const PERK_STATE = {
+  Midnight: () => shieldUsed ? 'Shield used this level' : 'Shield ready',
+  Ranger: () => '4 lives each level',
+  ES: () => 'Lanterns last longer',
+  FOX: () => '10% faster',
+  Sprout: () => 'Seeds worth 15',
+  Minty: () => 'More gold coins',
+  ZOGHA: () => 'Extra mushroom, +2 credits',
+  MBN: () => 'Double clear credits',
+  Shadow: () => 'Beetles notice you later',
+};
+function updatePerkChip() {
+  const chip = $('perkChip'); if (!chip) return;
+  const name = SKINS[skinIndex].name, pk = PERKS[name];
+  const show = name !== 'Backman' && state !== 'title';
+  chip.classList.toggle('hidden', !show);
+  if (!show) return;
+  $('perkName').textContent = pk.title;
+  $('perkState').textContent = (PERK_STATE[name] || (() => ''))();
+  chip.classList.toggle('used', name === 'Midnight' && shieldUsed);
+  const cv = $('perkFace');
+  if (cv.dataset.look !== name) { cv.dataset.look = name; paintAvatar(cv, 30, 'look:' + skinIndex); }
+}
+function pulsePerk() {
+  const chip = $('perkChip'); if (!chip) return;
+  chip.classList.remove('pop'); void chip.offsetWidth; chip.classList.add('pop');
+}
+
 function updateHud() {
+  updatePerkChip();
   ui.score.textContent = (score || 0).toLocaleString();
   ui.level.textContent = level || 1;
   ui.credits.textContent = credits;
