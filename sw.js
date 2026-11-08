@@ -1,7 +1,7 @@
 // Backman service worker: makes the game installable and playable offline.
 // The page itself is fetched network-first so updates show up as soon as you're online;
 // everything else is served from the cache first.
-const CACHE = 'bugmaze-v2';
+const CACHE = 'bugmaze-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +10,7 @@ const ASSETS = [
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
   './icons/favicon-32.png',
-  './assets/home-hero.jpg',
+  './assets/home-bg.jpg',
 ];
 
 self.addEventListener('install', event => {

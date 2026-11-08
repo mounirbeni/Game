@@ -57,7 +57,7 @@
   .icon-btn svg { width: 22px; height: 22px; }
 
   /* ---------- Home screen ---------- */
-  #home { position: fixed; inset: 0; z-index: 40; overflow: hidden;
+  #home { position: fixed; inset: 0; z-index: 40; overflow: hidden; isolation: isolate;
     background: radial-gradient(ellipse at 50% 28%, #163a5c 0%, #0b2033 42%, #050c12 100%); }
   #home.hidden { display: none; }
   .fireflies { position: absolute; inset: 0; pointer-events: none; }
@@ -67,7 +67,13 @@
     75% { opacity: .9; } 100% { opacity: 0; transform: translate(-10px, -40px); } }
   @media (prefers-reduced-motion: reduce) { .fireflies i { animation: none; opacity: .5; } }
   .home-col { position: relative; }
-  .home-col { height: 100%; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column;
+  /* full-screen artwork: logo and Backman at the top, the stone path below holds the buttons */
+  #home { background: #050c12; }
+  #home::before { content: ''; position: absolute; inset: 0; max-width: min(560px, 56.3vh); margin: 0 auto;
+    background: url(assets/home-bg.jpg) center top / cover no-repeat; }
+  @media (min-aspect-ratio: 3/5) { #home::after { content: ''; position: absolute; inset: 0; z-index: -1; background: url(assets/home-bg.jpg) center / cover; filter: blur(24px) brightness(.45); } }
+  .home-space { flex: 1 1 auto; min-height: 0; }
+  .home-col { height: 100%; max-width: min(560px, 56.3vh); margin: 0 auto; display: flex; flex-direction: column;
     padding: calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 8px); }
   .home-top { display: flex; align-items: center; gap: 6px; z-index: 2; }
   .player-chip { display: flex; align-items: center; gap: 7px; flex: 1 1 auto; min-width: 0; padding: 3px 10px 3px 3px; border-radius: 999px;
@@ -89,9 +95,7 @@
   .gear { width: 40px; height: 40px; flex: none; border-radius: 12px; border: 2px solid #2d6aa0; color: #e9f2ff; cursor: pointer; padding: 7px;
     background: linear-gradient(#173a5c, #0c223a); box-shadow: 0 3px 10px #0008; }
   .gear svg { width: 100%; height: 100%; display: block; }
-  .home-hero { display: block; width: calc(100% + 24px); margin: 6px -12px 0; height: auto; flex: none;
-    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 82%, transparent 100%); mask-image: linear-gradient(to bottom, #000 0%, #000 82%, transparent 100%); }
-  .home-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 16px; min-height: 0; padding: 4px 0; }
+  .home-main { flex: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 14px; padding: 10px 0 14px; }
   .play-btn { width: min(100%, 360px); display: flex; align-items: center; justify-content: center; gap: 14px; position: relative;
     padding: 12px 22px; border-radius: 999px; cursor: pointer; font: inherit; color: #4a2a05;
     background: linear-gradient(#ffe36b 0%, #ffc21f 55%, #ffab0f 100%);
@@ -168,7 +172,9 @@
     .tile { font-size: 10.5px; border-radius: 15px; }
     .ticon svg { width: 34px; height: 34px; }
   }
-  @media (max-height: 700px) { .home-hero { width: 100%; margin: 4px 0 0; } .home-main { gap: 10px; } .ticon svg { width: 32px; height: 32px; } }
+  @media (max-height: 760px) { #home #iosHint, #home #installBtn { display: none !important; } }
+  @media (max-height: 700px) { .home-main { gap: 9px; padding-bottom: 10px; } .play-btn { padding: 8px 20px; } .pb-text b { font-size: 28px; } .pb-icon svg { width: 32px; height: 32px; }
+    .tile { padding: 7px 2px 6px; } .ticon svg { width: 30px; height: 30px; } .home-nav button { padding: 4px 2px; } }
   .touch-only { display: none; }
   @media (pointer: coarse) { .kbd-only { display: none; } .touch-only { display: inline; } }
   @media (max-width: 380px) {
@@ -227,7 +233,7 @@
       <div class="hpill"><span class="hicon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.1C.9 8.6 2.9 4.5 6.7 4.5c2.2 0 3.6 1.2 4.3 2.4.7-1.2 2.1-2.4 4.3-2.4 3.8 0 5.8 4.1 4.3 7.4C19.5 16.4 12 21 12 21z" fill="#ff3b4f" stroke="#a3122a" stroke-width="1.2"/><path d="M7 7.5c-1.5.3-2.3 1.7-2 3" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span><b>3</b><small class="full">Full</small></div>
       <button class="gear" data-open="settings" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
     </div>
-    <img class="home-hero" src="assets/home-hero.jpg" alt="Bug Maze Adventure: Backman in front of a glowing maze with beetles">
+    <div class="home-space" role="img" aria-label="Bug Maze Adventure: Backman in front of a glowing maze"></div>
     <div class="home-main">
       <button id="playBtn" class="play-btn"><span class="pb-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8v14.4a1.2 1.2 0 0 0 1.8 1l11.4-7.2a1.2 1.2 0 0 0 0-2L8.8 3.8A1.2 1.2 0 0 0 7 4.8z" fill="#4a2a05"/></svg></span><span class="pb-text"><b>Play</b><small id="playLevel">Level 1</small></span><span class="pb-chev">&raquo;</span></button>
       <div class="tiles">
