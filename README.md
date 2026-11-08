@@ -65,3 +65,14 @@ Ember, Glint, Shade and Thistle join from level 5 onwards and reuse these four c
 Beetles don't all chase you from the start. They leave the den and wander the garden, steering clear of you while they wander. As you eat the seeds they join the hunt one at a time, at first only now and then. Once about 90% of the seeds are gone, half of them hunt you hard and the rest join in now and then. After you lose a life they leave you alone for a few seconds. When 8 or fewer seeds are left, the seeds pulse and an arrow points to the nearest one.
 
 Every so often the beetles switch between chasing you and retreating to their corners. Use the side tunnel to escape, because beetles slow down inside it.
+
+## Saves and updates
+
+Progress is stored in the browser (`localStorage` keys starting with `backman.` or `bma.`). Publishing a new version never touches it, and these rules keep it that way:
+
+- **Keys:** never rename or delete an existing save key. Add new keys instead, with a migration that only adds progress.
+- **Never lower progress:** the saved level never moves backwards (replaying an old level doesn't change it). Every merge (backup restore, save code, address move) keeps the higher level, credits, best score and cleared levels, and the union of owned looks.
+- **Backup copy:** a second copy of the save lives in IndexedDB (`bugmaze-save`). If the main copy disappears, the game restores it on start.
+- **One address:** any other `*.vercel.app` address forwards the player to `backman-nu.vercel.app` and takes their save along. An installed app stays where it was installed.
+- **Save code:** Settings has *Copy* and *Load a save code*. Players can use it to move progress between Safari and the installed app, to another phone, or after reinstalling.
+- **Don't delete the installed app to update:** on iPhone, deleting a home-screen app deletes its data. Updates arrive on their own: close the app fully and reopen it.

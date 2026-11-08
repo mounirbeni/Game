@@ -403,6 +403,161 @@
 (() => {
 'use strict';
 
+// ================= Save safety =================
+// All progress lives in this browser's storage (keys starting with "backman." or "bma.").
+// Game updates never touch it, but a player can still lose it by opening the game on another
+// address, deleting the installed app, or having the browser clear site data. So:
+//  - every save is merged, never overwritten downwards ("never lower progress"),
+//  - a second copy is kept in IndexedDB and restored automatically if the main copy vanishes,
+//  - any other *.vercel.app address forwards the player (and their save) to the main address,
+//  - players can copy a save code and load it on another device or after reinstalling.
+const CANONICAL_HOST = 'backman-nu.vercel.app';
+const isSaveKey = k => typeof k === 'string' && (k.startsWith('backman.') || k.startsWith('bma.'));
+function readSave() {
+  const d = {};
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (isSaveKey(k)) d[k] = localStorage.getItem(k); } } catch (e) { /* ignore */ }
+  return d;
+}
+function writeSave(map) {
+  try { for (const [k, v] of Object.entries(map)) if (isSaveKey(k) && typeof v === 'string' && localStorage.getItem(k) !== v) localStorage.setItem(k, v); } catch (e) { /* ignore */ }
+}
+const saveNum = v => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
+const saveObj = v => { try { const o = JSON.parse(v); return o && typeof o === 'object' ? o : null; } catch (e) { return null; } };
+const dayKey = d => { const p = String(d || '').split('-').map(Number); return p.length === 3 && p.every(Number.isFinite) ? p[0] * 500 + p[1] * 40 + p[2] : 0; };
+// Combine two saves, keeping the most progress from each. Never lowers anything.
+function mergeSave(mine, theirs) {
+  const out = { ...mine };
+  if (!theirs || typeof theirs !== 'object') return out;
+  for (const [k, tv] of Object.entries(theirs)) {
+    if (!isSaveKey(k) || typeof tv !== 'string') continue;
+    const mv = mine[k];
+    if (mv == null) { out[k] = tv; continue; }
+    switch (k) {
+      case 'backman.level': case 'backman.best': case 'backman.credits': case 'backman.cleared':
+        out[k] = String(Math.max(saveNum(mv) ?? 0, saveNum(tv) ?? 0)); break;
+      case 'backman.owned': {
+        const a = saveObj(mv), b = saveObj(tv);
+        out[k] = JSON.stringify([...new Set([...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])].filter(Number.isInteger))]); break;
+      }
+      case 'bma.stats': {
+        const a = saveObj(mv) || {}, b = saveObj(tv) || {}, r = { ...a };
+        for (const f in b) if (typeof b[f] === 'number') r[f] = Math.max(typeof a[f] === 'number' ? a[f] : 0, b[f]);
+        out[k] = JSON.stringify(r); break;
+      }
+      case 'bma.board': {
+        const seen = new Set();
+        const runs = [...((saveObj(mv) || {}).runs || []), ...((saveObj(tv) || {}).runs || [])]
+          .filter(r => r && typeof r.score === 'number')
+          .filter(r => { const id = `${r.score}|${r.level}|${r.date}|${r.name}`; if (seen.has(id)) return false; seen.add(id); return true; })
+          .sort((x, y) => y.score - x.score).slice(0, 10);
+        out[k] = JSON.stringify({ runs }); break;
+      }
+      case 'bma.daily': {
+        const a = saveObj(mv) || {}, b = saveObj(tv) || {};
+        if (dayKey(b.last) > dayKey(a.last) || (dayKey(b.last) === dayKey(a.last) && (b.streak || 0) > (a.streak || 0))) out[k] = tv;
+        break;
+      }
+      case 'bma.day': {
+        const a = saveObj(mv) || {}, b = saveObj(tv) || {};
+        if (dayKey(b.date) > dayKey(a.date)) out[k] = tv;
+        else if (a.date === b.date) {
+          const r = { ...a };
+          for (const f in b) if (typeof b[f] === 'number') r[f] = Math.max(typeof a[f] === 'number' ? a[f] : 0, b[f]);
+          r.claimed = [...new Set([...(a.claimed || []), ...(b.claimed || [])])];
+          out[k] = JSON.stringify(r);
+        }
+        break;
+      }
+      case 'bma.profile': {
+        const a = saveObj(mv) || {}, b = saveObj(tv) || {};
+        if ((!a.name || a.name === 'Player') && b.name && b.name !== 'Player') out[k] = tv;
+        break;
+      }
+      default: break; // settings like the chosen look or sound: keep this device's choice
+    }
+  }
+  // the score you start a level with goes with whichever level was kept
+  const ml = saveNum(mine['backman.level']) ?? 0, tl = saveNum(theirs['backman.level']) ?? 0;
+  if (typeof theirs['backman.levelScore'] === 'string') {
+    if (tl > ml) out['backman.levelScore'] = theirs['backman.levelScore'];
+    else if (tl === ml) out['backman.levelScore'] = String(Math.max(saveNum(mine['backman.levelScore']) ?? 0, saveNum(theirs['backman.levelScore']) ?? 0));
+  }
+  return out;
+}
+const encodeSave = map => 'BM1.' + btoa(unescape(encodeURIComponent(JSON.stringify(map)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function decodeSave(code) {
+  try {
+    let t = String(code || '').trim().replace(/\s+/g, '');
+    if (!t.startsWith('BM1.')) return null;
+    t = t.slice(4).replace(/-/g, '+').replace(/_/g, '/');
+    while (t.length % 4) t += '=';
+    const m = JSON.parse(decodeURIComponent(escape(atob(t))));
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return null;
+    const clean = {};
+    for (const [k, v] of Object.entries(m)) if (isSaveKey(k) && typeof v === 'string' && v.length < 20000) clean[k] = v;
+    return clean;
+  } catch (e) { return null; }
+}
+// A save that arrived in the link (from the old address): merge it in, then tidy the address bar.
+(function importFromLink() {
+  const m = location.hash.match(/^#transfer=(.+)$/);
+  if (!m) return;
+  const incoming = decodeSave(decodeURIComponent(m[1]));
+  if (incoming) writeSave(mergeSave(readSave(), incoming));
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
+})();
+// Opened on another *.vercel.app address? Take the save along to the main address.
+// (Not for an installed app: it has to keep working where it was installed.)
+const movingToMainAddress = (function () {
+  const h = location.hostname;
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (!h.endsWith('.vercel.app') || h === CANONICAL_HOST || standalone) return false;
+  location.replace(`https://${CANONICAL_HOST}/#transfer=${encodeURIComponent(encodeSave(readSave()))}`);
+  return true;
+})();
+if (movingToMainAddress) return;
+
+// Second copy in IndexedDB.
+function idbOpen() {
+  return new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error('no indexedDB'));
+    const r = indexedDB.open('bugmaze-save', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function idbDo(mode, fn) {
+  return idbOpen().then(db => new Promise((res, rej) => {
+    const tx = db.transaction('kv', mode), st = tx.objectStore('kv'), req = fn(st);
+    tx.oncomplete = () => { db.close(); res(req && req.result); };
+    tx.onerror = () => { db.close(); rej(tx.error); };
+  }));
+}
+let backupTimer = 0, backupsEnabled = true;
+function backupNow() {
+  if (!backupsEnabled) return;
+  const m = readSave();
+  if (Object.keys(m).length) idbDo('readwrite', st => st.put({ t: Date.now(), save: m }, 'save')).catch(() => {});
+}
+function backupSoon() { clearTimeout(backupTimer); backupTimer = setTimeout(backupNow, 700); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) backupNow(); });
+window.addEventListener('pagehide', backupNow);
+// Restore from the backup if it has more progress than what's here (e.g. site data was cleared).
+function restoreFromBackup() {
+  return idbDo('readonly', st => st.get('save')).then(rec => {
+    if (!rec || !rec.save) return false;
+    const cur = readSave(), merged = mergeSave(cur, rec.save);
+    const gained = ['backman.level', 'backman.cleared', 'backman.credits', 'backman.best', 'backman.owned', 'bma.stats']
+      .some(k => merged[k] !== cur[k]);
+    writeSave(merged);
+    return gained;
+  }).catch(() => false);
+}
+// Ask the browser not to clear this site's storage on its own.
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => {}); } catch (e) { /* ignore */ }
+
+
 // ---------- Maze ----------
 // # hedge  . seed  o lantern  - beetle gate  E beetle den  P player start  (space) empty path
 // ---------- Level generation ----------
@@ -548,7 +703,7 @@ let mazeLayerFlash = null;
 
 // ---------- Storage (best score) ----------
 function loadBest() { try { return parseInt(localStorage.getItem('backman.best') || '0', 10) || 0; } catch (e) { return 0; } }
-function saveBest(v) { try { localStorage.setItem('backman.best', String(v)); } catch (e) { /* ignore */ } }
+function saveBest(v) { try { localStorage.setItem('backman.best', String(v)); } catch (e) { /* ignore */ } backupSoon(); }
 
 // ---------- Audio ----------
 // Sound effects are synthesised on the fly, no files: filtered noise gives crunchy bites and
@@ -764,6 +919,7 @@ function saveMeta() {
     localStorage.setItem('backman.skin', String(skinIndex));
     localStorage.setItem('backman.owned', JSON.stringify([...ownedSkins]));
   } catch (e) { /* ignore */ }
+  backupSoon();
 }
 // Credits are earned while playing: gold coins, beetles, mushrooms, and a bonus for clearing.
 function earnCredit(n, x, y) {
@@ -798,7 +954,11 @@ function loadProgress() {
   } catch (e) { return { level: 1, score: 0 }; }
 }
 function saveProgress() {
+  // never move the saved level backwards
+  const savedLevel = Math.max(1, parseInt(localStorage.getItem('backman.level') || '1', 10) || 1);
+  if (level < savedLevel) return;
   try { localStorage.setItem('backman.level', String(level)); localStorage.setItem('backman.levelScore', String(score)); } catch (e) { /* ignore */ }
+  backupSoon();
 }
 function newGame(startLevel) {
   const saved = loadProgress();
@@ -1906,7 +2066,7 @@ $('continueBtn').addEventListener('click', () => {
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 const yesterday = () => { const d = new Date(Date.now() - 864e5); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 function loadJSON(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v && typeof v === 'object' ? { ...fallback, ...v } : fallback; } catch (e) { return fallback; } }
-function saveJSON(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* ignore */ } }
+function saveJSON(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* ignore */ } backupSoon(); }
 
 let stats = loadJSON('bma.stats', { seeds: 0, beetles: 0, coins: 0, clears: 0, flawless: 0, games: 0, totalScore: 0, playTime: 0 });
 let statsDirty = false;
@@ -2077,14 +2237,39 @@ function openSheet(which) {
       ${/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? '<div class="set-row"><span>Install</span></div><p>Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>' : ''}
       <div class="set-row"><span>How to play</span></div>
       <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins and mushrooms for more credits. Each level the garden grows and one more beetle joins in.</p>
+      <div class="set-row"><span>Save code</span><button class="toggle on" id="copySave">Copy</button></div>
+      <p>Your progress is saved on this device. Copy your save code and keep it somewhere safe (Notes, a message to yourself) before deleting the app or changing phone.</p>
+      <div class="set-row"><span>Load a save code</span><button class="toggle" id="loadSaveBtn">Paste</button></div>
+      <div id="loadSaveBox" class="hidden"><textarea id="saveInput" rows="3" placeholder="BM1..." style="width:100%;border-radius:10px;border:2px solid #2d6aa0;background:#08182a;color:#fff;font:12px ui-monospace,monospace;padding:8px"></textarea>
+        <button class="gold-btn" id="applySave" style="margin-top:8px">Load progress</button><p id="saveMsg"></p></div>
+      <p style="font-size:12px">Loading a code never lowers your progress: you keep the highest level, credits and looks from both.</p>
       <div class="set-row"><span>Reset all progress</span><button class="danger-btn" id="resetBtn">Reset</button></div>
       <p style="font-size:12px">Bug Maze Adventure · progress is saved on this device.</p>`;
     $('nameInput').addEventListener('input', e => { profile.name = e.target.value.trim().slice(0, 14) || 'Player'; saveJSON('bma.profile', profile); refreshHome(); });
     $('soundToggle').addEventListener('click', () => { toggleMute(); openSheet('settings'); });
+    $('copySave').addEventListener('click', async e => {
+      flushStats();
+      const code = encodeSave(readSave());
+      let ok = false;
+      try { await navigator.clipboard.writeText(code); ok = true; } catch (err) { /* fall back below */ }
+      if (!ok) { $('loadSaveBox').classList.remove('hidden'); $('saveInput').value = code; $('saveInput').select(); $('saveMsg').textContent = 'Select and copy this code.'; }
+      e.target.textContent = ok ? 'Copied!' : 'Copy';
+    });
+    $('loadSaveBtn').addEventListener('click', () => { $('loadSaveBox').classList.toggle('hidden'); $('saveInput').value = ''; $('saveMsg').textContent = ''; $('saveInput').focus(); });
+    $('applySave').addEventListener('click', () => {
+      const incoming = decodeSave($('saveInput').value);
+      if (!incoming) { $('saveMsg').textContent = 'That code doesn\'t look right. It should start with BM1.'; return; }
+      flushStats();
+      writeSave(mergeSave(readSave(), incoming));
+      backupNow();
+      $('saveMsg').textContent = 'Progress loaded!';
+      setTimeout(() => location.reload(), 500);
+    });
     $('resetBtn').addEventListener('click', e => {
       if (e.target.dataset.sure) {
-        try { Object.keys(localStorage).filter(k => k.startsWith('backman.') || k.startsWith('bma.')).forEach(k => localStorage.removeItem(k)); } catch (err) { /* ignore */ }
-        location.reload();
+        backupsEnabled = false;
+        try { Object.keys(localStorage).filter(isSaveKey).forEach(k => localStorage.removeItem(k)); } catch (err) { /* ignore */ }
+        idbDo('readwrite', st => st.delete('save')).catch(() => {}).then(() => location.reload());
       } else { e.target.dataset.sure = '1'; e.target.textContent = 'Tap again to confirm'; }
     });
   }
@@ -2180,11 +2365,19 @@ resize();
 updateHud();
 showHome();
 requestAnimationFrame(frame);
+restoreFromBackup().then(gained => {
+  let reloaded = false;
+  try { reloaded = sessionStorage.getItem('bma.restored') === '1'; } catch (e) { /* ignore */ }
+  if (gained && state === 'title' && !reloaded) {
+    try { sessionStorage.setItem('bma.restored', '1'); } catch (e) { /* ignore */ }
+    location.reload();   // start again with the restored progress
+  } else backupNow();
+});
 
 // Exposed for automated testing.
 window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
-  get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
+  get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
   skipToLevel(n) { level = n - 1; nextLevel(); } };
 })();
