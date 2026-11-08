@@ -194,6 +194,36 @@
   .toggle.on { background: #1f9a2a; border-color: #7dff6a; }
   .danger-btn { padding: 7px 14px; border-radius: 999px; border: 2px solid #ff6b6b; background: transparent; color: #ff8a8a; font: inherit; font-weight: 800; cursor: pointer; }
   .sheet-card .skins { margin-top: 4px; }
+  .pcard { display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 22px;
+    background: linear-gradient(#1f4f86, #12305a); border: 3px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff33, 0 6px 14px #0008; }
+  .pavatar { position: relative; flex: none; width: 104px; height: 104px; padding: 4px; border-radius: 22px; cursor: pointer;
+    border: 3px solid #ffcf3a; background: radial-gradient(#3a7bd5, #173a6e); box-shadow: 0 0 0 2px #7a4d00, 0 5px 10px #0009; }
+  .pavatar canvas { width: 92px; height: 92px; display: block; }
+  .pedit { position: absolute; right: -10px; top: -10px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    font-style: normal; font-size: 18px; color: #fff; background: linear-gradient(#7dff6a, #1f9a2a); border: 2px solid #0f4d12; box-shadow: 0 3px 6px #0008; }
+  .pedit.small { position: static; width: 26px; height: 26px; font-size: 14px; flex: none; cursor: pointer; }
+  .pinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .pname { display: flex; align-items: center; gap: 6px; }
+  .pname input { flex: 1; min-width: 0; font: inherit; font-size: 24px; font-weight: 900; color: #fff; background: transparent; border: 0;
+    border-bottom: 2px dashed #ffffff44; padding: 2px 0; text-shadow: 0 2px 0 #06112b; }
+  .pname input:focus { outline: none; border-bottom-color: #ffcf3a; }
+  .plevel { display: flex; align-items: center; gap: 6px; color: #cfe0ff; font-weight: 800; font-size: 13px; }
+  .plevel img { width: 26px; height: 26px; } .plevel b { margin-left: auto; color: #ffd75a; font-size: 22px; }
+  .pbar { position: relative; height: 18px; border-radius: 10px; overflow: hidden; background: #0a1e52; border: 2px solid #4f86ff; }
+  .pbar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(#8bff6a, #2fbf3a); }
+  .pbar em { position: relative; display: block; text-align: center; font-style: normal; font-weight: 900; font-size: 11px; line-height: 14px; color: #fff; text-shadow: 0 1px 2px #000; }
+  .phead { margin: 16px 0 8px; text-align: center; font-size: 18px; color: #ffd75a; }
+  .pstats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pstat { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 34px 6px 10px; margin-top: 22px; border-radius: 16px;
+    background: #0c223a; border: 2px solid #2d6aa0; text-align: center; }
+  .pstat img { position: absolute; top: -24px; width: 52px; height: 52px; filter: drop-shadow(0 3px 3px #0009); }
+  .pstat span { color: #9fc4ff; font-weight: 800; font-size: 13px; }
+  .pstat b { color: #fff; font-size: 22px; font-weight: 900; }
+  .pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .pchoice { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 14px; cursor: pointer;
+    border: 2px solid #2d6aa0; background: radial-gradient(#2a5a9a, #12305a); color: #fff; font: inherit; font-size: 10px; font-weight: 800; }
+  .pchoice canvas { width: 58px; height: 58px; }
+  .pchoice.sel { border-color: #ffcf3a; box-shadow: 0 0 10px #ffcf3a88; }
   #home .install, #home .hint { display: none !important; }
   @media (min-height: 860px) and (max-width: 440px) {
     .bubble { width: 78px; height: 78px; } .bubbles { gap: 96px; }
@@ -262,7 +292,7 @@
   <div class="fireflies" aria-hidden="true"><i style="left:10%;top:48%;animation-delay:0s;animation-duration:7s"></i><i style="left:24%;top:62%;animation-delay:1.5s;animation-duration:9s"></i><i style="left:40%;top:55%;animation-delay:3s;animation-duration:8s"></i><i style="left:58%;top:66%;animation-delay:0.8s;animation-duration:10s"></i><i style="left:74%;top:50%;animation-delay:2.2s;animation-duration:7.5s"></i><i style="left:88%;top:60%;animation-delay:4s;animation-duration:9s"></i><i style="left:16%;top:74%;animation-delay:2.8s;animation-duration:8.5s"></i><i style="left:66%;top:78%;animation-delay:1.2s;animation-duration:9.5s"></i><i style="left:90%;top:72%;animation-delay:3.6s;animation-duration:7s"></i><i style="left:48%;top:80%;animation-delay:0.4s;animation-duration:8s"></i></div>
   <div class="home-col">
     <div class="home-top">
-      <button class="avatar-btn" data-open="settings" aria-label="Profile and settings"><canvas id="avatar" width="48" height="48"></canvas></button>
+      <button class="avatar-btn" data-open="profile" aria-label="Profile"><canvas id="avatar" width="48" height="48"></canvas></button>
       <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Shop">+</button></div>
       <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"></span><b>3</b><small class="full">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
       <button class="gear" data-open="settings" aria-label="Settings"><img class="uiicon" src="icons/ui/gear.webp" alt="" draggable="false"></button>
@@ -884,7 +914,7 @@ function earnCredit(n, x, y) {
 
 function levelCleared() {
   const flawless = deathsThisLevel === 0;
-  track('clears'); if (flawless) track('flawless');
+  track('clears'); if (flawless) track('flawless'); if (isChallenge(level)) track('challenges');
   const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1);
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
@@ -2226,7 +2256,27 @@ function saveJSON(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); 
 
 let stats = loadJSON('bma.stats', { seeds: 0, beetles: 0, coins: 0, clears: 0, flawless: 0, games: 0, totalScore: 0, playTime: 0 });
 let statsDirty = false;
-let profile = loadJSON('bma.profile', { name: 'Player' });
+let profile = loadJSON('bma.profile', { name: 'Player', avatar: 'auto' });
+// Profile pictures. 'auto' shows the current look; 'look:N' a Backman look; 'img:NAME' a picture
+// from assets/avatars/NAME.webp (add file names to AVATAR_IMAGES when new pictures arrive).
+const AVATAR_IMAGES = [];
+const avatarImgs = {};
+AVATAR_IMAGES.forEach(n => { const im = new Image(); im.onload = () => { avatarImgs[n] = im; try { refreshHome(); } catch (e) { /* not ready */ } }; im.src = `assets/avatars/${n}.webp`; });
+function avatarChoices() {
+  const out = [{ id: 'auto', label: 'My look' }];
+  SKINS.forEach((sk, i) => { if (isSkinUnlocked(i)) out.push({ id: 'look:' + i, label: sk.name }); });
+  AVATAR_IMAGES.forEach(n => out.push({ id: 'img:' + n, label: '' }));
+  return out;
+}
+// Draw a profile picture into a canvas of `size` CSS pixels.
+function paintAvatar(cv, size, id = profile.avatar || 'auto') {
+  const d = Math.min(window.devicePixelRatio || 1, 3);
+  cv.width = cv.height = Math.round(size * d);
+  const g = cv.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, size, size);
+  if (id.startsWith('img:') && avatarImgs[id.slice(4)]) { g.drawImage(avatarImgs[id.slice(4)], 0, 0, size, size); return; }
+  const sk = id.startsWith('look:') && isSkinUnlocked(+id.slice(5)) ? SKINS[+id.slice(5)] : SKINS[skinIndex];
+  g.translate(size * 0.56, size * 0.56); drawBackman(g, size * 0.31, sk);
+}
 let daily = loadJSON('bma.daily', { last: '', streak: 0 });
 let dayLog = loadJSON('bma.day', { date: today(), seeds: 0, beetles: 0, coins: 0, clears: 0, flawless: 0, claimed: [] });
 let board = (loadJSON('bma.board', { runs: [] }).runs || []).slice(0, 10);
@@ -2321,10 +2371,7 @@ function refreshHome() {
   $('missionLabel').classList.toggle('go', claimable);
   $('bestLabel').textContent = best > 0 ? best.toLocaleString() : 'Best';
 
-  const av = $('avatar'), d = Math.min(window.devicePixelRatio || 1, 3);
-  av.width = av.height = Math.round(48 * d);
-  const g = av.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, 48, 48);
-  g.translate(27, 27); drawBackman(g, 15, SKINS[skinIndex]);
+  paintAvatar($('avatar'), 48);
 }
 function showHome() {
   flushStats();
@@ -2375,6 +2422,53 @@ function openSheet(which) {
     body.innerHTML = '<p>Replay any level you have reached. Your progress is kept.</p><div class="lvls">' +
       Array.from({ length: shown }, (_, i) => i + 1).map(n => `<button class="lvl ${n === reached ? 'cur' : ''}" data-l="${n}" ${n > reached ? 'disabled' : ''}>${n}</button>`).join('') + '</div>';
     body.querySelectorAll('.lvl:not(:disabled)').forEach(b => b.addEventListener('click', () => startPlay(+b.dataset.l)));
+  } else if (which === 'profile') {
+    title = 'Profile';
+    const pl = playerLevel(), mins = Math.round(stats.playTime / 60);
+    const card = (icon, label, val) => `<div class="pstat"><img class="uiicon" src="${icon}" alt=""><span>${label}</span><b>${val ? val : '–'}</b></div>`;
+    body.innerHTML = `<div class="pcard">
+        <button class="pavatar" id="pAvatarBtn" aria-label="Change picture"><canvas id="pAvatar"></canvas><i class="pedit">&#9998;</i></button>
+        <div class="pinfo">
+          <div class="pname"><input id="pName" maxlength="14" value="${esc(profile.name || 'Player')}" aria-label="Name"><i class="pedit small">&#9998;</i></div>
+          <div class="plevel"><img class="uiicon" src="icons/ui/star.webp" alt=""><span>Player level</span><b>${pl.lvl}</b></div>
+          <div class="pbar"><i style="width:${Math.round(100 * pl.xp / pl.need)}%"></i><em>${pl.xp} / ${pl.need}</em></div>
+        </div>
+      </div>
+      <div class="pavatars hidden" id="pAvatars"></div>
+      <h4 class="phead">Stats</h4>
+      <div class="pstats">
+        ${card('icons/ui/map.webp', 'Highest level', loadProgress().level)}
+        ${card('icons/ui/trophy.webp', 'Best score', best ? best.toLocaleString() : 0)}
+        ${card('icons/ui/mission.webp', 'Levels cleared', stats.clears)}
+        ${card('icons/ui/star.webp', 'Flawless levels', stats.flawless)}
+        ${card('icons/ui/stats.webp', 'Challenges beaten', stats.challenges || 0)}
+        ${card('assets/ladybug.webp', 'Beetles caught', stats.beetles)}
+        ${card('assets/seed.webp', 'Seeds eaten', stats.seeds.toLocaleString())}
+        ${card('icons/ui/coin.webp', 'Gold coins', stats.coins)}
+        ${card('icons/ui/gift.webp', 'Daily streak', dailyState().streak)}
+        ${card('icons/ui/skins.webp', 'Looks owned', SKINS.filter((_, i) => isSkinUnlocked(i)).length + ' / ' + SKINS.length)}
+        ${card('icons/ui/heart.webp', 'Games played', stats.games)}
+        ${card('icons/ui/house.webp', 'Time played', mins < 60 ? mins + ' min' : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min')}
+      </div>`;
+    paintAvatar($('pAvatar'), 92);
+    $('pName').addEventListener('input', e => { profile.name = e.target.value.trim().slice(0, 14) || 'Player'; saveJSON('bma.profile', profile); refreshHome(); });
+    body.querySelectorAll('.pedit.small').forEach(el => el.addEventListener('click', () => $('pName').focus()));
+    $('pAvatarBtn').addEventListener('click', () => {
+      const box = $('pAvatars');
+      if (!box.classList.toggle('hidden')) {
+        box.innerHTML = '<h4 class="phead">Choose a picture</h4><div class="pgrid"></div>';
+        const grid = box.querySelector('.pgrid');
+        avatarChoices().forEach(ch => {
+          const b = document.createElement('button');
+          b.className = 'pchoice' + ((profile.avatar || 'auto') === ch.id ? ' sel' : '');
+          const cv = document.createElement('canvas'); b.appendChild(cv);
+          if (ch.label) { const l = document.createElement('span'); l.textContent = ch.label; b.appendChild(l); }
+          paintAvatar(cv, 58, ch.id);
+          b.addEventListener('click', () => { profile.avatar = ch.id; saveJSON('bma.profile', profile); refreshHome(); openSheet('profile'); });
+          grid.appendChild(b);
+        });
+      }
+    });
   } else if (which === 'stats') {
     title = 'Stats';
     const pl = playerLevel(), mins = Math.round(stats.playTime / 60);
@@ -2385,7 +2479,7 @@ function openSheet(which) {
     body.innerHTML = '<table class="rows">' + rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '</table>';
   } else if (which === 'settings') {
     title = 'Settings';
-    body.innerHTML = `<div class="set-row"><span>Name</span><input id="nameInput" maxlength="14" value="${esc(profile.name || 'Player')}"></div>
+    body.innerHTML = `<div class="set-row"><span>Profile</span><button class="toggle on" id="openProfile">Edit</button></div>
       <div class="set-row"><span>Sound</span><button class="toggle ${muted ? '' : 'on'}" id="soundToggle">${muted ? 'Off' : 'On'}</button></div>
       ${/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? '<div class="set-row"><span>Install</span></div><p>Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>' : ''}
       <div class="set-row"><span>How to play</span></div>
@@ -2398,7 +2492,7 @@ function openSheet(which) {
       <p style="font-size:12px">Loading a code never lowers your progress: you keep the highest level, credits and looks from both.</p>
       <div class="set-row"><span>Reset all progress</span><button class="danger-btn" id="resetBtn">Reset</button></div>
       <p style="font-size:12px">Bug Maze Adventure · progress is saved on this device.</p>`;
-    $('nameInput').addEventListener('input', e => { profile.name = e.target.value.trim().slice(0, 14) || 'Player'; saveJSON('bma.profile', profile); refreshHome(); });
+    $('openProfile').addEventListener('click', () => openSheet('profile'));
     $('soundToggle').addEventListener('click', () => { toggleMute(); openSheet('settings'); });
     $('copySave').addEventListener('click', async e => {
       flushStats();
