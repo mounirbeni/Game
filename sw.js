@@ -1,7 +1,7 @@
 // Backman service worker: makes the game installable and playable offline.
 // The page itself is fetched network-first so updates show up as soon as you're online;
 // everything else is served from the cache first.
-const CACHE = 'bugmaze-v11';
+const CACHE = 'bugmaze-v12';
 const ASSETS = [
   './',
   './index.html',
@@ -12,7 +12,7 @@ const ASSETS = [
   './icons/favicon-32.png',
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
-  './assets/home-bg.jpg', './assets/ladybug.webp', './assets/ladybug-scared.webp',
+  './assets/home-bg.jpg', './assets/ladybug.webp', './assets/backman.webp', './assets/ladybug-scared.webp',
   './icons/ui/coin.webp', './icons/ui/heart.webp', './icons/ui/gear.webp', './icons/ui/gift.webp', './icons/ui/mission.webp', './icons/ui/trophy.webp', './icons/ui/skins.webp',
   './icons/ui/stats.webp', './icons/ui/shop.webp', './icons/ui/house.webp', './icons/ui/map.webp', './icons/ui/star.webp',
 ];

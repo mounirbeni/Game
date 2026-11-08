@@ -1694,8 +1694,65 @@ const SKINS = [
   { name: 'King',     body: ['#fff4b8', '#e0b000'], hat: null,      band: '#c0392b', pack: '#7a5a10', packDark: '#5a420b', roll: '#8e44ad', acc: 'crown' },
 ];
 
+// ---------- Backman sprite ----------
+// The custom Backman artwork, recoloured per look: body, hat, hat band and bag each take the
+// look's colours while keeping the artwork's shading. Until it loads, the drawn Backman is used.
+const heroSprite = { img: null, byLook: {} };
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, mx ? d / mx : 0, mx];
+}
+function hsvToRgb(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
+}
+function heroFor(sk) {
+  const img = heroSprite.img; if (!img) return null;
+  if (sk === SKINS[0]) return img;
+  const key = sk.name;
+  if (!heroSprite.byLook[key]) {
+    const hsv = hex => rgbToHsv(...hexRgb(hex));
+    const body = hsv(sk.body[1]), hat = hsv(sk.hat || '#ffd23f'), band = hsv(sk.band), bag = hsv(sk.pack);
+    const H = img.naturalHeight;
+    heroSprite.byLook[key] = recolor(img, (px, i) => {
+      const [h, s, v] = rgbToHsv(px[i], px[i + 1], px[i + 2]);
+      const y = Math.floor(i / 4 / img.naturalWidth) / H;
+      let t = null;
+      if (s > 0.45 && v > 0.55 && h >= 36 && h <= 62) t = body;                       // yellow body
+      else if (s > 0.35 && v > 0.2 && h > 62 && h <= 140 && y < 0.5) t = hat;          // green hat
+      else if (s > 0.6 && v > 0.55 && (h < 12 || h > 345) && y < 0.4) t = band;       // red hat band
+      else if (s > 0.45 && v > 0.15 && v < 0.75 && h >= 12 && h < 36 && y > 0.4) t = bag; // brown bag
+      if (!t) return;
+      const [r, g, b] = hsvToRgb(t[0], Math.min(1, t[1] * (0.6 + s * 0.4)), Math.min(1, v * Math.max(0.35, t[2]) * 1.02));
+      px[i] = r; px[i + 1] = g; px[i + 2] = b;
+    });
+  }
+  return heroSprite.byLook[key];
+}
+(function loadHero() {
+  const img = new Image();
+  img.onload = () => {
+    heroSprite.img = img;
+    try { renderPicker(); refreshHome(); } catch (e) { /* home not built yet */ }
+  };
+  img.src = 'assets/backman.webp';
+})();
+
 // Draws Backman facing right at the origin; R is the body radius.
 function drawBackman(g, R, sk, step = 0, blink = false, lookY = 0) {
+  const hero = heroFor(sk);
+  if (hero) {
+    const S = R * 2.75;
+    g.save();
+    g.rotate(step * 0.07 + lookY * 0.12);
+    g.drawImage(hero, -S * 0.5, -S * 0.56, S, S);
+    g.restore();
+    return;
+  }
   // feet
   g.fillStyle = '#3b2412';
   g.beginPath(); g.ellipse(-R * 0.35 + step * R * 0.3, R * 0.88, R * 0.26, R * 0.16, 0, 0, Math.PI * 2); g.fill();
