@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Bug Maze Adventure</title>
 <meta name="description" content="Bug Maze Adventure: guide Backman through glowing garden mazes, gather the seeds and dodge the beetles.">
 <meta name="theme-color" content="#07110c">
@@ -23,6 +23,10 @@
     --danger: #ff6b6b;
   }
   * { box-sizing: border-box; }
+  /* no zooming anywhere: no pinch, no double-tap. Scrollable panels may still scroll vertically. */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: none; }
+  *, *::before, *::after { touch-action: none; }
+  .card, .sheet-card, .sheet-card * { touch-action: pan-y; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
     font-family: ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif; overflow: hidden;
     touch-action: none; user-select: none; -webkit-user-select: none;
@@ -1998,6 +2002,18 @@ $('playBtn').addEventListener('click', () => startPlay());
 $('pauseHomeBtn').addEventListener('click', () => { saveProgressIfCurrent(); showHome(); });
 $('overHomeBtn').addEventListener('click', showHome);
 function saveProgressIfCurrent() { /* progress is saved when a level starts; nothing extra to do */ }
+
+// ---------- No zoom, ever ----------
+// iOS Safari ignores user-scalable=no, so pinch and double-tap zoom are blocked here too,
+// and on desktop Ctrl/Cmd + wheel and Ctrl/Cmd + (+, -, 0) are swallowed.
+['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false, capture: true });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1)) e.preventDefault(); }, { passive: false, capture: true });
+document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+window.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
+window.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '_', '0'].includes(e.key)) e.preventDefault();
+}, { capture: true });
 
 // ---------- Install as an app (PWA) ----------
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
