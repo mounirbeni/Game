@@ -422,13 +422,13 @@ const player = { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, prog
 const MAX_BEETLES = 8;
 const beetleDefs = () => [
   { name: 'Bramble', kind: 0, color: '#ff5d5d', corner: { x: COLS - 2, y: -2 }, start: DEN_EXIT, release: 0 },
-  { name: 'Moth',    kind: 1, color: '#ff9be4', corner: { x: 1, y: -2 },        start: DEN_CENTER, release: 5 },
-  { name: 'Drift',   kind: 2, color: '#4fe0c8', corner: { x: COLS, y: ROWS },   start: { x: DEN_CENTER.x - 1, y: DEN_CENTER.y }, release: 11 },
-  { name: 'Hush',    kind: 3, color: '#b78cff', corner: { x: -1, y: ROWS },     start: { x: DEN_CENTER.x + 1, y: DEN_CENTER.y }, release: 17 },
-  { name: 'Ember',   kind: 0, color: '#ff9f43', corner: { x: 1, y: ROWS },      start: DEN_CENTER, release: 22 },
-  { name: 'Glint',   kind: 1, color: '#c6f05a', corner: { x: COLS - 2, y: ROWS }, start: { x: DEN_CENTER.x - 1, y: DEN_CENTER.y }, release: 27 },
-  { name: 'Shade',   kind: 3, color: '#7aa7ff', corner: { x: -1, y: -2 },       start: { x: DEN_CENTER.x + 1, y: DEN_CENTER.y }, release: 32 },
-  { name: 'Thistle', kind: 2, color: '#ffd84a', corner: { x: COLS, y: -2 },     start: DEN_CENTER, release: 37 },
+  { name: 'Moth',    kind: 1, color: '#ff9be4', corner: { x: 1, y: -2 },        start: DEN_CENTER, release: 8 },
+  { name: 'Drift',   kind: 2, color: '#4fe0c8', corner: { x: COLS, y: ROWS },   start: { x: DEN_CENTER.x - 1, y: DEN_CENTER.y }, release: 16 },
+  { name: 'Hush',    kind: 3, color: '#b78cff', corner: { x: -1, y: ROWS },     start: { x: DEN_CENTER.x + 1, y: DEN_CENTER.y }, release: 24 },
+  { name: 'Ember',   kind: 0, color: '#ff9f43', corner: { x: 1, y: ROWS },      start: DEN_CENTER, release: 32 },
+  { name: 'Glint',   kind: 1, color: '#c6f05a', corner: { x: COLS - 2, y: ROWS }, start: { x: DEN_CENTER.x - 1, y: DEN_CENTER.y }, release: 40 },
+  { name: 'Shade',   kind: 3, color: '#7aa7ff', corner: { x: -1, y: -2 },       start: { x: DEN_CENTER.x + 1, y: DEN_CENTER.y }, release: 48 },
+  { name: 'Thistle', kind: 2, color: '#ffd84a', corner: { x: COLS, y: -2 },     start: DEN_CENTER, release: 56 },
 ];
 let beetles = [];
 
@@ -442,13 +442,13 @@ function modeSchedule() {
 const isChaseMode = () => modeIndex % 2 === 1;
 
 function speeds() {
-  // Difficulty curve: level 1 is gentle (beetles ~72% of Backman's speed) and each
-  // level adds a little, but beetles never outrun Backman.
+  // Difficulty curve: level 1 is gentle (beetles ~64% of Backman's speed); each level adds a
+  // little, capped at 80% so Backman can always get away by moving.
   const l = Math.min(level - 1, 10);
   const player = 7.5 + l * 0.1;
   return {
     player,
-    beetle: Math.min(player * 0.97, 5.4 + l * 0.32),
+    beetle: Math.min(player * 0.8, 4.8 + l * 0.2),
     fright: 4.2,
     tunnel: 3.6,
     eaten: 15,
@@ -475,7 +475,7 @@ function resetActors() {
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
     mode: i === 0 ? 'active' : 'den',
-    releaseAt: d.release * Math.max(0.3, 1 - (level - 1) * 0.15),
+    releaseAt: d.release * Math.max(0.5, 1 - (level - 1) * 0.08),
     frightened: false, bob: Math.random() * 6,
   }));
   frightTimer = 0; frightChain = 0;
@@ -708,7 +708,21 @@ function chaseTarget(b) {
   return p;
 }
 
-function chooseDir(b, target, allowReverse, gateOk) {
+function chooseDir(b, target, allowReverse, gateOk, avoidPlayer = false) {
+  // A wandering beetle hasn't noticed Backman: it turns away rather than walk into him,
+  // even reversing if that is the only way to keep its distance.
+  if (avoidPlayer) {
+    const near = (x, y) => Math.abs(x - player.tx) + Math.abs(y - player.ty) <= 2;
+    const safe = DIR_ORDER.filter(d => !opposite(d, b.dir) && canEnter(b.tx + d.x, b.ty + d.y, false) &&
+      tileAt(b.tx + d.x, b.ty + d.y) !== '-' && !near(b.tx + d.x, b.ty + d.y));
+    const back = { x: -b.dir.x, y: -b.dir.y };
+    if (!safe.length && (back.x || back.y) && canEnter(b.tx + back.x, b.ty + back.y, false) && !near(b.tx + back.x, b.ty + back.y)) return back;
+    if (safe.length) {
+      let best = safe[0], bestD = Infinity;
+      for (const d of safe) { const dd = (b.tx + d.x - target.x) ** 2 + (b.ty + d.y - target.y) ** 2; if (dd < bestD) { bestD = dd; best = d; } }
+      return best;
+    }
+  }
   let best = null, bestD = Infinity;
   const opts = [];
   for (const d of DIR_ORDER) {
@@ -730,14 +744,16 @@ function chooseDir(b, target, allowReverse, gateOk) {
 
 // Beetles start out wandering the garden. As Backman eats the seeds they join the hunt one at
 // a time, and at first only now and then (so it's hard to notice). Near the end they all hunt.
-const ENDGAME = 0.85;
+const ENDGAME = 0.9;
 const levelProgress = () => TOTAL_SEEDS ? seedsEaten / TOTAL_SEEDS : 0;
 function huntWeight(b) {
-  const p = levelProgress();
-  if (p >= ENDGAME) return 1;
-  const n = beetles.length;
-  const start = n > 1 ? 0.15 + 0.55 * (b.i / (n - 1)) : 0.2;   // when this beetle starts to hunt
-  return clamp((p - start) / 0.15, 0, 1);                       // fades in over the next 15% of seeds
+  const p = levelProgress(), n = beetles.length;
+  // after losing a life (or at the start) beetles leave you alone for a while, easing back in
+  const breather = clamp((time - 8) / 6, 0, 1);
+  // endgame: half of them hunt flat out, the rest only now and then
+  if (p >= ENDGAME) return breather * (b.i < Math.ceil(n / 2) ? 1 : 0.55);
+  const start = n > 1 ? 0.3 + 0.45 * (b.i / (n - 1)) : 0.35;   // when this beetle starts to hunt
+  return breather * clamp((p - start) / 0.2, 0, 1);             // fades in over the next 20% of seeds
 }
 function roamTarget(b) {
   const near = b.roam && Math.abs(b.tx - b.roam.x) + Math.abs(b.ty - b.roam.y) < 3;
@@ -784,9 +800,9 @@ function updateBeetles(dt) {
       if (e.frightened) target = null;
       else {
         const w = huntWeight(e);
-        if (w >= 1 && levelProgress() >= ENDGAME) target = chaseTarget(e);        // endgame: everyone hunts
+        if (w >= 1 && levelProgress() >= ENDGAME) target = chaseTarget(e);        // endgame hunters
         else if (Math.random() < w) target = isChaseMode() ? chaseTarget(e) : e.corner;
-        else target = roamTarget(e);                                              // wandering the garden
+        else { e.dir = chooseDir(e, roamTarget(e), false, false, true); return; }  // wandering the garden
       }
       e.dir = chooseDir(e, target, false, false);
     });
@@ -812,7 +828,7 @@ function checkCollisions() {
   for (const b of beetles) {
     if (b.mode === 'den' || b.mode === 'eaten') continue;
     const bp = pos(b);
-    if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.6) {
+    if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.5) {
       if (b.frightened) {
         b.frightened = false; b.mode = 'eaten';
         const pts = 200 * 2 ** Math.min(frightChain, 3);
@@ -1166,6 +1182,7 @@ function draw(now) {
   ctx.restore();
 
   drawParticles();
+  drawLastSeedHints(now);
 
   // popups
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1222,9 +1239,41 @@ function banner(text, color, sub) {
 }
 
 // Little arrows on the screen edge pointing at beetles outside the view.
+const FEW_SEEDS = 8;
+function nearestSeed() {
+  let best = null, bd = Infinity;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const c = grid[y][x]; if (c !== '.' && c !== 'o') continue;
+    const d = Math.abs(x - player.tx) + Math.abs(y - player.ty);
+    if (d < bd) { bd = d; best = { x, y }; }
+  }
+  return best;
+}
+function drawLastSeedHints(now) {
+  if (seedsLeft > FEW_SEEDS || state !== 'play') return;
+  const pulse = 0.5 + 0.5 * Math.sin(now / 150);
+  ctx.strokeStyle = `rgba(255,226,140,${0.35 + pulse * 0.5})`; ctx.lineWidth = T * 0.06;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (grid[y][x] !== '.') continue;
+    ctx.beginPath(); ctx.arc(x * T + T / 2, y * T + T / 2, T * (0.24 + pulse * 0.1), 0, Math.PI * 2); ctx.stroke();
+  }
+}
 function drawOffscreenMarkers() {
   if (state !== 'play' && state !== 'ready') return;
   const m = T * 0.35;
+  if (state === 'play' && seedsLeft <= FEW_SEEDS) {
+    const t = nearestSeed();
+    if (t) {
+      const sx = t.x * T + T / 2 - camX, sy = t.y * T + T / 2 - camY;
+      if (sx < 0 || sx > viewW || sy < 0 || sy > viewH) {
+        const ex = clamp(sx, m * 1.4, viewW - m * 1.4), ey = clamp(sy, m * 1.4, viewH - m * 1.4);
+        ctx.save(); ctx.translate(ex, ey); ctx.rotate(Math.atan2(sy - ey, sx - ex));
+        ctx.fillStyle = '#ffe39a'; ctx.strokeStyle = '#06100b'; ctx.lineWidth = T * 0.06;
+        ctx.beginPath(); ctx.moveTo(m * 1.3, 0); ctx.lineTo(-m * 0.8, -m * 0.9); ctx.lineTo(-m * 0.3, 0); ctx.lineTo(-m * 0.8, m * 0.9); ctx.closePath();
+        ctx.stroke(); ctx.fill(); ctx.restore();
+      }
+    }
+  }
   for (const b of beetles) {
     if (b.mode === 'den' || b.mode === 'eaten') continue;
     const bp = pos(b);
