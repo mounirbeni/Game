@@ -109,8 +109,8 @@
   .hicon img { width: 38px; height: 38px; display: block; margin-left: -8px; filter: drop-shadow(0 2px 2px #0008); }
   .plus { width: 28px; height: 28px; flex: none; border-radius: 9px; border: 2px solid #0f4d12; padding: 0; font: 900 21px/24px system-ui; color: #fff; cursor: pointer;
     text-shadow: 0 2px 0 #0f6a18; background: linear-gradient(#c8ff8a, #4fcf3a 55%, #1d8a22); box-shadow: inset 0 2px 0 #ffffff88, inset 0 -3px 0 #0f6a18, 0 2px 0 #0b3a0d; }
-  .gear { width: 46px; height: 46px; flex: none; border-radius: 14px; border: 2px solid #9fb4ff; color: #fff; cursor: pointer; padding: 5px;
-    background: linear-gradient(#5b6ee8, #3343b8); box-shadow: inset 0 -4px 0 #24318a, 0 3px 10px #0008; }
+  .gear { width: 50px; height: 50px; flex: none; border: 0; padding: 0; background: none; cursor: pointer; filter: drop-shadow(0 3px 3px #0009); }
+  .gear:active { transform: translateY(2px); }
   .gear img { width: 100%; height: 100%; display: block; }
   .xp-banner { position: relative; display: flex; align-items: center; margin: 10px 4px 0 18px; padding: 0; height: 46px; border: 0; background: none; cursor: pointer; font: inherit; }
   .xp-star { position: absolute; left: -18px; top: 50%; transform: translateY(-50%); z-index: 2; width: 60px; height: 60px; display: grid; place-items: center; filter: drop-shadow(0 3px 3px #0009); }
@@ -263,12 +263,12 @@
   <div class="home-col">
     <div class="home-top">
       <button class="avatar-btn" data-open="settings" aria-label="Profile and settings"><canvas id="avatar" width="48" height="48"></canvas></button>
-      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/coin.png" alt="" draggable="false"></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Shop">+</button></div>
-      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.png" alt="" draggable="false"></span><b>3</b><small class="full">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
-      <button class="gear" data-open="settings" aria-label="Settings"><img class="uiicon" src="icons/ui/gear.png" alt="" draggable="false"></button>
+      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Shop">+</button></div>
+      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"></span><b>3</b><small class="full">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
+      <button class="gear" data-open="settings" aria-label="Settings"><img class="uiicon" src="icons/ui/gear.webp" alt="" draggable="false"></button>
     </div>
     <button class="xp-banner" data-open="stats" aria-label="Player level">
-      <span class="xp-star"><img class="uiicon" src="icons/ui/star.png" alt="" draggable="false"><b id="pLevel">1</b></span>
+      <span class="xp-star"><img class="uiicon" src="icons/ui/star.webp" alt="" draggable="false"><b id="pLevel">1</b></span>
       <span class="xp"><i id="xpFill"></i><em id="xpText">0 / 500</em></span>
       <span class="hidden" id="playerName">Player</span>
     </button>
@@ -289,7 +289,7 @@
   <nav class="home-nav">
     <button data-open="shop"><span class="nicon"><img class="uiicon" src="icons/ui/shop.webp" alt="" draggable="false"></span><span class="nlabel">Shop</span></button>
     <button data-open="board"><span class="nicon"><img class="uiicon" src="icons/ui/trophy.webp" alt="" draggable="false"></span><span class="nlabel">Top</span></button>
-    <button class="center on" data-open="home"><span class="nicon"><img class="uiicon" src="icons/ui/house.png" alt="" draggable="false"></span><span class="nlabel">Home</span></button>
+    <button class="center on" data-open="home"><span class="nicon"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><span class="nlabel">Home</span></button>
     <button data-open="levels"><span class="nicon"><img class="uiicon" src="icons/ui/map.png" alt="" draggable="false"></span><span class="nlabel">Levels</span></button>
     <button data-open="shop" data-skins="1"><span class="nicon"><img class="uiicon" src="icons/ui/skins.webp" alt="" draggable="false"></span><span class="nlabel">Skins</span></button>
   </nav>
@@ -301,7 +301,7 @@
   <div id="hud">
     <div class="stat"><small>Score</small><span id="score">0</span></div>
     <div class="stat" style="align-items:center"><small>Level</small><span id="level">1</span></div>
-    <div class="stat" style="align-items:center"><small>Credits</small><span class="credit-val"><img class="coin uiicon" src="icons/ui/coin.png" alt="" draggable="false"><span id="credits">0</span></span></div>
+    <div class="stat" style="align-items:center"><small>Credits</small><span class="credit-val"><img class="coin uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><span id="credits">0</span></span></div>
     <div class="stat" style="align-items:center"><small>Lives</small><div id="lives"></div></div>
     <div id="controls">
       <button class="icon-btn" id="pauseBtn" aria-label="Pause"></button>
@@ -321,7 +321,7 @@
           <span class="dot" style="background:#ffd23f;box-shadow:0 0 0 2px #c98a0c inset"></span><span>Gold coin: grab it before it vanishes, +1 credit</span>
         </div>
         <p><span class="kbd-only">Arrows / WASD to move · P to pause · M to mute</span><span class="touch-only">Swipe anywhere on the screen to move</span></p>
-        <div class="picker-head"><span>Choose your look</span><span class="pill"><img class="coin uiicon" src="icons/ui/coin.png" alt="" draggable="false"><span id="creditsPill">0</span>&nbsp;<span id="creditsWord">credits</span></span></div>
+        <div class="picker-head"><span>Choose your look</span><span class="pill"><img class="coin uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><span id="creditsPill">0</span>&nbsp;<span id="creditsWord">credits</span></span></div>
         <div class="skins" id="skinPicker"></div>
         <div class="shop-msg" id="shopMsg"></div>
         <button class="big" id="startBtn">Play</button><br>
@@ -1855,7 +1855,7 @@ function updateHud() {
   ui.lives.innerHTML = '';
   for (let i = 0; i < Math.min(n, 6); i++) {
     const s = document.createElement('span');
-    s.className = 'life'; s.innerHTML = '<img class="uiicon" src="icons/ui/heart.png" alt="" draggable="false">';
+    s.className = 'life'; s.innerHTML = '<img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false">';
     ui.lives.appendChild(s);
   }
 }
@@ -1941,7 +1941,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && !pa
 window.addEventListener('resize', resize);
 
 // ---------- Look picker and credits ----------
-const COIN_SVG = '<img class="coin uiicon" src="icons/ui/coin.png" alt="" draggable="false">';
+const COIN_SVG = '<img class="coin uiicon" src="icons/ui/coin.webp" alt="" draggable="false">';
 const LOCK_SVG = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 let pendingBuy = -1, shopNote = '';
 function renderPicker() {
