@@ -38,7 +38,22 @@
   .stat { display: flex; flex-direction: column; line-height: 1.1; }
   .stat small { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
   .stat span { font-size: 20px; font-variant-numeric: tabular-nums; }
-  #lives { display: flex; gap: 4px; min-height: 22px; align-items: center; }
+  #lives { display: flex; gap: 2px; min-height: 22px; align-items: center; }
+  #lives .life svg { width: 24px; height: 24px; display: block; filter: drop-shadow(0 2px 1px #0008); }
+  #hud .stat { align-items: center !important; padding: 4px 10px 5px; border-radius: 14px; min-width: 62px;
+    background: linear-gradient(#173a6e, #0b1f45); border: 2px solid #3d6fd6; box-shadow: inset 0 2px 0 #ffffff22, 0 3px 0 #06112b, 0 5px 10px #0008; }
+  #hud .stat small { color: #9fc0ff; font-weight: 900; }
+  #hud .stat span { color: #fff; font-weight: 900; text-shadow: 0 2px 0 #06112b; }
+  #hud .coin { width: 20px; height: 20px; }
+  @media (max-width: 400px) {
+    #hud .stat { min-width: 0; padding: 3px 6px 4px; border-radius: 11px; }
+    #hud .stat small { font-size: 8px; letter-spacing: .04em; }
+    #hud .stat span { font-size: 15px; }
+    #hud .coin { width: 15px; height: 15px; }
+    #lives .life svg { width: 15px; height: 15px; }
+    #hud .icon-btn { width: 34px; height: 34px; border-radius: 11px; }
+    #hud .icon-btn svg { width: 17px; height: 17px; }
+  }
   #wrap { position: relative; flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
   /* night vignette as a GPU-composited overlay (free compared to painting it on the canvas) */
   #stage { position: relative; border-radius: 10px; }
@@ -85,17 +100,17 @@
     background: linear-gradient(#0b1d33ee, #08142aee); border: 2px solid #2d6aa0; color: #fff; box-shadow: 0 3px 10px #0008; }
   .hpill b { font-size: 17px; flex: 1; text-align: center; text-shadow: 0 1px 2px #000; }
   .hpill small { font-size: 12px; font-weight: 900; color: #fff; margin-right: 2px; }
-  .hicon svg { width: 34px; height: 34px; display: block; margin-left: -6px; filter: drop-shadow(0 2px 2px #0008); }
-  .plus { width: 26px; height: 26px; flex: none; border-radius: 8px; border: 0; padding: 0; font: 900 20px/26px system-ui; color: #fff; cursor: pointer;
-    background: linear-gradient(#7dff6a, #1f9a2a); box-shadow: inset 0 -3px 0 #0f6a18, 0 0 0 1.5px #0b4a10; }
-  .gear { width: 46px; height: 46px; flex: none; border-radius: 14px; border: 2px solid #9fb4ff; color: #fff; cursor: pointer; padding: 8px;
+  .hicon svg { width: 38px; height: 38px; display: block; margin-left: -8px; filter: drop-shadow(0 2px 2px #0008); }
+  .plus { width: 28px; height: 28px; flex: none; border-radius: 9px; border: 2px solid #0f4d12; padding: 0; font: 900 21px/24px system-ui; color: #fff; cursor: pointer;
+    text-shadow: 0 2px 0 #0f6a18; background: linear-gradient(#c8ff8a, #4fcf3a 55%, #1d8a22); box-shadow: inset 0 2px 0 #ffffff88, inset 0 -3px 0 #0f6a18, 0 2px 0 #0b3a0d; }
+  .gear { width: 46px; height: 46px; flex: none; border-radius: 14px; border: 2px solid #9fb4ff; color: #fff; cursor: pointer; padding: 5px;
     background: linear-gradient(#5b6ee8, #3343b8); box-shadow: inset 0 -4px 0 #24318a, 0 3px 10px #0008; }
   .gear svg { width: 100%; height: 100%; display: block; }
   .xp-banner { position: relative; display: flex; align-items: center; margin: 10px 4px 0 18px; padding: 0; height: 46px; border: 0; background: none; cursor: pointer; font: inherit; }
-  .xp-star { position: absolute; left: -16px; top: 50%; transform: translateY(-50%); z-index: 2; width: 56px; height: 56px; display: grid; place-items: center;
-    background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M24 2l6.6 13.6 15 2.1-10.9 10.5 2.6 14.8L24 36l-13.3 7 2.6-14.8L2.4 17.7l15-2.1z' fill='%23ffcf3a' stroke='%23b07a10' stroke-width='2.5' stroke-linejoin='round'/%3E%3C/svg%3E");
-    filter: drop-shadow(0 3px 3px #0009); }
-  .xp-star b { font-size: 16px; font-weight: 900; color: #fff; text-shadow: 0 1px 0 #a35b00, 0 0 3px #a35b00; margin-top: 4px; }
+  .xp-star { position: absolute; left: -18px; top: 50%; transform: translateY(-50%); z-index: 2; width: 60px; height: 60px; display: grid; place-items: center; filter: drop-shadow(0 3px 3px #0009); }
+  .xp-star svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .xp-star b { position: relative; font-size: 17px; font-weight: 900; color: #fff; margin-top: 3px;
+    text-shadow: 0 2px 0 #8a4b00, 1.5px 0 0 #8a4b00, -1.5px 0 0 #8a4b00, 0 -1.5px 0 #8a4b00; }
   .xp-banner .xp { position: relative; flex: 1; height: 34px; border-radius: 14px; overflow: hidden;
     background: linear-gradient(#0b2a6e, #0a1e52); border: 3px solid #4f86ff; box-shadow: inset 0 3px 6px #0008, 0 3px 10px #0008; }
   .xp-banner .xp i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(#8bff6a, #2fbf3a); }
@@ -105,10 +120,12 @@
   .home-stage { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 18px; }
   .bubbles { position: absolute; top: 22%; display: flex; flex-direction: column; gap: 26px; }
   .bubbles.left { left: 0; } .bubbles.right { right: 0; }
-  .bubble { position: relative; width: 74px; height: 74px; padding: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
-    background: radial-gradient(circle at 50% 35%, #2a3f7a, #101a3a); border: 4px solid; box-shadow: 0 5px 12px #000a, inset 0 2px 0 #ffffff33; }
+  .bubble { position: relative; width: 76px; height: 76px; padding: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 30%, #3b5bb8 0%, #1d2d72 60%, #111a48 100%); border: 4px solid;
+    box-shadow: 0 0 0 2.5px #0b1236, 0 6px 0 #0b1236, 0 10px 16px #000a, inset 0 3px 0 #ffffff44, inset 0 -4px 6px #0006; }
+  .bubble:active { transform: translateY(3px); }
   .ring-pink { border-color: #ff6fa0; } .ring-red { border-color: #ff5b5b; } .ring-gold { border-color: #ffcf3a; } .ring-blue { border-color: #5aa8ff; }
-  .bicon svg { width: 46px; height: 46px; display: block; filter: drop-shadow(0 2px 2px #0009); }
+  .bicon svg { width: 52px; height: 52px; display: block; filter: drop-shadow(0 3px 2px #0009); }
   .blabel { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 2px 9px; border-radius: 9px;
     font: 900 13px/1.2 ui-rounded, system-ui, sans-serif; color: #fff; text-shadow: 0 1px 1px #000; background: linear-gradient(#3a4fbf, #26338a); border: 2px solid #8fa4ff; }
   .blabel.go { background: linear-gradient(#4fd35a, #23902d); border-color: #b8ffb0; }
@@ -128,11 +145,11 @@
     border: 0; background: transparent; cursor: pointer; font: inherit; }
   .home-nav button + button::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 2px; border-radius: 2px; background: #1a2766; }
   .home-nav button.center::before, .home-nav button.center + button::before { display: none; }
-  .nicon svg, .nicon canvas { width: 46px; height: 46px; display: block; filter: drop-shadow(0 3px 2px #0009); }
+  .nicon svg, .nicon canvas { width: 50px; height: 50px; display: block; filter: drop-shadow(0 3px 2px #0009); }
   .nlabel { display: none; font-weight: 900; font-size: 15px; color: #fff; text-shadow: 0 2px 0 #1a2766; }
   .home-nav button.center { height: 100px; margin-top: -40px; border-radius: 22px 22px 0 0;
     background: linear-gradient(#5d74ff, #3a4fd8); border: 3px solid #a9b8ff; border-bottom: 0; box-shadow: 0 -4px 14px #0007; }
-  .home-nav button.center .nicon svg { width: 66px; height: 66px; }
+  .home-nav button.center .nicon svg { width: 70px; height: 70px; }
   .home-nav button.center .nlabel { display: block; }
   .home-nav button:not(.center):active { transform: translateY(2px); }
   /* sheets (Daily reward, Shop, Missions, ...) */
@@ -223,33 +240,92 @@
     background: transparent; color: var(--accent); border: 2px solid var(--accent); cursor: pointer; }
   .hint { font-size: 12px !important; }
   #controls { display: flex; gap: 6px; }
-  .icon-btn { display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: 18px; line-height: 1; background: var(--panel); color: var(--text);
-    border: 1px solid #24503a; border-radius: 10px; width: 40px; height: 40px; cursor: pointer; padding: 0; }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: 18px; line-height: 1; color: #fff;
+    width: 42px; height: 42px; padding: 0; cursor: pointer; border-radius: 13px; border: 2px solid #9fb4ff;
+    background: linear-gradient(#6d80f2, #3343b8); box-shadow: inset 0 2px 0 #ffffff55, inset 0 -4px 0 #24318a, 0 3px 8px #0008; }
+  .icon-btn:active { transform: translateY(2px); }
 </style>
 </head>
 <body>
+<svg class="icon-sprite" aria-hidden="true" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden"><defs><linearGradient id="g-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6b0"/><stop offset="0.45" stop-color="#ffd23a"/><stop offset="1" stop-color="#e48a07"/></linearGradient><linearGradient id="g-gold2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe066"/><stop offset="1" stop-color="#f2a20f"/></linearGradient><linearGradient id="g-red" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a9a"/><stop offset="0.45" stop-color="#f23a4c"/><stop offset="1" stop-color="#a8102a"/></linearGradient><linearGradient id="g-green" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8ff8a"/><stop offset="0.5" stop-color="#4fcf3a"/><stop offset="1" stop-color="#1d8a22"/></linearGradient><linearGradient id="g-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b4e2ff"/><stop offset="0.5" stop-color="#3d93ff"/><stop offset="1" stop-color="#1a4cc0"/></linearGradient><linearGradient id="g-purple" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d6b8ff"/><stop offset="0.5" stop-color="#8c5cff"/><stop offset="1" stop-color="#4e25b8"/></linearGradient><linearGradient id="g-white" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c7d3f5"/></linearGradient><linearGradient id="g-cream" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6dc"/><stop offset="1" stop-color="#f0cf8e"/></linearGradient><linearGradient id="g-paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3cf"/><stop offset="1" stop-color="#e6bd72"/></linearGradient><linearGradient id="g-wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c98a4a"/><stop offset="1" stop-color="#7a4a1f"/></linearGradient><linearGradient id="g-roof" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8c7a"/><stop offset="1" stop-color="#c92f3c"/></linearGradient><linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe9ff"/><stop offset="1" stop-color="#56a8f0"/></linearGradient></defs><symbol id="i-coin" viewBox="0 0 64 64"><circle cx="32" cy="35" r="26" fill="#8a4b00"/>
+<circle cx="32" cy="31" r="26" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="3"/>
+<circle cx="32" cy="31" r="18.5" fill="url(#g-gold2)" stroke="#c27a08" stroke-width="2.5"/>
+<path d="M32.00,19.50 L35.17,27.13 L43.41,27.79 L37.14,33.17 L39.05,41.21 L32.00,36.90 L24.95,41.21 L26.86,33.17 L20.59,27.79 L28.83,27.13 Z" fill="#fff7c8" stroke="#c27a08" stroke-width="2.2" stroke-linejoin="round"/>
+<ellipse cx="21" cy="17" rx="9" ry="4.5" fill="#fff" opacity="0.55" transform="rotate(-30 21 17)"/></symbol><symbol id="i-heart" viewBox="0 0 64 64"><path d="M32 57 C14 45 5 34 7 22 C9 11 22 7 32 18 C42 7 55 11 57 22 C59 34 50 45 32 57 Z" fill="#6e0a1c" transform="translate(0 3)"/>
+<path d="M32 57 C14 45 5 34 7 22 C9 11 22 7 32 18 C42 7 55 11 57 22 C59 34 50 45 32 57 Z" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="3" stroke-linejoin="round"/>
+<ellipse cx="19" cy="21" rx="7.5" ry="4.5" fill="#fff" opacity="0.7" transform="rotate(-35 19 21)"/><circle cx="27" cy="16.5" r="2.2" fill="#fff" opacity=".8"/></symbol><symbol id="i-gear" viewBox="0 0 64 64"><path d="M51.58,28.91 L58.63,28.57 L58.63,37.43 L51.58,37.09 L50.48,40.65 L48.74,43.95 L53.97,48.70 L47.70,54.97 L42.95,49.74 L39.65,51.48 L36.09,52.58 L36.43,59.63 L27.57,59.63 L27.91,52.58 L24.35,51.48 L21.05,49.74 L16.30,54.97 L10.03,48.70 L15.26,43.95 L13.52,40.65 L12.42,37.09 L5.37,37.43 L5.37,28.57 L12.42,28.91 L13.52,25.35 L15.26,22.05 L10.03,17.30 L16.30,11.03 L21.05,16.26 L24.35,14.52 L27.91,13.42 L27.57,6.37 L36.43,6.37 L36.09,13.42 L39.65,14.52 L42.95,16.26 L47.70,11.03 L53.97,17.30 L48.74,22.05 L50.48,25.35 Z" fill="#1b2470"/>
+<path d="M51.58,26.91 L58.63,26.57 L58.63,35.43 L51.58,35.09 L50.48,38.65 L48.74,41.95 L53.97,46.70 L47.70,52.97 L42.95,47.74 L39.65,49.48 L36.09,50.58 L36.43,57.63 L27.57,57.63 L27.91,50.58 L24.35,49.48 L21.05,47.74 L16.30,52.97 L10.03,46.70 L15.26,41.95 L13.52,38.65 L12.42,35.09 L5.37,35.43 L5.37,26.57 L12.42,26.91 L13.52,23.35 L15.26,20.05 L10.03,15.30 L16.30,9.03 L21.05,14.26 L24.35,12.52 L27.91,11.42 L27.57,4.37 L36.43,4.37 L36.09,11.42 L39.65,12.52 L42.95,14.26 L47.70,9.03 L53.97,15.30 L48.74,20.05 L50.48,23.35 Z" fill="url(#g-white)" stroke="#1b2470" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="32" cy="31" r="9" fill="url(#g-blue)" stroke="#1b2470" stroke-width="3"/>
+<ellipse cx="22" cy="19" rx="8" ry="3.5" fill="#fff" opacity="0.6" transform="rotate(-35 22 19)"/></symbol><symbol id="i-gift" viewBox="0 0 64 64"><rect x="9" y="29" width="46" height="29" rx="5" fill="#6e0a1c"/>
+<rect x="9" y="26" width="46" height="29" rx="5" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="3"/>
+<rect x="5" y="18" width="54" height="13" rx="5" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="3"/>
+<rect x="27" y="18" width="10" height="37" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="2.5"/>
+<path d="M32 18 C24 4 10 8 15 15 C18 19 26 18 32 18 Z" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M32 18 C40 4 54 8 49 15 C46 19 38 18 32 18 Z" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="32" cy="18" r="4.5" fill="url(#g-gold2)" stroke="#8a4b00" stroke-width="2.5"/>
+<ellipse cx="16" cy="21" rx="6" ry="2.5" fill="#fff" opacity="0.6" transform="rotate(-10 16 21)"/><ellipse cx="17" cy="33" rx="4" ry="7" fill="#fff" opacity="0.35" transform="rotate(0 17 33)"/></symbol><symbol id="i-target" viewBox="0 0 64 64"><circle cx="29" cy="36" r="24" fill="#6e0a1c"/>
+<circle cx="29" cy="33" r="24" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="3"/>
+<circle cx="29" cy="33" r="17" fill="url(#g-white)" stroke="#6e0a1c" stroke-width="2"/>
+<circle cx="29" cy="33" r="10.5" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="2"/>
+<circle cx="29" cy="33" r="4.5" fill="#fff" stroke="#6e0a1c" stroke-width="2"/>
+<path d="M30 32 L52 10" stroke="#3a1d05" stroke-width="6" stroke-linecap="round"/>
+<path d="M30 32 L52 10" stroke="url(#g-wood)" stroke-width="3" stroke-linecap="round"/>
+<path d="M52 10 L49 4 L56 6 Z M52 10 L58 13 L56 6 Z" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="2" stroke-linejoin="round"/>
+<ellipse cx="17" cy="20" rx="8" ry="3.5" fill="#fff" opacity="0.55" transform="rotate(-35 17 20)"/></symbol><symbol id="i-trophy" viewBox="0 0 64 64"><path d="M15 13 C3 13 4 31 18 31 M49 13 C61 13 60 31 46 31" fill="none" stroke="#8a4b00" stroke-width="7" stroke-linecap="round"/>
+<path d="M15 13 C3 13 4 31 18 31 M49 13 C61 13 60 31 46 31" fill="none" stroke="url(#g-gold)" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M15 8 H49 V24 C49 36 41 43 32 43 C23 43 15 36 15 24 Z" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="3" stroke-linejoin="round"/>
+<path d="M27 42 H37 L36 49 H28 Z" fill="url(#g-gold2)" stroke="#8a4b00" stroke-width="2.5" stroke-linejoin="round"/>
+<rect x="16" y="48" width="32" height="11" rx="3.5" fill="url(#g-purple)" stroke="#2a1170" stroke-width="3"/>
+<rect x="25" y="51" width="14" height="5" rx="1.5" fill="url(#g-gold2)"/>
+<path d="M32.00,15.00 L34.35,20.76 L40.56,21.22 L35.80,25.24 L37.29,31.28 L32.00,28.00 L26.71,31.28 L28.20,25.24 L23.44,21.22 L29.65,20.76 Z" fill="#fff7c8" stroke="#c27a08" stroke-width="2" stroke-linejoin="round"/>
+<ellipse cx="22" cy="15" rx="4" ry="8" fill="#fff" opacity="0.55" transform="rotate(15 22 15)"/></symbol><symbol id="i-stats" viewBox="0 0 64 64"><rect x="7" y="36" width="14" height="23" rx="4" fill="#0f4d12"/><rect x="7" y="33" width="14" height="23" rx="4" fill="url(#g-green)" stroke="#0f4d12" stroke-width="2.6"/><rect x="10" y="36" width="8" height="4" rx="2" fill="#fff" opacity=".55"/><rect x="25" y="24" width="14" height="35" rx="4" fill="#0d2a6e"/><rect x="25" y="21" width="14" height="35" rx="4" fill="url(#g-blue)" stroke="#0d2a6e" stroke-width="2.6"/><rect x="28" y="24" width="8" height="4" rx="2" fill="#fff" opacity=".55"/><rect x="43" y="11" width="14" height="48" rx="4" fill="#8a4b00"/><rect x="43" y="8" width="14" height="48" rx="4" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="2.6"/><rect x="46" y="11" width="8" height="4" rx="2" fill="#fff" opacity=".55"/></symbol><symbol id="i-shop" viewBox="0 0 64 64"><rect x="10" y="27" width="44" height="31" rx="3" fill="#5a3410"/>
+<rect x="10" y="24" width="44" height="31" rx="3" fill="url(#g-cream)" stroke="#3a1d05" stroke-width="3"/>
+<rect x="15" y="34" width="15" height="21" rx="2" fill="url(#g-wood)" stroke="#3a1d05" stroke-width="2.5"/>
+<rect x="34" y="34" width="15" height="11" rx="2" fill="url(#g-sky)" stroke="#3a1d05" stroke-width="2.5"/>
+<path d="M8 12 L12 6 H52 L56 12 Z" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="2.6" stroke-linejoin="round"/>
+<path d="M6.0 12 H16.4 V24 H6.0 Z" fill="url(#g-red)"/><path d="M16.4 12 H26.8 V24 H16.4 Z" fill="#fff"/><path d="M26.8 12 H37.2 V24 H26.8 Z" fill="url(#g-red)"/><path d="M37.2 12 H47.6 V24 H37.2 Z" fill="#fff"/><path d="M47.6 12 H58.0 V24 H47.6 Z" fill="url(#g-red)"/><rect x="6" y="12" width="52" height="12" fill="none" stroke="#6e0a1c" stroke-width="2.6"/><path d="M6.0 24 a5.2 5.2 0 0 0 10.4 0 Z" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="2.4" stroke-linejoin="round"/><path d="M16.4 24 a5.2 5.2 0 0 0 10.4 0 Z" fill="#fff" stroke="#6e0a1c" stroke-width="2.4" stroke-linejoin="round"/><path d="M26.8 24 a5.2 5.2 0 0 0 10.4 0 Z" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="2.4" stroke-linejoin="round"/><path d="M37.2 24 a5.2 5.2 0 0 0 10.4 0 Z" fill="#fff" stroke="#6e0a1c" stroke-width="2.4" stroke-linejoin="round"/><path d="M47.6 24 a5.2 5.2 0 0 0 10.4 0 Z" fill="url(#g-red)" stroke="#6e0a1c" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="41.5" cy="50" r="5" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="2"/>
+<ellipse cx="16" cy="15" rx="6" ry="2.2" fill="#fff" opacity="0.5" transform="rotate(0 16 15)"/></symbol><symbol id="i-house" viewBox="0 0 64 64"><rect x="38" y="9" width="7" height="13" rx="1.5" fill="url(#g-roof)" stroke="#5e0a16" stroke-width="2.5"/>
+<rect x="13" y="30" width="38" height="28" rx="3" fill="#5a3410"/>
+<rect x="13" y="27" width="38" height="28" rx="3" fill="url(#g-cream)" stroke="#3a1d05" stroke-width="3"/>
+<path d="M5 31 L32 8 L59 31 Z" fill="#5e0a16" transform="translate(0 3)"/>
+<path d="M5 31 L32 8 L59 31 Z" fill="url(#g-roof)" stroke="#5e0a16" stroke-width="3" stroke-linejoin="round"/>
+<path d="M26 55 V44 a6 6 0 0 1 12 0 V55 Z" fill="url(#g-wood)" stroke="#3a1d05" stroke-width="2.5"/>
+<circle cx="35" cy="49" r="1.4" fill="#ffd23a"/>
+<rect x="16" y="35" width="8" height="8" rx="1.5" fill="url(#g-sky)" stroke="#3a1d05" stroke-width="2.2"/>
+<rect x="40" y="35" width="8" height="8" rx="1.5" fill="url(#g-sky)" stroke="#3a1d05" stroke-width="2.2"/>
+<circle cx="32" cy="21" r="4" fill="url(#g-sky)" stroke="#5e0a16" stroke-width="2.2"/>
+<ellipse cx="20" cy="19" rx="8" ry="2.6" fill="#fff" opacity="0.55" transform="rotate(-40 20 19)"/></symbol><symbol id="i-map" viewBox="0 0 64 64"><path d="M8 14 L22 9 L42 14 L56 9 V50 L42 55 L22 50 L8 55 Z" fill="#6b4210" transform="translate(0 3)"/>
+<path d="M8 14 L22 9 L42 14 L56 9 V50 L42 55 L22 50 L8 55 Z" fill="url(#g-paper)" stroke="#6b4210" stroke-width="3" stroke-linejoin="round"/>
+<path d="M22 9 V50 M42 14 V55" stroke="#c9974a" stroke-width="2"/>
+<path d="M14 46 C20 36 26 42 30 33 S40 24 46 20" fill="none" stroke="#d8402f" stroke-width="3" stroke-dasharray="3.5 4" stroke-linecap="round"/>
+<circle cx="14" cy="46" r="3.5" fill="url(#g-green)" stroke="#0f4d12" stroke-width="2"/>
+<path d="M42 16 L50 24 M50 16 L42 24" stroke="#a8102a" stroke-width="4" stroke-linecap="round"/>
+<ellipse cx="16" cy="18" rx="5" ry="2.2" fill="#fff" opacity="0.6" transform="rotate(-20 16 18)"/></symbol><symbol id="i-star" viewBox="0 0 64 64"><path d="M32.00,6.00 L39.94,24.08 L59.58,26.04 L44.84,39.17 L49.05,58.46 L32.00,48.50 L14.95,58.46 L19.16,39.17 L4.42,26.04 L24.06,24.08 Z" fill="#8a4b00"/>
+<path d="M32.00,2.50 L39.94,20.58 L59.58,22.54 L44.84,35.67 L49.05,54.96 L32.00,45.00 L14.95,54.96 L19.16,35.67 L4.42,22.54 L24.06,20.58 Z" fill="url(#g-gold)" stroke="#8a4b00" stroke-width="3" stroke-linejoin="round"/>
+<ellipse cx="23" cy="22" rx="6" ry="3" fill="#fff" opacity="0.6" transform="rotate(-35 23 22)"/></symbol></svg>
 <div id="home">
   <div class="fireflies" aria-hidden="true"><i style="left:10%;top:48%;animation-delay:0s;animation-duration:7s"></i><i style="left:24%;top:62%;animation-delay:1.5s;animation-duration:9s"></i><i style="left:40%;top:55%;animation-delay:3s;animation-duration:8s"></i><i style="left:58%;top:66%;animation-delay:0.8s;animation-duration:10s"></i><i style="left:74%;top:50%;animation-delay:2.2s;animation-duration:7.5s"></i><i style="left:88%;top:60%;animation-delay:4s;animation-duration:9s"></i><i style="left:16%;top:74%;animation-delay:2.8s;animation-duration:8.5s"></i><i style="left:66%;top:78%;animation-delay:1.2s;animation-duration:9.5s"></i><i style="left:90%;top:72%;animation-delay:3.6s;animation-duration:7s"></i><i style="left:48%;top:80%;animation-delay:0.4s;animation-duration:8s"></i></div>
   <div class="home-col">
     <div class="home-top">
       <button class="avatar-btn" data-open="settings" aria-label="Profile and settings"><canvas id="avatar" width="48" height="48"></canvas></button>
-      <div class="hpill"><span class="hicon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#ffcf3a" stroke="#b07a10" stroke-width="2"/><circle cx="12" cy="12" r="6.6" fill="#ffe27a"/><path d="M12 7.6l1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3-2.2-2.1 3-.4z" fill="#c98a0c"/></svg></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Shop">+</button></div>
-      <div class="hpill"><span class="hicon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.1C.9 8.6 2.9 4.5 6.7 4.5c2.2 0 3.6 1.2 4.3 2.4.7-1.2 2.1-2.4 4.3-2.4 3.8 0 5.8 4.1 4.3 7.4C19.5 16.4 12 21 12 21z" fill="#ff3b4f" stroke="#a3122a" stroke-width="1.2"/><path d="M7 7.5c-1.5.3-2.3 1.7-2 3" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span><b>3</b><small class="full">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
-      <button class="gear" data-open="settings" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
+      <div class="hpill"><span class="hicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-coin"/></svg></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Shop">+</button></div>
+      <div class="hpill"><span class="hicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-heart"/></svg></span><b>3</b><small class="full">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
+      <button class="gear" data-open="settings" aria-label="Settings"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-gear"/></svg></button>
     </div>
     <button class="xp-banner" data-open="stats" aria-label="Player level">
-      <span class="xp-star"><b id="pLevel">1</b></span>
+      <span class="xp-star"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-star"/></svg><b id="pLevel">1</b></span>
       <span class="xp"><i id="xpFill"></i><em id="xpText">0 / 500</em></span>
       <span class="hidden" id="playerName">Player</span>
     </button>
     <div class="home-stage">
       <div class="bubbles left">
-        <button class="bubble ring-pink" data-open="daily"><span class="bicon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="9" width="38" height="33" rx="6" fill="#fff4e0"/><rect x="5" y="9" width="38" height="11" rx="6" fill="#ff5a7a"/><rect x="5" y="15" width="38" height="5" fill="#ff5a7a"/><rect x="13" y="5" width="4" height="9" rx="2" fill="#5a5a6a"/><rect x="31" y="5" width="4" height="9" rx="2" fill="#5a5a6a"/><path d="M15 31l6 6 12-13" fill="none" stroke="#21b35a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="blabel" id="dailyLabel">Claim!</span><i class="badge hidden" id="dailyBadge">!</i></button>
-        <button class="bubble ring-red" data-open="missions"><span class="bicon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="22" cy="26" r="17" fill="#ff4b6b"/><circle cx="22" cy="26" r="12.5" fill="#fff"/><circle cx="22" cy="26" r="8" fill="#ff4b6b"/><circle cx="22" cy="26" r="3.5" fill="#fff"/><path d="M22 26L41 8" stroke="#8a5a2a" stroke-width="3" stroke-linecap="round"/><path d="M41 8l-1-5 5 1-1 5z M41 8l2 4 4-2-2-3z" fill="#ffcf3a"/></svg></span><span class="blabel" id="missionLabel">0/3</span><i class="badge hidden" id="missionBadge">!</i></button>
+        <button class="bubble ring-pink" data-open="daily"><span class="bicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-gift"/></svg></span><span class="blabel" id="dailyLabel">Claim!</span><i class="badge hidden" id="dailyBadge">!</i></button>
+        <button class="bubble ring-red" data-open="missions"><span class="bicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-target"/></svg></span><span class="blabel" id="missionLabel">0/3</span><i class="badge hidden" id="missionBadge">!</i></button>
       </div>
       <div class="bubbles right">
-        <button class="bubble ring-gold" data-open="board"><span class="bicon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 10h6v4H8a3 3 0 0 0 0 6h4v4H8a7 7 0 0 1 0-14zM40 10h-6v4h6a3 3 0 0 1 0 6h-4v4h4a7 7 0 0 0 0-14z" fill="#e8a91a"/><path d="M13 6h22v12a11 11 0 0 1-22 0z" fill="#ffcf3a"/><path d="M24 10l1.6 3.4 3.7.5-2.7 2.6.7 3.7-3.3-1.8-3.3 1.8.7-3.7-2.7-2.6 3.7-.5z" fill="#fff6c8"/><rect x="21" y="28" width="6" height="7" fill="#e8a91a"/><rect x="15" y="35" width="18" height="6" rx="2" fill="#c98a0c"/><path d="M3 36c3-1 5 1 6 4M45 36c-3-1-5 1-6 4" stroke="#3fb34a" stroke-width="3" fill="none" stroke-linecap="round"/></svg></span><span class="blabel" id="bestLabel">Best</span></button>
-        <button class="bubble ring-blue" data-open="stats"><span class="bicon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="26" width="9" height="16" rx="3" fill="#86efac"/><rect x="19.5" y="16" width="9" height="26" rx="3" fill="#7dd3fc"/><rect x="32" y="7" width="9" height="35" rx="3" fill="#ffcf3a"/></svg></span><span class="blabel">Stats</span></button>
+        <button class="bubble ring-gold" data-open="board"><span class="bicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-trophy"/></svg></span><span class="blabel" id="bestLabel">Best</span></button>
+        <button class="bubble ring-blue" data-open="stats"><span class="bicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-stats"/></svg></span><span class="blabel">Stats</span></button>
       </div>
       <button id="playBtn" class="play-btn"><span class="pb-text" id="playLevel">Level 1</span></button>
       <button class="install hidden" id="installBtn">Install app</button>
@@ -257,10 +333,10 @@
     </div>
   </div>
   <nav class="home-nav">
-    <button data-open="shop"><span class="nicon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="20" width="32" height="22" rx="3" fill="#ffd06a"/><rect x="19" y="28" width="10" height="14" rx="2" fill="#e8892a"/><path d="M5 20l4-12h30l4 12z" fill="#fff"/><path d="M9 8h6l-2 12H5zM21 8h6v12h-8zM33 8h6l4 12h-8z" fill="#ff4b5c"/><path d="M5 20a4.5 4 0 0 0 9.5 0 4.5 4 0 0 0 9.5 0 4.5 4 0 0 0 9.5 0 4.5 4 0 0 0 9.5 0" fill="#ff4b5c"/></svg></span><span class="nlabel">Shop</span></button>
-    <button data-open="board"><span class="nicon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 10h6v4H8a3 3 0 0 0 0 6h4v4H8a7 7 0 0 1 0-14zM40 10h-6v4h6a3 3 0 0 1 0 6h-4v4h4a7 7 0 0 0 0-14z" fill="#e8a91a"/><path d="M13 6h22v12a11 11 0 0 1-22 0z" fill="#ffcf3a"/><path d="M24 10l1.6 3.4 3.7.5-2.7 2.6.7 3.7-3.3-1.8-3.3 1.8.7-3.7-2.7-2.6 3.7-.5z" fill="#fff6c8"/><rect x="21" y="28" width="6" height="7" fill="#e8a91a"/><rect x="15" y="35" width="18" height="6" rx="2" fill="#c98a0c"/><path d="M3 36c3-1 5 1 6 4M45 36c-3-1-5 1-6 4" stroke="#3fb34a" stroke-width="3" fill="none" stroke-linecap="round"/></svg></span><span class="nlabel">Top</span></button>
-    <button class="center on" data-open="home"><span class="nicon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 22L24 7l18 15v2H6z" fill="#ff5a7a"/><path d="M24 7L6 22h6l12-10 12 10h6z" fill="#e8436a"/><rect x="10" y="22" width="28" height="20" rx="2" fill="#ffe08a"/><rect x="20" y="29" width="8" height="13" rx="4" fill="#9a5b2a"/><rect x="13" y="26" width="5" height="5" rx="1" fill="#6ec6ff"/><rect x="30" y="26" width="5" height="5" rx="1" fill="#6ec6ff"/><rect x="31" y="9" width="5" height="9" fill="#c0392b"/></svg></span><span class="nlabel">Home</span></button>
-    <button data-open="levels"><span class="nicon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="5" width="17" height="17" rx="5" fill="#ffcf3a"/><rect x="26" y="5" width="17" height="17" rx="5" fill="#7dd3fc"/><rect x="5" y="26" width="17" height="17" rx="5" fill="#86efac"/><rect x="26" y="26" width="17" height="17" rx="5" fill="#ff8fab"/><path d="M13.5 9.5l1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" fill="#fff"/></svg></span><span class="nlabel">Levels</span></button>
+    <button data-open="shop"><span class="nicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-shop"/></svg></span><span class="nlabel">Shop</span></button>
+    <button data-open="board"><span class="nicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-trophy"/></svg></span><span class="nlabel">Top</span></button>
+    <button class="center on" data-open="home"><span class="nicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-house"/></svg></span><span class="nlabel">Home</span></button>
+    <button data-open="levels"><span class="nicon"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-map"/></svg></span><span class="nlabel">Levels</span></button>
     <button data-open="shop" data-skins="1"><span class="nicon"><canvas id="navSkin" width="40" height="40"></canvas></span><span class="nlabel">Skins</span></button>
   </nav>
   <div class="sheet hidden" id="sheet" role="dialog" aria-modal="true">
@@ -271,7 +347,7 @@
   <div id="hud">
     <div class="stat"><small>Score</small><span id="score">0</span></div>
     <div class="stat" style="align-items:center"><small>Level</small><span id="level">1</span></div>
-    <div class="stat" style="align-items:center"><small>Credits</small><span class="credit-val"><svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg><span id="credits">0</span></span></div>
+    <div class="stat" style="align-items:center"><small>Credits</small><span class="credit-val"><svg class="coin" viewBox="0 0 64 64" aria-hidden="true"><use href="#i-coin"/></svg><span id="credits">0</span></span></div>
     <div class="stat" style="align-items:center"><small>Lives</small><div id="lives"></div></div>
     <div id="controls">
       <button class="icon-btn" id="pauseBtn" aria-label="Pause"></button>
@@ -291,7 +367,7 @@
           <span class="dot" style="background:#ffd23f;box-shadow:0 0 0 2px #c98a0c inset"></span><span>Gold coin: grab it before it vanishes, +1 credit</span>
         </div>
         <p><span class="kbd-only">Arrows / WASD to move · P to pause · M to mute</span><span class="touch-only">Swipe anywhere on the screen to move</span></p>
-        <div class="picker-head"><span>Choose your look</span><span class="pill"><svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg><span id="creditsPill">0</span>&nbsp;<span id="creditsWord">credits</span></span></div>
+        <div class="picker-head"><span>Choose your look</span><span class="pill"><svg class="coin" viewBox="0 0 64 64" aria-hidden="true"><use href="#i-coin"/></svg><span id="creditsPill">0</span>&nbsp;<span id="creditsWord">credits</span></span></div>
         <div class="skins" id="skinPicker"></div>
         <div class="shop-msg" id="shopMsg"></div>
         <button class="big" id="startBtn">Play</button><br>
@@ -1665,8 +1741,7 @@ function updateHud() {
   ui.lives.innerHTML = '';
   for (let i = 0; i < Math.min(n, 6); i++) {
     const s = document.createElement('span');
-    const sk = SKINS[skinIndex];
-    s.style.cssText = `width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,${sk.body[0]},${sk.body[1]});display:inline-block;box-shadow:-4px 0 0 ${sk.pack}`;
+    s.className = 'life'; s.innerHTML = '<svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-heart"/></svg>';
     ui.lives.appendChild(s);
   }
 }
@@ -1752,7 +1827,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && !pa
 window.addEventListener('resize', resize);
 
 // ---------- Look picker and credits ----------
-const COIN_SVG = '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg>';
+const COIN_SVG = '<svg class="coin" viewBox="0 0 64 64" aria-hidden="true"><use href="#i-coin"/></svg>';
 const LOCK_SVG = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 let pendingBuy = -1, shopNote = '';
 function renderPicker() {
