@@ -2200,7 +2200,10 @@ const KEYMAP = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
   w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
 };
+// Typing in a text field (name, save code) must never trigger game keys.
+const isTyping = e => { const t = e.target; return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable); };
 window.addEventListener('keydown', e => {
+  if (isTyping(e)) return;
   if (KEYMAP[e.key]) { setWant(KEYMAP[e.key]); e.preventDefault(); return; }
   if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { togglePause(); e.preventDefault(); return; }
   if (e.key === 'm' || e.key === 'M') { toggleMute(); return; }
