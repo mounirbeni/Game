@@ -45,7 +45,7 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 - **Credits:** you earn them while you play:
   - **Gold coins:** pop up in the maze every 12–20 seconds and vanish after 9. Each is worth +1.
   - **Beetles:** +1 for each one you catch after eating a lantern.
-  - **Mushrooms:** +1 each.
+  - **Mushrooms:** +1 each, and they freeze every beetle for 3 seconds.
   - **Clearing a level:** +2, or +4 if you didn't lose a life.
 - **Shop:** tap a locked look to buy it with credits. Berry costs 2, and each look after it costs 1 more, up to 8 for King. Clearing the look's level still unlocks it for free.
 - **Continue:** when your lives run out, spend 1 credit to keep playing from the same spot with 1 extra life. Or retry the level from the start for free.

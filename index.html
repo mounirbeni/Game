@@ -358,7 +358,7 @@
         <div class="legend">
           <span class="dot" style="background:#ffe8a3"></span><span>Seed: 10 pts</span>
           <span class="dot" style="background:#ffb02e;box-shadow:0 0 8px #ffb02e"></span><span>Lantern: beetles flee. Catch them for points and +1 credit each</span>
-          <span class="dot" style="background:#e05a5a"></span><span>Mushroom: bonus snack, +1 credit</span>
+          <span class="dot" style="background:#e05a5a"></span><span>Mushroom: freezes the beetles for 3 seconds, +1 credit</span>
           <span class="dot" style="background:#ffd23f;box-shadow:0 0 0 2px #c98a0c inset"></span><span>Gold coin: grab it before it vanishes, +1 credit</span>
         </div>
         <p><span class="kbd-only">Arrows / WASD to move · P to pause · M to mute</span><span class="touch-only">Swipe anywhere on the screen to move</span></p>
@@ -771,6 +771,10 @@ function munch(t) {
 }
 const sfx = {
   seed() { play(munch); },                                   // crunchy bite
+  freeze() { play(t => {                                     // icy crackle
+    noise(t, 0.5, { type: 'highpass', f: 5000, f2: 9000, vol: 0.12 });
+    [0, 0.06, 0.12].forEach((d, i) => thump(t + d, 1500 + i * 400, 2400 + i * 500, 0.12, 0.07));
+  }); },
   lantern() { play(t => {                                    // lantern flares up
     thump(t, 110, 55, 0.12, 0.3);
     noise(t, 0.4, { f: 500, f2: 5500, q: 0.8, vol: 0.16 });
@@ -876,7 +880,7 @@ function resetActors() {
   frightTimer = 0; frightChain = 0;
   modeIndex = 0; modeTimer = 0;
   bonus = null;
-  coin = null; coinTimer = 5;
+  coin = null; coinTimer = 5; freezeTimer = 0;
   time = 0;
 }
 
@@ -1189,6 +1193,7 @@ function updateBeetles(dt) {
       if (time >= b.releaseAt) { b.mode = 'leaving'; b.progress = 0; }
       continue;
     }
+    if (freezeTimer > 0 && b.mode !== 'eaten') continue;   // frozen by a mushroom
     let speed;
     if (b.mode === 'eaten') speed = sp.eaten;
     else if (b.mode === 'leaving') speed = sp.beetle * 0.6;
@@ -1239,6 +1244,7 @@ function checkCollisions() {
   const pp = pos(player);
   for (const b of beetles) {
     if (b.mode === 'den' || b.mode === 'eaten') continue;
+    if (freezeTimer > 0 && !b.frightened) continue;   // frozen beetles can't catch you
     const bp = pos(b);
     if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.5) {
       if (b.frightened) {
@@ -1263,13 +1269,15 @@ function checkCollisions() {
     if (Math.abs(pp.x - bonus.x) + Math.abs(pp.y - bonus.y) < 0.7) {
       addScore(bonus.value); popup(bonus.x, bonus.y, String(bonus.value), '#ffd36b'); sfx.bonus();
       earnCredit(hasPerk('ZOGHA') ? 2 : 1, bonus.x, bonus.y); if (hasPerk('ZOGHA')) pulsePerk();
+      freezeTimer = 3; sfx.freeze(); popup(bonus.x, bonus.y + 0.9, 'FREEZE!', '#9fe6ff');
+      beetles.forEach(bt => { if (bt.mode !== 'den' && bt.mode !== 'eaten') { const q = pos(bt); burst(q.x, q.y, '#bfefff', 10, 2.5, 0.6, 0.08); } });
       bonus = null;
     }
   }
 }
 
 // ---------- Gold coins that pop up in the maze ----------
-let coin = null, coinTimer = 0;
+let coin = null, coinTimer = 0, freezeTimer = 0;   // freezeTimer: mushroom freezes the beetles
 function nextCoinDelay() { return (12 + Math.random() * 8) * (hasPerk('Minty') ? 0.5 : 1); }
 function spawnCoin() {
   const spots = [];
@@ -1358,6 +1366,7 @@ function update(dt) {
     checkCollisions();
     if (bonus) { bonus.timer -= dt; if (bonus.timer <= 0) bonus = null; }
     updateCoin(dt);
+    if (freezeTimer > 0) freezeTimer = Math.max(0, freezeTimer - dt);
     return;
   }
   if (state === 'dying') {
@@ -2061,13 +2070,19 @@ function drawBeetle(b, now) {
     b.ang += diff * 0.35;
     const flashEnd = b.frightened && frightTimer < 2 && Math.floor(frightTimer * 5) % 2 === 0;
     const img = b.frightened ? (flashEnd ? ladySprites.flash : ladySprites.scared) : ladySprites.red;   // all ladybugs are red
-    const S = T * 1.12, wobble = b.mode === 'den' ? 0 : Math.sin(now / 85 + b.i * 1.7) * 0.09;
+    const frozen = freezeTimer > 0 && b.mode !== 'den';
+    const S = T * 1.12, wobble = b.mode === 'den' || frozen ? (frozen && freezeTimer < 0.8 ? Math.sin(now / 30) * 0.08 : 0) : Math.sin(now / 85 + b.i * 1.7) * 0.09;
     ctx.save();
     ctx.translate(p.x * T + T / 2, p.y * T + T / 2);
     ctx.rotate(b.ang + wobble);
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath(); ctx.ellipse(T * 0.06, T * 0.08, S * 0.36, S * 0.4, 0, 0, Math.PI * 2); ctx.fill();
     ctx.drawImage(img, -S / 2, -S / 2, S, S);
+    if (frozen) {   // encased in ice
+      ctx.fillStyle = 'rgba(170,230,255,0.42)'; ctx.strokeStyle = 'rgba(230,250,255,0.95)'; ctx.lineWidth = Math.max(1, T * 0.05);
+      ctx.beginPath(); ctx.arc(0, 0, S * 0.46, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(-S * 0.18, -S * 0.2, S * 0.1, S * 0.05, -0.6, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
     return;
   }
@@ -2559,7 +2574,7 @@ function openSheet(which) {
       <div class="set-row"><span>Sound</span><button class="toggle ${muted ? '' : 'on'}" id="soundToggle">${muted ? 'Off' : 'On'}</button></div>
       ${/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? '<div class="set-row"><span>Install</span></div><p>Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>' : ''}
       <div class="set-row"><span>How to play</span></div>
-      <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins and mushrooms for more credits. Each level the garden grows and one more beetle joins in.</p>
+      <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins for credits. Mushrooms freeze every beetle for 3 seconds. Each level the garden grows and one more beetle joins in.</p>
       <div class="set-row"><span>Save code</span><button class="toggle on" id="copySave">Copy</button></div>
       <p>Your progress is saved on this device. Copy your save code and keep it somewhere safe (Notes, a message to yourself) before deleting the app or changing phone.</p>
       <div class="set-row"><span>Load a save code</span><button class="toggle" id="loadSaveBtn">Paste</button></div>
@@ -2701,7 +2716,7 @@ restoreFromBackup().then(gained => {
 // Exposed for automated testing.
 window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
-  get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
+  get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
   skipToLevel(n) { level = n - 1; nextLevel(); } };
 })();
