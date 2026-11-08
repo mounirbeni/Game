@@ -1786,7 +1786,71 @@ function drawPlayer(now) {
   ctx.restore();
 }
 
+// ---------- Ladybug sprites ----------
+// The angry red ladybug (each beetle gets its own shell colour) and the scared blue one shown
+// after a lantern. Variants are recoloured once, on load; until then the drawn beetle is used.
+const ladySprites = { ready: false, byColor: {}, scared: null, flash: null };
+function recolor(img, fn) {
+  const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height), px = d.data;
+  for (let i = 0; i < px.length; i += 4) if (px[i + 3]) fn(px, i);
+  g.putImageData(d, 0, 0);
+  return c;
+}
+const hexRgb = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
+function ladyFor(color) {
+  if (!ladySprites.ready) return null;
+  if (!ladySprites.byColor[color]) {
+    const [tr, tg, tb] = hexRgb(color), tmax = Math.max(tr, tg, tb) || 1;
+    // shell pixels are strongly red: keep their shading, swap the hue for the beetle's colour
+    ladySprites.byColor[color] = recolor(ladySprites.red, (px, i) => {
+      const r = px[i], g = px[i + 1], b = px[i + 2];
+      if (r > 90 && r > g * 1.6 && r > b * 1.6) { const k = r / 255; px[i] = tr * k * 255 / tmax; px[i + 1] = tg * k * 255 / tmax; px[i + 2] = tb * k * 255 / tmax; }
+    });
+  }
+  return ladySprites.byColor[color];
+}
+(function loadLadybugs() {
+  const red = new Image(), scared = new Image();
+  let n = 0;
+  const done = () => {
+    if (++n < 2) return;
+    ladySprites.red = red; ladySprites.scared = scared;
+    // white flash version for when the lantern is about to run out
+    ladySprites.flash = recolor(scared, (px, i) => {
+      const r = px[i], g = px[i + 1], b = px[i + 2];
+      if (b > 80 && b > r * 1.4) { px[i] = 235; px[i + 1] = 240; px[i + 2] = 255; }
+    });
+    ladySprites.ready = true;
+    ladySprites.byColor['#ff5d5d'] = red;   // the first beetle keeps the original red
+  };
+  red.onload = scared.onload = done;
+  red.src = 'assets/ladybug.webp'; scared.src = 'assets/ladybug-scared.webp';
+})();
+
 function drawBeetle(b, now) {
+  if (ladySprites.ready && b.mode !== 'eaten') {
+    let p = pos(b);
+    if (b.mode === 'den') p = { x: b.tx, y: b.ty + Math.sin(b.bob) * 0.18 };
+    const d = b.mode === 'den' ? DIRS.up : b.dir;
+    // face the way it is walking, turning smoothly
+    const target = (d.x || d.y) ? Math.atan2(d.x, -d.y) : (b.ang || 0);
+    if (b.ang === undefined) b.ang = target;
+    let diff = target - b.ang; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    b.ang += diff * 0.35;
+    const flashEnd = b.frightened && frightTimer < 2 && Math.floor(frightTimer * 5) % 2 === 0;
+    const img = b.frightened ? (flashEnd ? ladySprites.flash : ladySprites.scared) : ladyFor(b.color);
+    const S = T * 1.12, wobble = b.mode === 'den' ? 0 : Math.sin(now / 85 + b.i * 1.7) * 0.09;
+    ctx.save();
+    ctx.translate(p.x * T + T / 2, p.y * T + T / 2);
+    ctx.rotate(b.ang + wobble);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(T * 0.06, T * 0.08, S * 0.36, S * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(img, -S / 2, -S / 2, S, S);
+    ctx.restore();
+    return;
+  }
   let p = pos(b);
   if (b.mode === 'den') p = { x: b.tx, y: b.ty + Math.sin(b.bob) * 0.18 };
   const cx = p.x * T + T / 2, cy = p.y * T + T / 2;
