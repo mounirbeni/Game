@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Backman</title>
-<meta name="description" content="Guide Backman through ever-changing garden mazes, gather the glowing seeds and dodge the beetles.">
+<title>Bug Maze Adventure</title>
+<meta name="description" content="Bug Maze Adventure: guide Backman through glowing garden mazes, gather the seeds and dodge the beetles.">
 <meta name="theme-color" content="#07110c">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Backman">
+<meta name="apple-mobile-web-app-title" content="Bug Maze">
 <style>
   :root {
     --bg: #07110c;
@@ -55,6 +55,120 @@
   button.big:active { transform: translateY(2px); box-shadow: 0 2px 0 #a06d12; }
   .hidden { display: none !important; }
   .icon-btn svg { width: 22px; height: 22px; }
+
+  /* ---------- Home screen ---------- */
+  #home { position: fixed; inset: 0; z-index: 40; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 28%, #163a5c 0%, #0b2033 42%, #050c12 100%); }
+  #home.hidden { display: none; }
+  .fireflies { position: absolute; inset: 0; pointer-events: none; }
+  .fireflies i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #ffe58a;
+    box-shadow: 0 0 8px 3px #ffd34d99; opacity: 0; animation: firefly 8s ease-in-out infinite; }
+  @keyframes firefly { 0% { opacity: 0; transform: translate(0, 0); } 25% { opacity: .9; } 50% { opacity: .5; transform: translate(14px, -22px); }
+    75% { opacity: .9; } 100% { opacity: 0; transform: translate(-10px, -40px); } }
+  @media (prefers-reduced-motion: reduce) { .fireflies i { animation: none; opacity: .5; } }
+  .home-col { position: relative; }
+  .home-col { height: 100%; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 8px); }
+  .home-top { display: flex; align-items: center; gap: 6px; z-index: 2; }
+  .player-chip { display: flex; align-items: center; gap: 7px; flex: 1 1 auto; min-width: 0; padding: 3px 10px 3px 3px; border-radius: 999px;
+    background: linear-gradient(#173a5c, #0c223a); border: 2px solid #2d6aa0; color: #fff; font: inherit; cursor: pointer; box-shadow: 0 3px 10px #0008; }
+  .player-chip canvas { width: 44px; height: 44px; border-radius: 50%; border: 2.5px solid #ffcf3a; background: radial-gradient(#2b6b3f, #123322); flex: none; }
+  .pc-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; flex: 1; }
+  .pc-text b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .lvl-row { display: flex; align-items: center; gap: 6px; width: 100%; font-size: 11px; color: #ffd75a; font-weight: 800; }
+  .xp { position: relative; flex: 1; min-width: 46px; height: 13px; border-radius: 999px; background: #08182a; border: 1px solid #2d6aa0; overflow: hidden; }
+  .xp i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(#7dff6a, #2fbf3a); border-radius: 999px; }
+  .xp em { position: relative; display: block; text-align: center; font-style: normal; font-size: 9px; line-height: 13px; color: #fff; text-shadow: 0 1px 2px #000; }
+  .hpill { display: flex; align-items: center; gap: 4px; padding: 3px 4px 3px 3px; border-radius: 999px; flex: none;
+    background: linear-gradient(#173a5c, #0c223a); border: 2px solid #2d6aa0; color: #fff; box-shadow: 0 3px 10px #0008; }
+  .hpill b { font-size: 14px; min-width: 14px; }
+  .hpill small { font-size: 10px; font-weight: 800; color: #cfe3ff; }
+  .hicon svg { width: 24px; height: 24px; display: block; }
+  .plus { width: 22px; height: 22px; border-radius: 50%; border: 0; padding: 0; font: 900 17px/22px system-ui; color: #fff; cursor: pointer;
+    background: radial-gradient(circle at 35% 30%, #7dff6a, #1f9a2a); box-shadow: inset 0 -2px 0 #0f6a18; }
+  .gear { width: 40px; height: 40px; flex: none; border-radius: 12px; border: 2px solid #2d6aa0; color: #e9f2ff; cursor: pointer; padding: 7px;
+    background: linear-gradient(#173a5c, #0c223a); box-shadow: 0 3px 10px #0008; }
+  .gear svg { width: 100%; height: 100%; display: block; }
+  .home-hero { display: block; width: calc(100% + 24px); margin: 6px -12px 0; height: auto; flex: none;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 82%, transparent 100%); mask-image: linear-gradient(to bottom, #000 0%, #000 82%, transparent 100%); }
+  .home-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 16px; min-height: 0; padding: 4px 0; }
+  .play-btn { width: min(100%, 360px); display: flex; align-items: center; justify-content: center; gap: 14px; position: relative;
+    padding: 12px 22px; border-radius: 999px; cursor: pointer; font: inherit; color: #4a2a05;
+    background: linear-gradient(#ffe36b 0%, #ffc21f 55%, #ffab0f 100%);
+    border: 3px solid #fff2a8; box-shadow: 0 0 0 3px #e08a00, 0 0 26px #ffb81f99, inset 0 -6px 0 #e8900a, inset 0 4px 0 #fff6c0; }
+  .play-btn:active { transform: translateY(2px) scale(.99); }
+  .pb-icon svg { width: 40px; height: 40px; display: block; }
+  .pb-text { display: flex; flex-direction: column; line-height: 1; }
+  .pb-text b { font-size: 38px; font-weight: 900; letter-spacing: .01em; }
+  .pb-text small { font-size: 15px; font-weight: 800; margin-top: 3px; }
+  .pb-chev { position: absolute; right: 22px; font-size: 32px; font-weight: 900; color: #fff8d0; text-shadow: 0 2px 0 #e08a00; }
+  .tiles { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+  .tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 2px 9px; cursor: pointer;
+    border-radius: 18px; font: inherit; font-weight: 800; font-size: 12px; line-height: 1.1; color: #fff; text-shadow: 0 1px 2px #000;
+    background: linear-gradient(#1f5fa0, #0e2d57); border: 2px solid #ffcf3a; box-shadow: 0 0 12px #ffcf3a55, inset 0 2px 0 #ffffff33, 0 4px 10px #0009; }
+  .tile:active { transform: translateY(2px); }
+  .ticon svg { width: 42px; height: 42px; display: block; filter: drop-shadow(0 2px 2px #0008); }
+  .badge { position: absolute; top: -7px; right: -5px; width: 24px; height: 24px; border-radius: 50%; font: 900 15px/22px system-ui; font-style: normal;
+    color: #fff; background: radial-gradient(circle at 35% 30%, #ff6b6b, #d11a2a); border: 2px solid #fff; box-shadow: 0 2px 6px #0008; }
+  .home-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px; border-radius: 22px; flex: none;
+    background: linear-gradient(#123456ee, #081a2eee); border: 2px solid #2d6aa0; box-shadow: 0 -2px 18px #0009; }
+  .home-nav button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: 0; border-radius: 16px; cursor: pointer;
+    background: transparent; color: #9fc4ff; font: inherit; font-weight: 800; font-size: 12px; }
+  .home-nav button svg { width: 24px; height: 24px; }
+  .home-nav button.on { background: linear-gradient(#ffd34d, #f0a20f); color: #fff; text-shadow: 0 1px 2px #8a5200; box-shadow: inset 0 -3px 0 #c97f05; }
+  #home .install, #home .hint { margin: 0; }
+  /* sheets (Daily reward, Shop, Missions, ...) */
+  .sheet { position: absolute; inset: 0; background: #020810aa; display: flex; align-items: flex-end; justify-content: center; z-index: 5; }
+  .sheet.hidden { display: none; }
+  .sheet-card { width: 100%; max-width: 560px; max-height: 86%; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 14px 16px calc(env(safe-area-inset-bottom) + 18px);
+    background: linear-gradient(#123456, #0a1e33); border: 2px solid #2d6aa0; border-bottom: 0; box-shadow: 0 -8px 30px #000a; color: #fff; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .sheet-head h3 { margin: 0; font-size: 20px; color: #ffd75a; }
+  .sheet-x { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #2d6aa0; background: #0c223a; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; }
+  .sheet-card p { color: #b9d2f0; font-size: 14px; line-height: 1.45; margin: 6px 0; }
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin: 10px 0 14px; }
+  .day { border-radius: 12px; padding: 6px 2px; text-align: center; background: #0c223a; border: 2px solid #2d6aa0; font-size: 11px; font-weight: 800; color: #9fc4ff; }
+  .day b { display: block; font-size: 16px; color: #fff; margin-top: 2px; }
+  .day.done { background: #14402a; border-color: #2fbf3a; color: #7dff6a; }
+  .day.today { border-color: #ffcf3a; box-shadow: 0 0 10px #ffcf3a88; color: #ffd75a; }
+  .gold-btn { display: block; width: 100%; padding: 12px; border-radius: 999px; border: 0; cursor: pointer; font: inherit; font-weight: 900; font-size: 17px; color: #4a2a05;
+    background: linear-gradient(#ffe36b, #ffb21a); box-shadow: inset 0 -4px 0 #e08a00; }
+  .gold-btn:disabled { filter: grayscale(.8) brightness(.7); cursor: default; }
+  .mission { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; margin: 8px 0; border-radius: 14px; background: #0c223a; border: 2px solid #2d6aa0; }
+  .mission .mbar { grid-column: 1; height: 8px; border-radius: 99px; background: #08182a; overflow: hidden; }
+  .mission .mbar i { display: block; height: 100%; background: linear-gradient(90deg, #2fbf3a, #7dff6a); }
+  .mission button { grid-row: 1 / span 2; grid-column: 2; padding: 8px 12px; border-radius: 999px; border: 0; font: inherit; font-weight: 900; font-size: 13px; cursor: pointer; color: #4a2a05; background: linear-gradient(#ffe36b, #ffb21a); }
+  .mission button:disabled { background: #1d3a5a; color: #9fc4ff; cursor: default; }
+  .mission.claimed { opacity: .55; }
+  .rows { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .rows td { padding: 8px 6px; border-bottom: 1px solid #1d3a5a; }
+  .rows td:last-child { text-align: right; font-weight: 800; color: #ffd75a; }
+  .rows tr.me td { color: #7dff6a; }
+  .lvls { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin-top: 8px; }
+  .lvl { aspect-ratio: 1; border-radius: 14px; border: 2px solid #ffcf3a; background: linear-gradient(#1f5fa0, #0e2d57); color: #fff; font: inherit; font-weight: 900; font-size: 18px; cursor: pointer; }
+  .lvl.cur { background: linear-gradient(#ffe36b, #ffb21a); color: #4a2a05; }
+  .lvl:disabled { border-color: #2d6aa0; color: #4f6f95; background: #0c223a; cursor: default; }
+  .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #1d3a5a; font-weight: 700; }
+  .set-row input { flex: 1; max-width: 180px; padding: 8px 10px; border-radius: 10px; border: 2px solid #2d6aa0; background: #08182a; color: #fff; font: inherit; }
+  .toggle { padding: 7px 14px; border-radius: 999px; border: 2px solid #2d6aa0; background: #0c223a; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+  .toggle.on { background: #1f9a2a; border-color: #7dff6a; }
+  .danger-btn { padding: 7px 14px; border-radius: 999px; border: 2px solid #ff6b6b; background: transparent; color: #ff8a8a; font: inherit; font-weight: 800; cursor: pointer; }
+  .sheet-card .skins { margin-top: 4px; }
+  @media (max-width: 400px) {
+    .home-top { gap: 4px; }
+    .player-chip { padding-right: 7px; gap: 5px; }
+    .player-chip canvas { width: 38px; height: 38px; }
+    .pc-text b { font-size: 12.5px; }
+    .lvl-row { gap: 4px; font-size: 10px; white-space: nowrap; }
+    .xp { min-width: 30px; height: 8px; } .xp em { display: none; }
+    .hpill b { font-size: 13px; } .hicon svg { width: 21px; height: 21px; }
+    .gear { width: 36px; height: 36px; padding: 6px; }
+    .hpill small.full { display: none; }
+    .pb-text b { font-size: 32px; }
+    .tile { font-size: 10.5px; border-radius: 15px; }
+    .ticon svg { width: 34px; height: 34px; }
+  }
+  @media (max-height: 700px) { .home-hero { width: 100%; margin: 4px 0 0; } .home-main { gap: 10px; } .ticon svg { width: 32px; height: 32px; } }
   .touch-only { display: none; }
   @media (pointer: coarse) { .kbd-only { display: none; } .touch-only { display: inline; } }
   @media (max-width: 380px) {
@@ -100,6 +214,42 @@
 </style>
 </head>
 <body>
+<div id="home">
+  <div class="fireflies" aria-hidden="true"><i style="left:8%;top:58%;animation-delay:0s;animation-duration:7s"></i><i style="left:22%;top:72%;animation-delay:1.5s;animation-duration:9s"></i><i style="left:38%;top:63%;animation-delay:3s;animation-duration:8s"></i><i style="left:55%;top:77%;animation-delay:0.8s;animation-duration:10s"></i><i style="left:71%;top:60%;animation-delay:2.2s;animation-duration:7.5s"></i><i style="left:86%;top:70%;animation-delay:4s;animation-duration:9s"></i><i style="left:14%;top:86%;animation-delay:2.8s;animation-duration:8.5s"></i><i style="left:64%;top:90%;animation-delay:1.2s;animation-duration:9.5s"></i><i style="left:92%;top:84%;animation-delay:3.6s;animation-duration:7s"></i><i style="left:46%;top:94%;animation-delay:0.4s;animation-duration:8s"></i></div>
+  <div class="home-col">
+    <div class="home-top">
+      <button class="player-chip" data-open="settings" aria-label="Player">
+        <canvas id="avatar" width="48" height="48"></canvas>
+        <span class="pc-text"><b id="playerName">Player</b>
+          <span class="lvl-row"><span id="pLevel">Level 1</span><span class="xp"><i id="xpFill"></i><em id="xpText">0 / 500</em></span></span></span>
+      </button>
+      <div class="hpill"><span class="hicon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#ffcf3a" stroke="#b07a10" stroke-width="2"/><circle cx="12" cy="12" r="6.6" fill="#ffe27a"/><path d="M12 7.6l1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3-2.2-2.1 3-.4z" fill="#c98a0c"/></svg></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Get looks">+</button></div>
+      <div class="hpill"><span class="hicon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.1C.9 8.6 2.9 4.5 6.7 4.5c2.2 0 3.6 1.2 4.3 2.4.7-1.2 2.1-2.4 4.3-2.4 3.8 0 5.8 4.1 4.3 7.4C19.5 16.4 12 21 12 21z" fill="#ff3b4f" stroke="#a3122a" stroke-width="1.2"/><path d="M7 7.5c-1.5.3-2.3 1.7-2 3" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span><b>3</b><small class="full">Full</small></div>
+      <button class="gear" data-open="settings" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
+    </div>
+    <img class="home-hero" src="assets/home-hero.jpg" alt="Bug Maze Adventure: Backman in front of a glowing maze with beetles">
+    <div class="home-main">
+      <button id="playBtn" class="play-btn"><span class="pb-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8v14.4a1.2 1.2 0 0 0 1.8 1l11.4-7.2a1.2 1.2 0 0 0 0-2L8.8 3.8A1.2 1.2 0 0 0 7 4.8z" fill="#4a2a05"/></svg></span><span class="pb-text"><b>Play</b><small id="playLevel">Level 1</small></span><span class="pb-chev">&raquo;</span></button>
+      <div class="tiles">
+        <button class="tile" data-open="daily"><span class="ticon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="9" width="38" height="33" rx="6" fill="#fff4e0"/><rect x="5" y="9" width="38" height="11" rx="6" fill="#ff5a7a"/><rect x="5" y="15" width="38" height="5" fill="#ff5a7a"/><rect x="13" y="5" width="4" height="9" rx="2" fill="#5a5a6a"/><rect x="31" y="5" width="4" height="9" rx="2" fill="#5a5a6a"/><path d="M15 31l6 6 12-13" fill="none" stroke="#21b35a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Daily Reward</span><i class="badge hidden" id="dailyBadge">!</i></button>
+        <button class="tile" data-open="shop"><span class="ticon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="20" width="32" height="22" rx="3" fill="#ffd06a"/><rect x="19" y="28" width="10" height="14" rx="2" fill="#e8892a"/><path d="M5 20l4-12h30l4 12z" fill="#fff"/><path d="M9 8h6l-2 12H5zM21 8h6v12h-8zM33 8h6l4 12h-8z" fill="#ff4b5c"/><path d="M5 20a4.5 4 0 0 0 9.5 0 4.5 4 0 0 0 9.5 0 4.5 4 0 0 0 9.5 0 4.5 4 0 0 0 9.5 0" fill="#ff4b5c"/></svg></span><span>Shop</span></button>
+        <button class="tile" data-open="missions"><span class="ticon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="22" cy="26" r="17" fill="#ff4b6b"/><circle cx="22" cy="26" r="12.5" fill="#fff"/><circle cx="22" cy="26" r="8" fill="#ff4b6b"/><circle cx="22" cy="26" r="3.5" fill="#fff"/><path d="M22 26L41 8" stroke="#8a5a2a" stroke-width="3" stroke-linecap="round"/><path d="M41 8l-1-5 5 1-1 5z M41 8l2 4 4-2-2-3z" fill="#ffcf3a"/></svg></span><span>Missions</span><i class="badge hidden" id="missionBadge">!</i></button>
+        <button class="tile" data-open="board"><span class="ticon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 10h6v4H8a3 3 0 0 0 0 6h4v4H8a7 7 0 0 1 0-14zM40 10h-6v4h6a3 3 0 0 1 0 6h-4v4h4a7 7 0 0 0 0-14z" fill="#e8a91a"/><path d="M13 6h22v12a11 11 0 0 1-22 0z" fill="#ffcf3a"/><path d="M24 10l1.6 3.4 3.7.5-2.7 2.6.7 3.7-3.3-1.8-3.3 1.8.7-3.7-2.7-2.6 3.7-.5z" fill="#fff6c8"/><rect x="21" y="28" width="6" height="7" fill="#e8a91a"/><rect x="15" y="35" width="18" height="6" rx="2" fill="#c98a0c"/><path d="M3 36c3-1 5 1 6 4M45 36c-3-1-5 1-6 4" stroke="#3fb34a" stroke-width="3" fill="none" stroke-linecap="round"/></svg></span><span>Leaderboard</span></button>
+      </div>
+      <button class="install hidden" id="installBtn">Install app</button>
+      <p class="hint hidden" id="iosHint">Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
+    </div>
+    <nav class="home-nav">
+      <button class="on" data-open="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5L12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="currentColor"/></svg><span>Home</span></button>
+      <button data-open="levels"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="2" fill="currentColor"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="2" fill="currentColor"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="2" fill="currentColor"/><rect x="13" y="13" width="7.5" height="7.5" rx="2" fill="currentColor"/></svg><span>Levels</span></button>
+      <button data-open="shop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3L3 6l2 5 2.5-1V21h9V10l2.5 1 2-5-5.5-3a3.5 3.5 0 0 1-7 0z" fill="currentColor"/></svg><span>Skins</span></button>
+      <button data-open="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="13" width="4" height="8" rx="1.2" fill="currentColor"/><rect x="10" y="8" width="4" height="13" rx="1.2" fill="currentColor"/><rect x="16" y="3" width="4" height="18" rx="1.2" fill="currentColor"/></svg><span>Stats</span></button>
+    </nav>
+  </div>
+  <div class="sheet hidden" id="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-card"><div class="sheet-head"><h3 id="sheetTitle"></h3><button class="sheet-x" id="sheetClose" aria-label="Close">&times;</button></div><div id="sheetBody"></div></div>
+  </div>
+</div>
 <div id="app">
   <div id="hud">
     <div class="stat"><small>Score</small><span id="score">0</span></div>
@@ -114,7 +264,7 @@
   <div id="wrap">
     <div id="stage"><canvas id="game"></canvas></div>
     <div id="overlay">
-      <div class="card" id="startCard">
+      <div class="card hidden" id="startCard">
         <h1>BACKMAN</h1>
         <p>Guide Backman through the gardens. Gather every glowing seed to reach the next one. Each level the garden grows and one more beetle joins the hunt.</p>
         <div class="legend">
@@ -124,12 +274,10 @@
           <span class="dot" style="background:#ffd23f;box-shadow:0 0 0 2px #c98a0c inset"></span><span>Gold coin: grab it before it vanishes, +1 credit</span>
         </div>
         <p><span class="kbd-only">Arrows / WASD to move · P to pause · M to mute</span><span class="touch-only">Swipe anywhere on the screen to move</span></p>
-        <div class="picker-head"><span>Choose your Backman</span><span class="pill"><svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg><span id="creditsPill">0</span>&nbsp;<span id="creditsWord">credits</span></span></div>
+        <div class="picker-head"><span>Choose your look</span><span class="pill"><svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffcf5a" stroke="#a06d12" stroke-width="2"/><path d="M12 6.8l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="#a06d12"/></svg><span id="creditsPill">0</span>&nbsp;<span id="creditsWord">credits</span></span></div>
         <div class="skins" id="skinPicker"></div>
         <div class="shop-msg" id="shopMsg"></div>
         <button class="big" id="startBtn">Play</button><br>
-        <button class="install hidden" id="installBtn">Install app</button>
-        <p class="hint hidden" id="iosHint">Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
       </div>
       <div class="card hidden" id="pauseCard">
         <h2>Paused</h2>
@@ -137,7 +285,8 @@
         <div class="picker-head"><span>Your look</span></div>
         <div class="skins" id="skinPicker2"></div>
         <div class="shop-msg" id="shopMsg2"></div>
-        <button class="big" id="resumeBtn">Resume</button>
+        <button class="big" id="resumeBtn">Resume</button><br>
+        <button class="install" id="pauseHomeBtn">Home</button>
       </div>
       <div class="card hidden" id="overCard">
         <h2 style="color:var(--danger)">Game Over</h2>
@@ -145,6 +294,7 @@
         <button class="big" id="continueBtn">Continue</button><br>
         <button class="big" id="againBtn">Retry level</button>
         <p class="hint" id="creditHint"></p>
+        <button class="install" id="overHomeBtn">Home</button>
       </div>
     </div>
   </div>
@@ -508,6 +658,7 @@ function loadMeta() {
 const skinPrice = i => i + 1;   // Berry 2 ... King 8
 const isSkinUnlocked = i => i < SKINS.length && (i <= highestCleared || ownedSkins.has(i));
 function saveMeta() {
+  if (typeof refreshHome === 'function' && document.getElementById('homeCredits')) document.getElementById('homeCredits').textContent = credits;
   try {
     localStorage.setItem('backman.credits', String(credits));
     localStorage.setItem('backman.cleared', String(highestCleared));
@@ -528,6 +679,7 @@ function earnCredit(n, x, y) {
 
 function levelCleared() {
   const flawless = deathsThisLevel === 0;
+  track('clears'); if (flawless) track('flawless');
   const earned = flawless ? 4 : 2;
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
@@ -549,9 +701,10 @@ function loadProgress() {
 function saveProgress() {
   try { localStorage.setItem('backman.level', String(level)); localStorage.setItem('backman.levelScore', String(score)); } catch (e) { /* ignore */ }
 }
-function newGame() {
+function newGame(startLevel) {
   const saved = loadProgress();
-  score = saved.score; lives = 3; level = saved.level; extraLifeGiven = score >= 5000; deathsThisLevel = 0; creditsThisLevel = 0;
+  level = startLevel || saved.level;
+  score = level === saved.level ? saved.score : 0; lives = 3; extraLifeGiven = score >= 5000; deathsThisLevel = 0; creditsThisLevel = 0;
   applyLevelMap(level);
   resetMaze(); resetActors(); resize();
   levelIntro = true;
@@ -566,7 +719,7 @@ function nextLevel() {
   mazeLayerFlash = null;
   level++;
   deathsThisLevel = 0; creditsThisLevel = 0;
-  saveProgress();
+  if (level >= loadProgress().level) saveProgress();   // replaying an old level never moves you back
   applyLevelMap(level);
   resetMaze(); resetActors(); resize();
   levelIntro = true;
@@ -658,7 +811,7 @@ function eatAt(x, y) {
   if (x < 0 || x >= COLS) return;
   const c = grid[y][x];
   if (c === '.') {
-    grid[y][x] = ' '; eraseSeed(x, y); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(10); seedsLeft--; seedsEaten++; sfx.seed();
+    grid[y][x] = ' '; eraseSeed(x, y); track('seeds'); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(10); seedsLeft--; seedsEaten++; sfx.seed();
   } else if (c === 'o') {
     grid[y][x] = ' '; burst(x, y, '#ffb02e', 16, 4.5, 0.6, 0.1); addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
     startFright();
@@ -669,6 +822,7 @@ function eatAt(x, y) {
 
 function addScore(n) {
   score += n;
+  stats.totalScore += n; statsDirty = true;
   if (!extraLifeGiven && score >= 5000) { extraLifeGiven = true; lives++; sfx.life(); popup(player.tx, player.ty, '1UP', '#7dffa1'); }
   if (score > best) { best = score; saveBest(best); }
   updateHud();
@@ -833,7 +987,7 @@ function checkCollisions() {
         b.frightened = false; b.mode = 'eaten';
         const pts = 200 * 2 ** Math.min(frightChain, 3);
         frightChain++;
-        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); burst(bp.x, bp.y, b.color, 16, 5, 0.55, 0.1); earnCredit(1, bp.x, bp.y);
+        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, b.color, 16, 5, 0.55, 0.1); earnCredit(1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
       } else {
         lives--; updateHud();
@@ -872,7 +1026,7 @@ function updateCoin(dt) {
     if (coin.timer <= 0) coin = null;
     else {
       const pp = pos(player);
-      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(1, coin.x, coin.y); coin = null; coinTimer = nextCoinDelay(); }
+      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { track('coins'); burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(1, coin.x, coin.y); coin = null; coinTimer = nextCoinDelay(); }
     }
   } else if ((coinTimer -= dt) <= 0) { spawnCoin(); coinTimer = nextCoinDelay(); }
 }
@@ -958,6 +1112,7 @@ function update(dt) {
 
 function gameOver() {
   setState('over');
+  stats.games++; statsDirty = true; recordRun();
   ui.overText.innerHTML = `Level ${level} got you this time. You keep your place: try level ${level} again.` +
     (score >= best && score > 0 ? '<br>New best score!' : `<br>Best: ${best.toLocaleString()}`);
   $('againBtn').textContent = `Retry level ${level}`;
@@ -1514,14 +1669,14 @@ window.addEventListener('keydown', e => {
   if (KEYMAP[e.key]) { setWant(KEYMAP[e.key]); e.preventDefault(); return; }
   if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { togglePause(); e.preventDefault(); return; }
   if (e.key === 'm' || e.key === 'M') { toggleMute(); return; }
-  if ((e.key === 'Enter' || e.key === ' ') && (state === 'title' || state === 'over')) { newGame(); e.preventDefault(); }
+  if ((e.key === 'Enter' || e.key === ' ') && state === 'title' && sheetOpen === null) { startPlay(); e.preventDefault(); }
 });
 
 // Swipe anywhere on the screen (except on buttons) to steer.
 let touchStart = null;
 const isButton = el => el && el.closest && el.closest('button');
 document.addEventListener('touchstart', e => {
-  if (isButton(e.target) || (e.target.closest && e.target.closest('.card'))) return; // let buttons and cards (scrolling) work
+  if (isButton(e.target) || (e.target.closest && e.target.closest('.card, #home'))) return; // let buttons and cards (scrolling) work
   const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY };
   e.preventDefault();
 }, { passive: false });
@@ -1570,7 +1725,7 @@ function toggleMute() {
 }
 $('startBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
 { const saved = loadProgress(); if (saved.level > 1) $('startBtn').textContent = `Continue: level ${saved.level}`; }
-$('againBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
+$('againBtn').addEventListener('click', () => { unlockAudio(); newGame(level); });
 $('resumeBtn').addEventListener('click', togglePause);
 ui.pauseBtn.addEventListener('click', togglePause);
 ui.muteBtn.addEventListener('click', toggleMute);
@@ -1586,7 +1741,8 @@ let pendingBuy = -1, shopNote = '';
 function renderPicker() {
   $('creditsPill').textContent = credits;
   $('creditsWord').textContent = credits === 1 ? 'credit' : 'credits';
-  for (const [box, msg] of [[$('skinPicker'), $('shopMsg')], [$('skinPicker2'), $('shopMsg2')]]) {
+  for (const box of document.querySelectorAll('.skins')) {
+    const msg = box.nextElementSibling;
     box.innerHTML = '';
     SKINS.forEach((sk, i) => {
       const unlocked = isSkinUnlocked(i);
@@ -1647,6 +1803,196 @@ $('continueBtn').addEventListener('click', () => {
   updateHud();
 });
 
+
+// ================= Home screen: player level, daily reward, missions, leaderboard, stats =================
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+const yesterday = () => { const d = new Date(Date.now() - 864e5); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+function loadJSON(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v && typeof v === 'object' ? { ...fallback, ...v } : fallback; } catch (e) { return fallback; } }
+function saveJSON(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* ignore */ } }
+
+let stats = loadJSON('bma.stats', { seeds: 0, beetles: 0, coins: 0, clears: 0, flawless: 0, games: 0, totalScore: 0, playTime: 0 });
+let statsDirty = false;
+let profile = loadJSON('bma.profile', { name: 'Player' });
+let daily = loadJSON('bma.daily', { last: '', streak: 0 });
+let dayLog = loadJSON('bma.day', { date: today(), seeds: 0, beetles: 0, coins: 0, clears: 0, flawless: 0, claimed: [] });
+let board = (loadJSON('bma.board', { runs: [] }).runs || []).slice(0, 10);
+
+function track(what) {
+  stats[what]++; statsDirty = true;
+  if (dayLog.date !== today()) dayLog = { date: today(), seeds: 0, beetles: 0, coins: 0, clears: 0, flawless: 0, claimed: [] };
+  dayLog[what]++;
+}
+function flushStats() { if (!statsDirty) return; statsDirty = false; saveJSON('bma.stats', stats); saveJSON('bma.day', dayLog); }
+setInterval(flushStats, 2000);
+window.addEventListener('pagehide', flushStats);
+
+// Player level grows with every point you ever score: 500 for level 2, then +250 more per level.
+function playerLevel() {
+  let lvl = 1, need = 500, xp = stats.totalScore;
+  while (xp >= need) { xp -= need; lvl++; need += 250; }
+  return { lvl, xp, need };
+}
+
+// Daily reward: come back on consecutive days for bigger rewards.
+const DAILY = [1, 1, 2, 2, 3, 3, 5];
+function dailyState() {
+  const claimedToday = daily.last === today();
+  const continuing = daily.last === yesterday() || claimedToday;
+  const streak = continuing ? daily.streak : 0;              // days already claimed in this run
+  const nextDay = claimedToday ? streak : (streak % 7) + 1;  // 1..7
+  return { claimedToday, streak, nextDay };
+}
+function claimDaily() {
+  const st = dailyState(); if (st.claimedToday) return;
+  const amount = DAILY[st.nextDay - 1];
+  daily = { last: today(), streak: st.nextDay };
+  saveJSON('bma.daily', daily);
+  credits += amount; saveMeta(); sfx.coin();
+  refreshHome(); openSheet('daily');
+}
+
+// Three daily missions, picked from the date so everyone gets a fresh set each day.
+const MISSION_POOL = [
+  { id: 'seeds250', what: 'seeds', goal: 250, text: 'Eat 250 seeds', reward: 2 },
+  { id: 'seeds500', what: 'seeds', goal: 500, text: 'Eat 500 seeds', reward: 3 },
+  { id: 'beetles3', what: 'beetles', goal: 3, text: 'Catch 3 beetles', reward: 2 },
+  { id: 'beetles8', what: 'beetles', goal: 8, text: 'Catch 8 beetles', reward: 4 },
+  { id: 'coins3', what: 'coins', goal: 3, text: 'Grab 3 gold coins', reward: 2 },
+  { id: 'coins6', what: 'coins', goal: 6, text: 'Grab 6 gold coins', reward: 3 },
+  { id: 'clears1', what: 'clears', goal: 1, text: 'Clear a level', reward: 2 },
+  { id: 'clears3', what: 'clears', goal: 3, text: 'Clear 3 levels', reward: 4 },
+  { id: 'flawless1', what: 'flawless', goal: 1, text: 'Clear a level without losing a life', reward: 4 },
+];
+function todaysMissions() {
+  if (dayLog.date !== today()) dayLog = { date: today(), seeds: 0, beetles: 0, coins: 0, clears: 0, flawless: 0, claimed: [] };
+  let seed = [...today()].reduce((a, c) => a * 31 + c.charCodeAt(0) >>> 0, 7);
+  const pool = MISSION_POOL.slice(), out = [];
+  while (out.length < 3) { seed = (seed * 1103515245 + 12345) >>> 0; const m = pool.splice(seed % pool.length, 1)[0]; if (!out.some(o => o.what === m.what)) out.push(m); }
+  return out.map(m => ({ ...m, have: Math.min(m.goal, dayLog[m.what]), done: dayLog[m.what] >= m.goal, claimed: dayLog.claimed.includes(m.id) }));
+}
+function claimMission(id) {
+  const m = todaysMissions().find(x => x.id === id);
+  if (!m || !m.done || m.claimed) return;
+  dayLog.claimed.push(id); saveJSON('bma.day', dayLog);
+  credits += m.reward; saveMeta(); sfx.coin();
+  refreshHome(); openSheet('missions');
+}
+
+// Leaderboard: your ten best runs on this device.
+function recordRun() {
+  if (score <= 0) return;
+  board.push({ score, level, name: profile.name, date: today() });
+  board.sort((a, b) => b.score - a.score); board = board.slice(0, 10);
+  saveJSON('bma.board', { runs: board });
+}
+
+// ---------- home UI ----------
+const homeEl = $('home');
+let sheetOpen = null;
+function refreshHome() {
+  const pl = playerLevel(), prog = loadProgress();
+  $('playerName').textContent = profile.name || 'Player';
+  $('pLevel').textContent = `Level ${pl.lvl}`;
+  $('xpFill').style.width = `${Math.round(100 * pl.xp / pl.need)}%`;
+  $('xpText').textContent = `${pl.xp} / ${pl.need}`;
+  $('homeCredits').textContent = credits;
+  $('playLevel').textContent = `Level ${prog.level}`;
+  $('dailyBadge').classList.toggle('hidden', dailyState().claimedToday);
+  $('missionBadge').classList.toggle('hidden', !todaysMissions().some(m => m.done && !m.claimed));
+  const av = $('avatar'), d = Math.min(window.devicePixelRatio || 1, 3);
+  av.width = av.height = Math.round(48 * d);
+  const g = av.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, 48, 48);
+  g.translate(27, 27); drawBackman(g, 13.5, SKINS[skinIndex]);
+}
+function showHome() {
+  flushStats();
+  state = 'title'; paused = false; hideCards();
+  closeSheet(); refreshHome();
+  homeEl.classList.remove('hidden');
+}
+function startPlay(levelNo) {
+  unlockAudio();
+  homeEl.classList.add('hidden'); closeSheet();
+  newGame(levelNo);
+}
+function closeSheet() { sheetOpen = null; $('sheet').classList.add('hidden'); document.querySelectorAll('.home-nav button').forEach(b => b.classList.toggle('on', b.dataset.open === 'home')); }
+
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function openSheet(which) {
+  if (which === 'home') { closeSheet(); return; }
+  sheetOpen = which;
+  document.querySelectorAll('.home-nav button').forEach(b => b.classList.toggle('on', b.dataset.open === which));
+  const body = $('sheetBody'); let title = '';
+  if (which === 'daily') {
+    title = 'Daily Reward';
+    const st = dailyState();
+    body.innerHTML = `<p>Come back every day: the reward grows for each day in a row.</p><div class="days">` +
+      DAILY.map((r, i) => `<div class="day ${i < st.streak ? 'done' : ''} ${!st.claimedToday && i === st.nextDay - 1 ? 'today' : ''}">Day ${i + 1}<b>+${r}</b></div>`).join('') +
+      `</div><button class="gold-btn" id="claimDaily" ${st.claimedToday ? 'disabled' : ''}>${st.claimedToday ? 'Come back tomorrow' : `Claim +${DAILY[st.nextDay - 1]} credit${DAILY[st.nextDay - 1] > 1 ? 's' : ''}`}</button>`;
+    if (!st.claimedToday) $('claimDaily').addEventListener('click', claimDaily);
+  } else if (which === 'missions') {
+    title = 'Daily Missions';
+    const ms = todaysMissions();
+    body.innerHTML = '<p>New missions every day. Finish them while you play, then claim your credits here.</p>' + ms.map(m =>
+      `<div class="mission ${m.claimed ? 'claimed' : ''}"><span>${esc(m.text)} <b style="color:#ffd75a">+${m.reward}</b><br><small style="color:#9fc4ff">${m.have} / ${m.goal}</small></span>` +
+      `<button data-m="${m.id}" ${m.done && !m.claimed ? '' : 'disabled'}>${m.claimed ? 'Done' : m.done ? 'Claim' : 'In progress'}</button>` +
+      `<span class="mbar"><i style="width:${Math.round(100 * m.have / m.goal)}%"></i></span></div>`).join('');
+    body.querySelectorAll('button[data-m]').forEach(b => b.addEventListener('click', () => claimMission(b.dataset.m)));
+  } else if (which === 'board') {
+    title = 'Leaderboard';
+    body.innerHTML = board.length
+      ? '<p>Your best runs on this device.</p><table class="rows">' + board.map((r, i) =>
+          `<tr><td>${i + 1}.</td><td>${esc(r.name || 'Player')}</td><td>Level ${r.level}</td><td>${r.score.toLocaleString()}</td></tr>`).join('') + '</table>'
+      : '<p>No runs yet. Your best scores will show up here after your first game over.</p>';
+  } else if (which === 'shop') {
+    title = 'Shop · Skins';
+    body.innerHTML = `<p>You have <b style="color:#ffd75a">${credits}</b> credits. Clear a look's level to get it free, or buy it now.</p><div class="skins"></div><div class="shop-msg"></div>`;
+    renderPicker();
+  } else if (which === 'levels') {
+    title = 'Levels';
+    const reached = loadProgress().level, shown = Math.max(reached + 4, 15);
+    body.innerHTML = '<p>Replay any level you have reached. Your progress is kept.</p><div class="lvls">' +
+      Array.from({ length: shown }, (_, i) => i + 1).map(n => `<button class="lvl ${n === reached ? 'cur' : ''}" data-l="${n}" ${n > reached ? 'disabled' : ''}>${n}</button>`).join('') + '</div>';
+    body.querySelectorAll('.lvl:not(:disabled)').forEach(b => b.addEventListener('click', () => startPlay(+b.dataset.l)));
+  } else if (which === 'stats') {
+    title = 'Stats';
+    const pl = playerLevel(), mins = Math.round(stats.playTime / 60);
+    const rows = [['Player level', pl.lvl], ['Highest level reached', loadProgress().level], ['Best score', best.toLocaleString()],
+      ['Total score', stats.totalScore.toLocaleString()], ['Seeds eaten', stats.seeds.toLocaleString()], ['Beetles caught', stats.beetles],
+      ['Gold coins grabbed', stats.coins], ['Levels cleared', stats.clears], ['Flawless levels', stats.flawless], ['Games played', stats.games],
+      ['Time played', mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`]];
+    body.innerHTML = '<table class="rows">' + rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '</table>';
+  } else if (which === 'settings') {
+    title = 'Settings';
+    body.innerHTML = `<div class="set-row"><span>Name</span><input id="nameInput" maxlength="14" value="${esc(profile.name || 'Player')}"></div>
+      <div class="set-row"><span>Sound</span><button class="toggle ${muted ? '' : 'on'}" id="soundToggle">${muted ? 'Off' : 'On'}</button></div>
+      <div class="set-row"><span>How to play</span></div>
+      <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins and mushrooms for more credits. Each level the garden grows and one more beetle joins in.</p>
+      <div class="set-row"><span>Reset all progress</span><button class="danger-btn" id="resetBtn">Reset</button></div>
+      <p style="font-size:12px">Bug Maze Adventure · progress is saved on this device.</p>`;
+    $('nameInput').addEventListener('input', e => { profile.name = e.target.value.trim().slice(0, 14) || 'Player'; saveJSON('bma.profile', profile); refreshHome(); });
+    $('soundToggle').addEventListener('click', () => { toggleMute(); openSheet('settings'); });
+    $('resetBtn').addEventListener('click', e => {
+      if (e.target.dataset.sure) {
+        try { Object.keys(localStorage).filter(k => k.startsWith('backman.') || k.startsWith('bma.')).forEach(k => localStorage.removeItem(k)); } catch (err) { /* ignore */ }
+        location.reload();
+      } else { e.target.dataset.sure = '1'; e.target.textContent = 'Tap again to confirm'; }
+    });
+  }
+  $('sheetTitle').textContent = title;
+  $('sheet').classList.remove('hidden');
+}
+homeEl.addEventListener('click', e => {
+  const t = e.target.closest('[data-open]');
+  if (t) { unlockAudio(); openSheet(t.dataset.open); }
+});
+$('sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+$('sheetClose').addEventListener('click', closeSheet);
+$('playBtn').addEventListener('click', () => startPlay());
+$('pauseHomeBtn').addEventListener('click', () => { saveProgressIfCurrent(); showHome(); });
+$('overHomeBtn').addEventListener('click', showHome);
+function saveProgressIfCurrent() { /* progress is saved when a level starts; nothing extra to do */ }
+
 // ---------- Install as an app (PWA) ----------
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 let installPrompt = null;
@@ -1682,6 +2028,7 @@ function frame(now) {
     slowFrames = frameAvg > 0.024 ? slowFrames + 1 : 0;
     if (slowFrames > 120 && maxDpr > 2) { maxDpr = 2; resize(); }
   }
+  if (state === 'play' && !paused) { stats.playTime += dt; statsDirty = true; }
   update(dt);
   draw(now);
   requestAnimationFrame(frame);
@@ -1696,6 +2043,7 @@ applyLevelMap(level);
 resetMaze(); resetActors();
 resize();
 updateHud();
+showHome();
 requestAnimationFrame(frame);
 
 // Exposed for automated testing.

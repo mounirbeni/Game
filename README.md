@@ -1,6 +1,8 @@
-# Backman
+# Bug Maze Adventure
 
-An original maze-chase arcade game in a single HTML file. No build step and no dependencies.
+An original maze-chase arcade game. It's a single HTML file plus its icons and home-screen art, with no build step and no dependencies.
+
+The home screen has a Play button, a daily reward, daily missions, a shop for Backman's looks, a leaderboard of your best runs, level select, stats and settings.
 
 Guide **Backman**, a little backpacker, through a series of garden mazes. Collect every glowing seed while four beetles hunt you down.
 
