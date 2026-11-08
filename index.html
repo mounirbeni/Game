@@ -36,6 +36,10 @@
   .stat span { font-size: 20px; font-variant-numeric: tabular-nums; }
   #lives { display: flex; gap: 4px; min-height: 22px; align-items: center; }
   #wrap { position: relative; flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  /* night vignette as a GPU-composited overlay (free compared to painting it on the canvas) */
+  #stage { position: relative; border-radius: 10px; }
+  #stage::after { content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.42) 100%); }
   canvas { display: block; border-radius: 10px; box-shadow: 0 0 0 2px #163323, 0 10px 40px #000a; }
   #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   .card { pointer-events: auto; background: #0b1a12ee; border: 2px solid #2b6a40; border-radius: 16px;
@@ -108,7 +112,7 @@
     </div>
   </div>
   <div id="wrap">
-    <canvas id="game"></canvas>
+    <div id="stage"><canvas id="game"></canvas></div>
     <div id="overlay">
       <div class="card" id="startCard">
         <h1>BACKMAN</h1>
@@ -559,6 +563,7 @@ function newGame() {
 }
 
 function nextLevel() {
+  mazeLayerFlash = null;
   level++;
   deathsThisLevel = 0; creditsThisLevel = 0;
   saveProgress();
@@ -653,9 +658,9 @@ function eatAt(x, y) {
   if (x < 0 || x >= COLS) return;
   const c = grid[y][x];
   if (c === '.') {
-    grid[y][x] = ' '; eraseSeed(x, y); addScore(10); seedsLeft--; seedsEaten++; sfx.seed();
+    grid[y][x] = ' '; eraseSeed(x, y); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(10); seedsLeft--; seedsEaten++; sfx.seed();
   } else if (c === 'o') {
-    grid[y][x] = ' '; addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
+    grid[y][x] = ' '; burst(x, y, '#ffb02e', 16, 4.5, 0.6, 0.1); addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
     startFright();
   }
   if (seedsEaten === Math.round(TOTAL_SEEDS * 0.3) || seedsEaten === Math.round(TOTAL_SEEDS * 0.7)) spawnBonus();
@@ -812,11 +817,11 @@ function checkCollisions() {
         b.frightened = false; b.mode = 'eaten';
         const pts = 200 * 2 ** Math.min(frightChain, 3);
         frightChain++;
-        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); earnCredit(1, bp.x, bp.y);
+        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); burst(bp.x, bp.y, b.color, 16, 5, 0.55, 0.1); earnCredit(1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
       } else {
         lives--; updateHud();
-        setState('dying', 1.8); sfx.die(); deathsThisLevel++;
+        setState('dying', 1.8); sfx.die(); deathsThisLevel++; burst(pp.x, pp.y, SKINS[skinIndex].body[1], 18, 3.5, 0.9, 0.11);
         return;
       }
     }
@@ -851,7 +856,7 @@ function updateCoin(dt) {
     if (coin.timer <= 0) coin = null;
     else {
       const pp = pos(player);
-      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { earnCredit(1, coin.x, coin.y); coin = null; coinTimer = nextCoinDelay(); }
+      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(1, coin.x, coin.y); coin = null; coinTimer = nextCoinDelay(); }
     }
   } else if ((coinTimer -= dt) <= 0) { spawnCoin(); coinTimer = nextCoinDelay(); }
 }
@@ -871,11 +876,35 @@ function drawCoin(now) {
   ctx.restore();
 }
 
+// Little bursts of sparks (positions and speeds in tiles).
+let particles = [];
+function burst(x, y, color, n, speed = 3, life = 0.45, size = 0.08) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = speed * (0.35 + Math.random() * 0.65);
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: life * (0.7 + Math.random() * 0.3), max: life, color, size });
+  }
+}
+function updateParticles(dt) {
+  const k = Math.exp(-dt * 5);
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= k; p.vy *= k; p.life -= dt; }
+  particles = particles.filter(p => p.life > 0);
+}
+function drawParticles() {
+  for (const p of particles) {
+    const a = Math.max(0, p.life / p.max);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x * T + T / 2, p.y * T + T / 2, p.size * T * (0.4 + a * 0.6), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function popup(x, y, text, color) { popups.push({ x, y, text, color, t: 1.2 }); }
 
 // ---------- Main update ----------
 function update(dt) {
   for (const p of popups) p.t -= dt;
+  if (!paused) updateParticles(dt);
   popups = popups.filter(p => p.t > 0);
   if (paused) return;
 
@@ -941,13 +970,13 @@ function resize() {
   T = Math.max(8, fit, zoom);
   viewW = Math.min(COLS * T, aw);
   viewH = Math.min(ROWS * T, ah);
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
   canvas.style.width = viewW + 'px';
   canvas.style.height = viewH + 'px';
   canvas.width = Math.round(viewW * dpr);
   canvas.height = Math.round(viewH * dpr);
   mazeLayer = buildMaze(false);
-  mazeLayerFlash = buildMaze(true);
+  mazeLayerFlash = null;
   buildSeeds();
   updateCamera(0, true);
 }
@@ -960,13 +989,18 @@ function buildSeeds() {
   seedLayer.width = Math.round(COLS * T * dpr); seedLayer.height = Math.round(ROWS * T * dpr);
   seedCtx = seedLayer.getContext('2d');
   seedCtx.scale(dpr, dpr);
+  const sprite = document.createElement('canvas');
+  sprite.width = sprite.height = Math.ceil(T * dpr);
+  const sg = sprite.getContext('2d'); sg.scale(dpr, dpr); sg.translate(T / 2, T / 2);
+  const glow = sg.createRadialGradient(0, 0, 0, 0, 0, T * 0.32);
+  glow.addColorStop(0, 'rgba(255,226,140,0.42)'); glow.addColorStop(1, 'rgba(255,226,140,0)');
+  sg.fillStyle = glow; sg.beginPath(); sg.arc(0, 0, T * 0.32, 0, Math.PI * 2); sg.fill();
+  const core = sg.createRadialGradient(-T * 0.03, -T * 0.03, 0, 0, 0, T * 0.105);
+  core.addColorStop(0, '#fffbe6'); core.addColorStop(0.6, '#ffe39a'); core.addColorStop(1, '#e8b445');
+  sg.fillStyle = core; sg.beginPath(); sg.arc(0, 0, T * 0.105, 0, Math.PI * 2); sg.fill();
+  sg.fillStyle = 'rgba(255,255,255,0.9)'; sg.beginPath(); sg.arc(-T * 0.035, -T * 0.035, T * 0.03, 0, Math.PI * 2); sg.fill();
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    if (grid[y][x] !== '.') continue;
-    const cx = x * T + T / 2, cy = y * T + T / 2;
-    seedCtx.fillStyle = 'rgba(255,232,163,0.18)';
-    seedCtx.beginPath(); seedCtx.arc(cx, cy, T * 0.2, 0, Math.PI * 2); seedCtx.fill();
-    seedCtx.fillStyle = '#ffe8a3';
-    seedCtx.beginPath(); seedCtx.arc(cx, cy, T * 0.09, 0, Math.PI * 2); seedCtx.fill();
+    if (grid[y][x] === '.') seedCtx.drawImage(sprite, x * T, y * T, T, T);
   }
 }
 function eraseSeed(x, y) { if (seedCtx) seedCtx.clearRect(x * T, y * T, T, T); }
@@ -984,55 +1018,99 @@ function updateCamera(dt, snap) {
 // Seeded random so the hedge texture is stable between redraws.
 function rng(seed) { return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
 
+// Rectangle with its own radius per corner (tl, tr, br, bl).
+function cornerRect(g, x, y, w, h, tl, tr, br, bl) {
+  g.beginPath();
+  g.moveTo(x + tl, y);
+  g.arcTo(x + w, y, x + w, y + h, tr);
+  g.arcTo(x + w, y + h, x, y + h, br);
+  g.arcTo(x, y + h, x, y, bl);
+  g.arcTo(x, y, x + w, y, tl);
+  g.closePath();
+}
+
+// The maze is drawn once per level onto its own canvas: textured ground, then raised hedges
+// with a ground shadow, a darker side, a lit top face and some leaves.
 function buildMaze(flash) {
+  const W = COLS * T, H = ROWS * T;
   const c = document.createElement('canvas');
-  c.width = Math.round(COLS * T * dpr); c.height = Math.round(ROWS * T * dpr);
+  c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
   const g = c.getContext('2d');
   g.scale(dpr, dpr);
-  // ground
-  g.fillStyle = THEME.ground;
-  g.fillRect(0, 0, COLS * T, ROWS * T);
   const r = rng(42);
-  for (let i = 0; i < COLS * ROWS * 0.6; i++) {
-    g.fillStyle = r() > 0.5 ? THEME.speck[0] : THEME.speck[1];
-    g.fillRect(r() * COLS * T, r() * ROWS * T, 2, 2);
-  }
   const isWall = (x, y) => {
     if (y === TUNNEL_ROW && (x < 0 || x >= COLS)) return false;
     if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return true;
     return MAP[y][x] === '#';
   };
+  const corners = (x, y, rad) => [
+    !isWall(x - 1, y) && !isWall(x, y - 1) ? rad : 0, !isWall(x + 1, y) && !isWall(x, y - 1) ? rad : 0,
+    !isWall(x + 1, y) && !isWall(x, y + 1) ? rad : 0, !isWall(x - 1, y) && !isWall(x, y + 1) ? rad : 0,
+  ];
+
+  // ground: base colour, soft soil patches and fine grain
+  g.fillStyle = THEME.ground; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < COLS * ROWS * 0.25; i++) {
+    const x = r() * W, y = r() * H, rad = T * (0.8 + r() * 1.6), col = r() > 0.5 ? THEME.speck[0] : THEME.speck[1];
+    const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, col + 'cc'); gr.addColorStop(1, col + '00');
+    g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  for (let i = 0; i < COLS * ROWS * 3; i++) {
+    g.fillStyle = r() > 0.5 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.18)';
+    const s2 = 0.6 + r() * 1.2; g.fillRect(r() * W, r() * H, s2, s2);
+  }
+
   const dark = flash ? '#cfe9d6' : THEME.dark;
   const mid = flash ? '#ffffff' : THEME.mid;
   const light = flash ? '#ffffff' : THEME.light;
-  // base hedge mass
-  g.fillStyle = dark;
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (isWall(x, y)) g.fillRect(x * T, y * T, T, T);
-  // leafy top layer, inset where the hedge borders a path
-  const ins = T * 0.14;
-  g.fillStyle = mid;
+  const R = T * 0.32;
+
+  // shadow the hedges cast on the ground
+  g.fillStyle = 'rgba(0,0,0,0.4)';
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     if (!isWall(x, y)) continue;
-    const l = isWall(x - 1, y) ? 0 : ins, rt = isWall(x + 1, y) ? 0 : ins;
-    const t = isWall(x, y - 1) ? 0 : ins, b = isWall(x, y + 1) ? 0 : ins;
-    roundRect(g, x * T + l, y * T + t, T - l - rt, T - t - b, T * 0.18);
-    g.fill();
+    const [a1, a2, a3, a4] = corners(x, y, R);
+    cornerRect(g, x * T + T * 0.05, y * T + T * 0.16, T, T, a1, a2, a3, a4); g.fill();
   }
-  // leaves
+  // hedge body (its darker colour shows as the side below the top face)
+  g.fillStyle = dark;
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     if (!isWall(x, y)) continue;
-    const open = !isWall(x - 1, y) || !isWall(x + 1, y) || !isWall(x, y - 1) || !isWall(x, y + 1);
-    if (!open) continue;
-    for (let k = 0; k < 3; k++) {
-      g.fillStyle = r() > 0.4 ? light : dark;
-      g.beginPath();
-      g.arc(x * T + T * (0.25 + r() * 0.5), y * T + T * (0.25 + r() * 0.5), T * (0.06 + r() * 0.06), 0, Math.PI * 2);
-      g.fill();
+    const [a1, a2, a3, a4] = corners(x, y, R);
+    cornerRect(g, x * T - 0.3, y * T - 0.3, T + 0.6, T + 0.6, a1, a2, a3, a4); g.fill();
+  }
+  // lit top face, raised a little: thin rim at the top, a deeper side at the bottom
+  const insX = T * 0.1, insTop = T * 0.07, insBot = T * 0.2, R2 = T * 0.24;
+  const faceRect = (x, y) => {
+    const l = isWall(x - 1, y) ? -0.3 : insX, rt = isWall(x + 1, y) ? -0.3 : insX;
+    const t = isWall(x, y - 1) ? -0.3 : insTop, b = isWall(x, y + 1) ? -0.3 : insBot;
+    return [x * T + l, y * T + t, T - l - rt, T - t - b];
+  };
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!isWall(x, y)) continue;
+    const [fx, fy, fw, fh] = faceRect(x, y);
+    const [a1, a2, a3, a4] = corners(x, y, R2);
+    const grad = g.createLinearGradient(0, fy, 0, fy + fh);
+    grad.addColorStop(0, flash ? '#ffffff' : light); grad.addColorStop(0.35, mid); grad.addColorStop(1, mid);
+    g.fillStyle = isWall(x, y - 1) ? mid : grad;
+    cornerRect(g, fx, fy, fw, fh, a1, a2, a3, a4); g.fill();
+  }
+  // leaves on the top face: light and dark dabs, fewer on the inside of big blocks
+  if (!flash) for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (!isWall(x, y)) continue;
+    const edge = !isWall(x - 1, y) || !isWall(x + 1, y) || !isWall(x, y - 1) || !isWall(x, y + 1);
+    const [fx, fy, fw, fh] = faceRect(x, y);
+    for (let k = 0; k < (edge ? 4 : 2); k++) {
+      const lx = fx + fw * (0.2 + r() * 0.6), ly = fy + fh * (0.2 + r() * 0.6), lr = T * (0.05 + r() * 0.06);
+      g.fillStyle = r() > 0.45 ? light + '99' : dark + 'aa';
+      g.beginPath(); g.ellipse(lx, ly, lr * 1.3, lr, r() * 3, 0, Math.PI * 2); g.fill();
     }
   }
-  // gate
-  g.fillStyle = THEME.gate;
-  g.fillRect(GATE.x * T, GATE.y * T + T * 0.42, T, T * 0.16);
+  // den gate: a glowing bar
+  const gx = GATE.x * T, gy = GATE.y * T + T * 0.42;
+  g.fillStyle = THEME.gate + '55'; roundRect(g, gx - T * 0.05, gy - T * 0.08, T * 1.1, T * 0.32, T * 0.12); g.fill();
+  g.fillStyle = THEME.gate; roundRect(g, gx, gy, T, T * 0.16, T * 0.08); g.fill();
   return c;
 }
 
@@ -1047,7 +1125,14 @@ function roundRect(g, x, y, w, h, r) {
   g.closePath();
 }
 
-let lastDraw = 0;
+let lastDraw = 0, maxDpr = 3;
+// Copy only the on-screen part of a full-maze layer (much cheaper than the whole level).
+function blitVisible(layer) {
+  const x0 = clamp(Math.floor(camX), 0, COLS * T), y0 = clamp(Math.floor(camY), 0, ROWS * T);
+  const w = Math.min(Math.ceil(viewW) + 2, COLS * T - x0), h = Math.min(Math.ceil(viewH) + 2, ROWS * T - y0);
+  if (w <= 0 || h <= 0) return;
+  ctx.drawImage(layer, 0, 0, COLS * T, ROWS * T);
+}
 function draw(now) {
   const fdt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0;
   lastDraw = now;
@@ -1057,11 +1142,12 @@ function draw(now) {
   ctx.fillRect(0, 0, viewW, viewH);
   ctx.translate(-Math.round(camX * dpr) / dpr, -Math.round(camY * dpr) / dpr);
   const flashing = state === 'clear' && stateTimer < 1.8 && Math.floor(stateTimer * 6) % 2 === 0;
-  ctx.drawImage(flashing ? mazeLayerFlash : mazeLayer, 0, 0, COLS * T, ROWS * T);
+  if (flashing && !mazeLayerFlash) mazeLayerFlash = buildMaze(true);
+  blitVisible(flashing ? mazeLayerFlash : mazeLayer);
   if (!grid) return;
 
   // seeds (pre-rendered) & lanterns
-  if (seedLayer) ctx.drawImage(seedLayer, 0, 0, COLS * T, ROWS * T);
+  if (seedLayer) blitVisible(seedLayer);
   const pulse = 0.5 + 0.5 * Math.sin(now / 180);
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     if (grid[y][x] === 'o') drawLantern(x * T + T / 2, y * T + T / 2, pulse);
@@ -1078,6 +1164,8 @@ function draw(now) {
   }
   drawPlayer(now);
   ctx.restore();
+
+  drawParticles();
 
   // popups
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1533,9 +1621,18 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
 // ---------- Loop ----------
 let last = performance.now();
+// Adaptive sharpness: render at the screen's full pixel density (up to 3x), but if this device
+// can't hold a smooth frame rate during play, drop to 2x once and stay there.
+let frameAvg = 1 / 60, slowFrames = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const raw = (now - last) / 1000;
+  const dt = Math.min(0.05, raw);
   last = now;
+  if (state === 'play' && !paused && raw < 0.25) {
+    frameAvg = frameAvg * 0.95 + raw * 0.05;
+    slowFrames = frameAvg > 0.024 ? slowFrames + 1 : 0;
+    if (slowFrames > 120 && maxDpr > 2) { maxDpr = 2; resize(); }
+  }
   update(dt);
   draw(now);
   requestAnimationFrame(frame);
@@ -1555,7 +1652,7 @@ requestAnimationFrame(frame);
 // Exposed for automated testing.
 window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
-  get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
+  get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
   skipToLevel(n) { level = n - 1; nextLevel(); } };
 })();
