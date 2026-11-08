@@ -4,7 +4,7 @@ An original maze-chase arcade game in a single HTML file. No build step and no d
 
 Guide **Backman**, a little backpacker, through a series of garden mazes. Collect every glowing seed while four beetles hunt you down.
 
-Level 1 is the hand-made Night Garden. Every level after that is a new maze, generated from the level number. Each one has a theme (Autumn Grove, Frost Hollow, Rose Labyrinth, Mossy Ruins and Golden Meadow) and is checked to have no dead ends and every seed reachable.
+Every level is a new garden generated from the level number, and the game ramps up gently. Level 1 is a small, simple maze with one beetle. Each level after that is bigger and twistier and has one more beetle, up to eight. If you lose all your lives you replay the level you were on, never back to level 1. Your progress is saved.
 
 ## Play
 
@@ -34,7 +34,8 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 - **Lantern**: 50 points. For a few seconds the beetles turn blue and flee. Catch them for 200, 400, 800, then 1600 points.
 - **Mushroom**: a bonus snack that appears twice per level.
 - You get an extra life at 5,000 points.
-- Level 1 is gentle. Each level makes the beetles a little faster, lets them out of the den sooner and shortens the lantern time, but they never outrun Backman.
+- Level 1 has one beetle in a small maze. Each level adds a beetle (up to 8), grows the maze, makes the beetles a little faster, lets them out of the den sooner and shortens the lantern time, but they never outrun Backman.
+- Losing all your lives restarts the current level, not the whole game.
 
 ## The beetles
 
@@ -44,5 +45,7 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 | Moth (pink) | Aims a few tiles ahead of you to cut you off |
 | Drift (teal) | Hunts you from far away but wanders off when close |
 | Hush (purple) | Follows your footsteps |
+
+Ember, Glint, Shade and Thistle join from level 5 onwards and reuse these four chase styles.
 
 Every so often the beetles switch between chasing you and retreating to their corners. Use the side tunnel to escape, because beetles slow down inside it.
