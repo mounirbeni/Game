@@ -73,11 +73,11 @@
   .home-col { position: relative; }
   /* full-screen artwork: logo and Backman at the top, the stone path below holds the buttons */
   #home { background: #050c12; }
-  #home::before { content: ''; position: absolute; inset: 0; max-width: min(560px, 56.3vh); margin: 0 auto;
+  #home::before { content: ''; position: absolute; inset: 0; max-width: min(560px, 51.6vh); margin: 0 auto;
     background: url(assets/home-bg.jpg) center top / cover no-repeat; }
-  @media (min-aspect-ratio: 3/5) { #home::after { content: ''; position: absolute; inset: 0; z-index: -1; background: url(assets/home-bg.jpg) center / cover; filter: blur(24px) brightness(.45); } }
+  #home::after { content: ''; position: absolute; inset: -40px; z-index: -1; background: url(assets/home-bg.jpg) center / cover; filter: blur(24px) brightness(.45); }
   .home-space { flex: 1 1 auto; min-height: 0; }
-  .home-col { height: 100%; max-width: min(560px, 56.3vh); margin: 0 auto; display: flex; flex-direction: column;
+  .home-col { height: 100%; max-width: min(560px, 51.6vh); margin: 0 auto; display: flex; flex-direction: column;
     padding: calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 8px); }
   .home-top { display: flex; align-items: center; gap: 6px; z-index: 2; }
   .player-chip { display: flex; align-items: center; gap: 7px; flex: 1 1 auto; min-width: 0; padding: 3px 10px 3px 3px; border-radius: 999px;
