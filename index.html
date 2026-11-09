@@ -95,14 +95,20 @@
   #home.hidden { display: none; }
   /* ---- Level map: 8 stone platforms per page on a jungle path ---- */
   #mapScreen { position: fixed; left: 0; top: 0; width: 100%; height: var(--app-h, 100%); z-index: 45; display: flex; align-items: center; justify-content: center; overflow: hidden;
-    background: #061033 url(assets/level-map.webp) center / cover no-repeat; }
-  #mapScreen::before { content: ''; position: absolute; inset: 0; background: inherit; filter: blur(14px) brightness(.7); transform: scale(1.1); }
+    background: #061033; }
   #mapScreen.hidden { display: none; }
-  /* the artwork keeps its exact shape (never cropped), so the level spots always line up with the circles */
-  .map-art { position: relative; flex: none; width: min(100vw, calc(var(--app-h, 100vh) * 941 / 1672)); height: min(var(--app-h, 100vh), calc(100vw * 1672 / 941));
-    container-type: inline-size; }
-  .map-art::before { content: ''; position: absolute; inset: 0; background: url(assets/level-map.webp) center / 100% 100% no-repeat;
-    -webkit-mask-image: linear-gradient(transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(transparent, #000 5%, #000 95%, transparent); }
+  /* the artwork fills the whole screen (like background-size: cover); it keeps its exact shape and is
+     only trimmed equally at the edges, and the level spots sit inside it so they always match the rings */
+  .map-art { position: relative; flex: none; width: max(100vw, calc(var(--app-h, 100vh) * 941 / 1672)); height: max(var(--app-h, 100vh), calc(100vw * 1672 / 941));
+    background: url(assets/level-map.webp) center / 100% 100% no-repeat; container-type: inline-size; }
+  /* wider than the artwork (tablets): show it whole, over a blurred copy, so no level is trimmed off */
+  @media (min-aspect-ratio: 941/1672) {
+    .map-art { width: calc(var(--app-h, 100vh) * 941 / 1672); height: var(--app-h, 100vh); }
+    #mapScreen::before { content: ''; position: absolute; inset: -20px; background: url(assets/level-map.webp) center / cover no-repeat; filter: blur(16px) brightness(.6); }
+  }
+  /* buttons that belong to the screen, not the artwork, so they are never trimmed away */
+  .map-ui { position: absolute; z-index: 2; }
+  .map-ui.close { top: calc(env(safe-area-inset-top) + 12px); right: 14px; width: 46px; height: 46px; border-radius: 50%; border: 3px solid #8fa4ff; background: #23338e; color: #fff; font: 900 26px/1 system-ui; cursor: pointer; }
   .map-lvl { position: absolute; transform: translate(-50%, -50%); width: 17cqw; height: 15cqw; line-height: 0; border: 0; padding: 0; background: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
   .map-lvl:active { transform: translate(-50%, -46%); }
@@ -117,17 +123,15 @@
   @keyframes mapglow { 50% { opacity: .35; } }
   .map-me { position: absolute; width: 15cqw; height: 15cqw; object-fit: contain; transform: translate(-50%, -100%); pointer-events: none; animation: maphop 1s ease-in-out infinite; filter: drop-shadow(0 1.5cqw 1cqw #000a); }
   @keyframes maphop { 50% { margin-top: -2.5cqw; } }
-  .map-arrow { position: absolute; left: 50%; width: 13cqw; height: 13cqw; transform: translateX(-50%); border-radius: 50%; cursor: pointer; padding: 2.4cqw;
-    border: .7cqw solid #ffcf3a; background: radial-gradient(circle at 35% 30%, #3a64ff, #14268a); box-shadow: 0 1cqw 0 #0a1450, 0 1.5cqw 3cqw #000a; animation: mapbob 1.6s ease-in-out infinite; }
+  .map-arrow { position: absolute; z-index: 2; left: 50%; width: 54px; height: 54px; transform: translateX(-50%); border-radius: 50%; cursor: pointer; padding: 10px;
+    border: 3px solid #ffcf3a; background: radial-gradient(circle at 35% 30%, #3a64ff, #14268a); box-shadow: 0 4px 0 #0a1450, 0 6px 12px #000a; animation: mapbob 1.6s ease-in-out infinite; }
   .map-arrow svg { width: 100%; height: 100%; fill: none; stroke: #fff; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
-  .map-arrow.up { top: 2.2%; } .map-arrow.down { bottom: 1.5%; animation-direction: reverse; }
+  .map-arrow.up { top: calc(env(safe-area-inset-top) + 10px); } .map-arrow.down { bottom: calc(env(safe-area-inset-bottom) + 10px); animation-direction: reverse; }
   .map-arrow:active { transform: translateX(-50%) scale(.92); }
-  @keyframes mapbob { 50% { margin-top: -1cqw; } }
+  @keyframes mapbob { 50% { margin-top: -4px; } }
   .map-art.slide-up { animation: mapin-up .35s ease-out; } .map-art.slide-down { animation: mapin-down .35s ease-out; }
   @keyframes mapin-up { from { transform: translateY(-12%); opacity: 0; } }
   @keyframes mapin-down { from { transform: translateY(12%); opacity: 0; } }
-  .map-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; padding: calc(env(safe-area-inset-top) + 2cqw) 3cqw 0; pointer-events: none; }
-  .map-top button { pointer-events: auto; width: 11cqw; height: 11cqw; border-radius: 50%; border: .7cqw solid #8fa4ff; background: #23338e; color: #fff; font: 900 6cqw/1 system-ui; cursor: pointer; }
   /* the home Level button: stone plaque with a ladybug */
   #home .play-btn { min-width: 0; width: min(78vw, 300px); aspect-ratio: 2139 / 665; padding: 0 0 1% 0; border: 0; border-radius: 0; box-shadow: none;
     background: url(assets/level-btn.webp) center / contain no-repeat; filter: drop-shadow(0 6px 10px #000a); display: flex; align-items: center; justify-content: center; }
@@ -432,6 +436,7 @@
 
 <div id="mapScreen" class="hidden" role="dialog" aria-label="Levels">
   <div class="map-art" id="mapArt"></div>
+  <div id="mapUi"></div>
 </div>
 <div id="home">
   <div class="fireflies" aria-hidden="true"><i style="left:10%;top:48%;animation-delay:0s;animation-duration:7s"></i><i style="left:24%;top:62%;animation-delay:1.5s;animation-duration:9s"></i><i style="left:40%;top:55%;animation-delay:3s;animation-duration:8s"></i><i style="left:58%;top:66%;animation-delay:0.8s;animation-duration:10s"></i><i style="left:74%;top:50%;animation-delay:2.2s;animation-duration:7.5s"></i><i style="left:88%;top:60%;animation-delay:4s;animation-duration:9s"></i><i style="left:16%;top:74%;animation-delay:2.8s;animation-duration:8.5s"></i><i style="left:66%;top:78%;animation-delay:1.2s;animation-duration:9.5s"></i><i style="left:90%;top:72%;animation-delay:3.6s;animation-duration:7s"></i><i style="left:48%;top:80%;animation-delay:0.4s;animation-duration:8s"></i></div>
@@ -3449,15 +3454,16 @@ function openMap(page) {
   const reached = loadProgress().level;
   mapPage = page != null ? Math.max(0, page) : Math.floor((reached - 1) / MAP_PER);
   const art = $('mapArt'), first = mapPage * MAP_PER + 1;
-  let h = `<div class="map-top"><span></span><button id="mapClose" aria-label="Close">&times;</button></div>`;
+  let h = '';
   MAP_SPOTS.forEach(([x, y], i) => {
     const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : 'locked';
     h += `<button class="map-lvl ${cls} ${isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? MAP_LOCK : `<b>${n}</b>`}</button>`;
     if (n === reached) { const sk = SKINS[skinIndex] || SKINS[0]; h += `<img class="map-me" alt="" src="assets/${sk.img ? 'skins/' + sk.img : 'backman'}.webp" style="left:${x}%;top:${y - 5.2}%">`; }
   });
-  h += `<button class="map-arrow up" id="mapNext" aria-label="Next levels"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button>`;
-  if (mapPage > 0) h += `<button class="map-arrow down" id="mapPrev" aria-label="Previous levels"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button>`;
   art.innerHTML = h;
+  $('mapUi').innerHTML = `<button class="map-ui close" id="mapClose" aria-label="Close">&times;</button>` +
+    `<button class="map-arrow up" id="mapNext" aria-label="Next levels"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button>` +
+    (mapPage > 0 ? `<button class="map-arrow down" id="mapPrev" aria-label="Previous levels"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button>` : '');
   art.querySelectorAll('.map-lvl:not([disabled])').forEach(b => b.addEventListener('click', () => { closeMap(); startPlay(+b.dataset.l); }));
   $('mapNext').addEventListener('click', () => { openMap.slide = 'slide-up'; openMap(mapPage + 1); });
   if ($('mapPrev')) $('mapPrev').addEventListener('click', () => { openMap.slide = 'slide-down'; openMap(mapPage - 1); });
