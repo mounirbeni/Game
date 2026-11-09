@@ -78,30 +78,32 @@
   .card { pointer-events: auto; position: relative; text-align: center; width: min(88vw, 330px); background: none;
     border: 1px solid transparent; border-image: url(assets/card-frame.webp) 165 190 185 150 fill / 89px 103px 100px 81px stretch;
     padding: 56px 50px 60px 40px; filter: drop-shadow(0 14px 24px #000c); }
-  /* win / lose cards: the character frames, shown whole at their own proportions. Content sits inside the
-     gold ring and keeps clear of the characters (bottom-right ladybug on a win, bottom-left Backman on a loss). */
-  .card.fate-card { border: 0; border-image: none; padding: 0; width: min(94vw, 380px, calc(var(--app-h, 100vh) * .62)); aspect-ratio: 1122 / 1402;
-    background: url(assets/frame-win.webp) center / 100% 100% no-repeat; max-height: none; overflow: visible; container-type: inline-size; }
-  .card.fate-card.lose { background-image: url(assets/frame-lose.webp); }
-  /* rows inside the gold ring (percent of the card height), with room to breathe */
-  .fate-title { position: absolute; left: 14%; right: 14%; top: 31%; margin: 0; font-size: 7.3cqw; white-space: nowrap; text-align: center; }
-  .fate-sub { position: absolute; left: 14%; right: 14%; top: 40.5%; margin: 0; text-align: center; font-size: 4.4cqw; font-weight: 800; line-height: 1.35; color: #e6ecff; }
-  .win-sub { display: flex; flex-direction: column; align-items: center; gap: 1.2cqw; top: 39.5%; }
-  .win-score { font: 900 10cqw/1 ui-rounded, system-ui, sans-serif; color: #fff; font-variant-numeric: tabular-nums;
-    text-shadow: 0 .7cqw 0 #060b2e, .4cqw 0 0 #060b2e, -.4cqw 0 0 #060b2e, 0 1.4cqw 2.4cqw #0008; }
-  .win-line { display: flex; align-items: center; gap: 1.6cqw; font-weight: 900; }
-  .win-line small { font-size: 3.2cqw; letter-spacing: .14em; text-transform: uppercase; color: #ffd75a; }
-  .win-line .win-dot { width: 1.2cqw; height: 1.2cqw; border-radius: 50%; background: #9fb4ff88; }
-  .win-line img { width: 5.4cqw; height: 5.4cqw; } .win-line b { font-size: 4.4cqw; color: #ffd75a; }
-  .fate-main { position: absolute; left: 0; right: 0; top: 54%; display: flex; justify-content: center; }
-  .fate-main .plaque-btn { width: 66%; margin: 0; font-size: 6.2cqw; }
-  .fate-main .plaque-btn .pb-cost { font-size: 4.6cqw; padding: .6cqw 2.2cqw .6cqw 1.2cqw; } .fate-main .plaque-btn .pb-cost img { width: 5.4cqw; height: 5.4cqw; }
-  .fate-actions { position: absolute; top: 69.5%; display: flex; align-items: flex-start; gap: 6cqw; }
-  .fate-card.win .fate-actions { left: 17%; }          /* the ladybug sulks on the right */
-  .fate-card.lose .fate-actions { right: 17%; }        /* Backman sulks on the left */
-  .fate-actions .round-btn { gap: 1cqw; }
-  .fate-actions .round-btn .rb-ico { width: 13cqw; height: 13.3cqw; } .fate-actions .round-btn .rb-ico img { width: 7.4cqw; height: 7.4cqw; }
-  .fate-actions .round-btn .rb-ico svg { width: 5.6cqw; height: 5.6cqw; } .fate-actions .round-btn small { font-size: 2.8cqw; }
+  /* win / lose cards: the plain stone frame, the two characters popping out over the top, one title,
+     one line of info, a green button for the main action and blue buttons for the others */
+  .card.fate-card { border: 0; border-image: none; width: min(88vw, 350px, calc(var(--app-h, 100vh) * .6)); aspect-ratio: 1075 / 1328; padding: 0 8cqw 7cqw;
+    background: url(assets/frame-plain.webp) center / 100% 100% no-repeat; max-height: none; overflow: visible; container-type: inline-size;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0; padding-top: 0; margin-top: 16cqw; }
+  .fate-scene { position: relative; width: 92cqw; margin-top: -16cqw; flex: none; pointer-events: none; filter: drop-shadow(0 2cqw 2cqw #000a); }
+  .fate-card.lose .fate-scene { width: 98cqw; margin-top: -12cqw; }
+  .fate-card > .fate-title { margin-top: 1cqw; }
+  .fate-title { margin: 0; font-size: 10cqw; white-space: nowrap; }
+  .fate-sub { display: flex; align-items: center; justify-content: center; gap: 1.6cqw; flex-wrap: wrap; margin: 0; min-height: 6cqw;
+    font-size: 5cqw; font-weight: 800; line-height: 1.3; color: #e6ecff !important; text-align: center; }
+  .fate-sub b, .fate-sub .gold { color: #ffd75a; }
+  .fate-sub img { width: 5.6cqw; height: 5.6cqw; }
+  .win-dot { width: 1.3cqw; height: 1.3cqw; border-radius: 50%; background: #9fb4ff99; }
+  .btn-green, .btn-blue { display: flex; align-items: center; justify-content: center; gap: 2cqw; border: 0; padding: 0 0 .6cqw; cursor: pointer;
+    background: center / 100% 100% no-repeat; font: 900 6.4cqw/1 ui-rounded, system-ui, sans-serif; color: #fff; white-space: nowrap;
+    filter: drop-shadow(0 1.2cqw 1.2cqw #0009); -webkit-tap-highlight-color: transparent; }
+  .btn-green { width: 84%; aspect-ratio: 2098 / 457; background-image: url(assets/btn-green.webp);
+    text-shadow: 0 .7cqw 0 #135a0d, .4cqw 0 0 #135a0d, -.4cqw 0 0 #135a0d, 0 -.4cqw 0 #135a0d; }
+  .btn-blue { flex: 1; aspect-ratio: 1815 / 549; background-image: url(assets/btn-blue.webp); font-size: 5cqw;
+    text-shadow: 0 .6cqw 0 #0a1a6e, .4cqw 0 0 #0a1a6e, -.4cqw 0 0 #0a1a6e, 0 -.4cqw 0 #0a1a6e; }
+  .btn-green:active, .btn-blue:active { transform: translateY(.6cqw) scale(.98); filter: drop-shadow(0 .5cqw .6cqw #0009) brightness(1.06); }
+  .btn-green .pb-cost { display: inline-flex; align-items: center; gap: 1cqw; padding: .6cqw 2.4cqw .6cqw 1.2cqw; border-radius: 99px; background: #0b3a08bb; border: .5cqw solid #ffd75a; font-size: 5cqw; }
+  .btn-green .pb-cost img { width: 5.6cqw; height: 5.6cqw; }
+  .fate-row { display: flex; gap: 3cqw; width: 84%; justify-content: center; margin-top: -2cqw; }
+  .fate-row .btn-blue { max-width: 48%; }
   /* ---- inside the cards: one family with the frame (navy stone, gold rims, the game's icons) ---- */
   .card-title { margin: 0 0 10px; font: 900 32px/1.05 ui-rounded, system-ui, sans-serif; letter-spacing: .01em; color: #ffd75a;
     text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00, 2px 2px 0 #6a3b00, -2px 2px 0 #6a3b00, 0 6px 10px #0009; }
@@ -592,28 +594,25 @@
         </div>
       </div>
       <div class="card fate-card lose hidden" id="overCard">
+        <img class="fate-scene" src="assets/scene-lose.webp" alt="" draggable="false">
         <h2 class="card-title red fate-title">Game Over</h2>
         <p class="fate-sub" id="overText"></p>
-        <div class="fate-main">
-          <button class="plaque-btn" id="continueBtn">Continue</button>
-          <button class="plaque-btn" id="againPlaque">Retry</button>
-        </div>
-        <div class="fate-actions">
-          <button class="round-btn" id="againBtn" aria-label="Retry"><span class="rb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg></span><small>Retry</small></button>
-          <button class="round-btn" id="overHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button>
+        <button class="btn-green" id="continueBtn">Continue</button>
+        <button class="btn-green" id="againPlaque">Retry</button>
+        <div class="fate-row">
+          <button class="btn-blue" id="againBtn">Retry</button>
+          <button class="btn-blue" id="overHomeBtn">Home</button>
         </div>
         <p class="hidden" id="creditHint"></p>
       </div>
       <div class="card fate-card win hidden" id="winCard">
+        <img class="fate-scene" src="assets/scene-win.webp" alt="" draggable="false">
         <h2 class="card-title fate-title" id="winTitle">Level cleared!</h2>
-        <div class="fate-sub win-sub">
-          <b class="win-score" id="winScore">0</b>
-          <span class="win-line"><small>Score</small><i class="win-dot"></i><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b id="winCredits">+0</b></span>
-        </div>
-        <div class="fate-main"><button class="plaque-btn" id="nextBtn">Next level</button></div>
-        <div class="fate-actions">
-          <button class="round-btn" id="replayBtn" aria-label="Replay"><span class="rb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg></span><small>Replay</small></button>
-          <button class="round-btn" id="winHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button>
+        <p class="fate-sub"><span id="winScore">0</span> points<i class="win-dot"></i><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b id="winCredits">+0</b></p>
+        <button class="btn-green" id="nextBtn">Next level</button>
+        <div class="fate-row">
+          <button class="btn-blue" id="replayBtn">Replay</button>
+          <button class="btn-blue" id="winHomeBtn">Home</button>
         </div>
       </div>
       <div class="card hidden" id="liveCard">
@@ -1746,7 +1745,7 @@ function showWin() {
   $('winScore').textContent = (score || 0).toLocaleString();
   $('winCredits').textContent = `+${creditsThisLevel}`;
   $('winCredits').title = 'credits this level';
-  $('nextBtn').textContent = `Level ${level + 1}`;
+  $('nextBtn').textContent = `Next level`;
   showCard($('winCard'));
 }
 $('nextBtn').addEventListener('click', () => { unlockAudio(); hideCards(); nextLevel(); });
@@ -1756,12 +1755,12 @@ function gameOver() {
   if (duel) { finishDuel(false); return; }
   setState('over');
   stats.games++; statsDirty = true; recordRun();
-  ui.overText.innerHTML = score >= best && score > 0 ? `New best score<br><b style="color:#ffd75a;font-size:1.35em">${score.toLocaleString()}</b>` : `Level ${level} got you!<br><span style="color:#9fb4ff">Score ${score.toLocaleString()}</span>`;
+  ui.overText.innerHTML = score >= best && score > 0 ? `New best score: <b>${score.toLocaleString()}</b>` : `The ladybugs got you on level ${level}`;
   const canContinue = credits > 0;
   $('continueBtn').classList.toggle('hidden', !canContinue);
   $('continueBtn').innerHTML = `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
   $('againPlaque').classList.toggle('hidden', canContinue);   // no credits: Retry is the main button
-  $('againPlaque').textContent = `Retry level ${level}`;
+  $('againPlaque').textContent = `Try again`;
   $('againBtn').classList.toggle('hidden', !canContinue);
   showCard(ui.over);
 }
