@@ -41,30 +41,32 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 
 ## Looks and credits
 
-- **Looks:** every level you clear unlocks a new look for Backman: ZOGHA, ES, Sprout, FOX, Minty, Midnight, MBN, Shadow and Ranger, each with its own outfit. Pick one on the start screen or the pause screen.
+- **Looks:** ZOGHA, ES, Sprout, FOX, Minty, Midnight, MBN, Shadow and Ranger, each with its own outfit and powers. Looks are bought in the shop; clearing levels does not unlock them (looks a player already earned that way are kept).
 - **Credits:** you earn them while you play:
   - **Gold coins:** pop up in the maze every 12–20 seconds and vanish after 9. Each is worth +1.
   - **Beetles:** +1 for each one you catch after eating a lantern.
   - **Mushrooms:** +1 each, and they freeze every beetle for 3 seconds.
   - **Clearing a level:** +2, or +4 if you didn't lose a life.
-- **Shop:** tap a locked look to buy it with credits. Berry costs 2, and each look after it costs 1 more, up to 8 for King. Clearing the look's level still unlocks it for free.
+- **Shop:** tap a locked look to buy it with credits. Prices follow the power: ZOGHA 120, Sprout 150, Minty 180, ES 220, FOX 300, Shadow 350, Ranger 400, Midnight 450, MBN 600.
 - **Continue:** when your lives run out, spend 1 credit to keep playing from the same spot with 1 extra life. Or retry the level from the start for free.
 - **Saved:** credits, looks and your level are all kept between visits.
 
 ## Character powers
 
-| Look | Power |
-| --- | --- |
-| Backman | All-rounder: no special power |
-| ZOGHA | Sweet tooth: one extra mushroom per level; mushrooms give +2 credits |
-| ES | Deep freeze: lanterns last 50% longer |
-| Sprout | Harvest: seeds are worth 15 points |
-| FOX | Quick feet: runs 10% faster |
-| Minty | Lucky leaf: gold coins appear twice as often |
-| Midnight | Magic shield: survives the first beetle hit each level |
-| MBN | Royal treasury: double credits for clearing a level |
-| Shadow | Stealth: beetles notice you later |
-| Ranger | Survivor: starts each level with 4 lives |
+| Look | Price | Powers |
+| --- | --- | --- |
+| Backman | free | All-rounder: no special power |
+| ZOGHA | 120 | Sweet tooth: one extra mushroom per level; mushrooms give +2 credits; mushroom freeze lasts 5 s |
+| Sprout | 150 | Harvest: seeds 15 points, lanterns 150 points |
+| Minty | 180 | Lucky leaf: gold coins appear twice as often and stay twice as long |
+| ES | 220 | Deep freeze: lanterns last 50% longer; scared beetles 20% slower |
+| FOX | 300 | Quick feet: 10% faster; no slowdown in the gates |
+| Shadow | 350 | Stealth: beetles notice you later and move 5% slower |
+| Ranger | 400 | Survivor: 4 lives each level; extra life at 3,000 points |
+| Midnight | 450 | Magic shield: survives the first two beetle hits each level |
+| MBN | 600 | Royal treasury: double level-clear credits; 2 credits per beetle |
+
+Powers are switched off in live matches with friends.
 
 ## The beetles
 

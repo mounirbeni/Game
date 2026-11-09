@@ -1056,8 +1056,8 @@ function speeds() {
   return {
     player,
     // levels without gates have no escape tunnel, so their beetles are a little slower
-    beetle: (isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1),
-    fright: 4.2,
+    beetle: (isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1) * (hasPerk('Shadow') ? 0.95 : 1),
+    fright: 4.2 * (hasPerk('ES') ? 0.8 : 1),   // ES: scared beetles crawl even slower
     tunnel: 3.6,
     eaten: 15,
     frightTime: Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1) * (hasPerk('ES') ? 1.5 : 1),
@@ -1110,11 +1110,22 @@ function loadMeta() {
       saveMeta();
     }
   } catch (e) { /* ignore */ }
+  // Looks used to unlock by clearing levels. Now they are only bought, but a player who cleared
+  // levels under the old rule keeps those looks: they are added to the owned list once. The flag is
+  // part of the save (so it follows the account to other devices) and is also set as soon as a level
+  // is cleared under the new rule, so new progress never unlocks looks.
+  try {
+    if (localStorage.getItem('bma.looksKept') !== '1' && highestCleared >= 1) {
+      for (let i = 1; i <= Math.min(highestCleared, SKINS.length - 1); i++) ownedSkins.add(i);
+      localStorage.setItem('bma.looksKept', '1'); saveMeta();
+    }
+  } catch (e) { /* ignore */ }
   if (!isSkinUnlocked(skinIndex)) skinIndex = 0;
 }
-// A look is unlocked by clearing its level for free, or by buying it with credits.
-const skinPrice = i => i + 1;   // Berry 2 ... King 8
-const isSkinUnlocked = i => i < SKINS.length && (i <= highestCleared || ownedSkins.has(i));
+// Looks are bought with credits (Backman is free). Stronger powers cost more.
+const SKIN_PRICES = { ZOGHA: 120, Sprout: 150, Minty: 180, ES: 220, FOX: 300, Shadow: 350, Ranger: 400, Midnight: 450, MBN: 600 };
+const skinPrice = i => SKIN_PRICES[SKINS[i].name] || 200;
+const isSkinUnlocked = i => i === 0 || (i < SKINS.length && ownedSkins.has(i));
 function saveMeta() {
   if (typeof refreshHome === 'function' && document.getElementById('homeCredits')) document.getElementById('homeCredits').textContent = credits;
   try {
@@ -1145,7 +1156,8 @@ function levelCleared() {
   const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1);
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
-  if (level > highestCleared) { highestCleared = level; if (SKINS[level] && !ownedSkins.has(level)) unlockedSkin = SKINS[level]; }
+  try { localStorage.setItem('bma.looksKept', '1'); } catch (e) { /* ignore */ }   // progress from now on never unlocks looks
+  if (level > highestCleared) highestCleared = level;
   saveMeta();
   clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${isChallenge(level) ? ' · CHALLENGE BEATEN!' : flawless ? ' · FLAWLESS!' : ''}`;
   setState('clear', unlockedSkin ? 4 : 2.8);
@@ -1172,7 +1184,7 @@ function newGame(startLevel) {
   if (typeof gateNeeded === 'function' && cloudReady && gateNeeded()) { updateGate(); return; }
   const saved = loadProgress();
   level = startLevel || saved.level;
-  score = !duel && level === saved.level ? saved.score : 0; lives = hasPerk('Ranger') ? 4 : 3; shieldUsed = false; extraLifeGiven = score >= 5000; deathsThisLevel = 0; creditsThisLevel = 0;
+  score = !duel && level === saved.level ? saved.score : 0; lives = hasPerk('Ranger') ? 4 : 3; shieldUsed = 0; extraLifeGiven = score >= extraLifeAt(); deathsThisLevel = 0; creditsThisLevel = 0;
   applyLevelMap(level, duel ? duel.seed : 0);
   resetMaze(); resetActors(); resize();
   levelIntro = true;
@@ -1188,7 +1200,7 @@ function newGame(startLevel) {
 function nextLevel() {
   mazeLayerFlash = null;
   level++;
-  deathsThisLevel = 0; creditsThisLevel = 0; shieldUsed = false;
+  deathsThisLevel = 0; creditsThisLevel = 0; shieldUsed = 0;
   if (hasPerk('Ranger') && lives < 4) lives = 4;
   if (level >= loadProgress().level) saveProgress();   // replaying an old level never moves you back
   applyLevelMap(level);
@@ -1273,7 +1285,7 @@ function updatePlayer(dt) {
   const moving = player.dir.x || player.dir.y;
   if (moving) player.walk += dt * 12;
   const inTunnel = player.ty === TUNNEL_ROW && (player.tx < 2 || player.tx > COLS - 3);
-  advance(player, sp.player * (inTunnel ? 0.85 : 1) * dt, e => {
+  advance(player, sp.player * (inTunnel && !hasPerk('FOX') ? 0.85 : 1) * dt, e => {
     const w = e.want;
     if ((w.x || w.y) && canEnter(e.tx + w.x, e.ty + w.y, false)) e.dir = w;
     else if (!canEnter(e.tx + e.dir.x, e.ty + e.dir.y, false)) e.dir = DIRS.none;
@@ -1294,7 +1306,7 @@ function eatAt(x, y) {
   if (c === '.') {
     grid[y][x] = ' '; eraseSeed(x, y); track('seeds'); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(hasPerk('Sprout') ? 15 : 10); seedsLeft--; seedsEaten++; if (loud) sfx.seed();
   } else if (c === 'o') {
-    grid[y][x] = ' '; burst(x, y, '#ffb02e', 16, 4.5, 0.6, 0.1); addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
+    grid[y][x] = ' '; burst(x, y, '#ffb02e', 16, 4.5, 0.6, 0.1); addScore(hasPerk('Sprout') ? 150 : 50); seedsLeft--; seedsEaten++; sfx.lantern();
     startFright();
   }
   if (seedsEaten === Math.round(TOTAL_SEEDS * 0.3) || seedsEaten === Math.round(TOTAL_SEEDS * 0.7) || (hasPerk('ZOGHA') && seedsEaten === Math.round(TOTAL_SEEDS * 0.5))) spawnBonus();
@@ -1305,7 +1317,7 @@ function addScore(n) {
   if (live) { player.score = (player.score || 0) + n; if (player === live.me) updateHud(); return; }
   score += n;
   stats.totalScore += n; statsDirty = true;
-  if (!extraLifeGiven && score >= 5000) { extraLifeGiven = true; lives++; sfx.life(); popup(player.tx, player.ty, '1UP', '#7dffa1'); }
+  if (!extraLifeGiven && score >= extraLifeAt()) { extraLifeGiven = true; lives++; sfx.life(); popup(player.tx, player.ty, '1UP', '#7dffa1'); }
   if (!duel && score > best) { best = score; saveBest(best); }
   updateHud();
 }
@@ -1478,14 +1490,14 @@ function checkCollisions() {
         b.frightened = false; b.mode = 'eaten';
         const pts = 200 * 2 ** Math.min(frightChain, 3);
         frightChain++;
-        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, '#ff3b3b', 16, 5, 0.55, 0.1); earnCredit(1, bp.x, bp.y);
+        addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, '#ff3b3b', 16, 5, 0.55, 0.1); earnCredit(hasPerk('MBN') ? 2 : 1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
       } else if (live) {
         if (player.safe > 0) continue;
         liveCaught(player, pp, b); return;
-      } else if (hasPerk('Midnight') && !shieldUsed) {
+      } else if (hasPerk('Midnight') && shieldUsed < SHIELDS) {
         // magic shield: the beetle bounces off and is sent home
-        shieldUsed = true; updatePerkChip(); pulsePerk();
+        shieldUsed++; updatePerkChip(); pulsePerk();
         b.mode = 'eaten'; b.frightened = false;
         popup(pp.x, pp.y, 'SHIELD!', '#c9a6ff'); burst(pp.x, pp.y, '#b48cff', 22, 5, 0.7, 0.1); sfx.lantern();
       } else {
@@ -1499,7 +1511,7 @@ function checkCollisions() {
     if (Math.abs(pp.x - bonus.x) + Math.abs(pp.y - bonus.y) < 0.7) {
       addScore(bonus.value); popup(bonus.x, bonus.y, String(bonus.value), '#ffd36b'); sfx.bonus();
       earnCredit(hasPerk('ZOGHA') ? 2 : 1, bonus.x, bonus.y); if (hasPerk('ZOGHA')) pulsePerk();
-      freezeTimer = 3; sfx.freeze(); popup(bonus.x, bonus.y + 0.9, 'FREEZE!', '#9fe6ff');
+      freezeTimer = hasPerk('ZOGHA') ? 5 : 3; sfx.freeze(); popup(bonus.x, bonus.y + 0.9, 'FREEZE!', '#9fe6ff');
       beetles.forEach(bt => { if (bt.mode !== 'den' && bt.mode !== 'eaten') { const q = pos(bt); burst(q.x, q.y, '#bfefff', 10, 2.5, 0.6, 0.08); } });
       bonus = null;
     }
@@ -1519,7 +1531,7 @@ function spawnCoin() {
     if (Math.abs(x - DEN_CENTER.x) <= 3 && Math.abs(y - DEN_CENTER.y) <= 2) continue;
     spots.push({ x, y });
   }
-  if (spots.length) coin = { ...spots[Math.floor(Math.random() * spots.length)], timer: 9 };
+  if (spots.length) coin = { ...spots[Math.floor(Math.random() * spots.length)], timer: hasPerk('Minty') ? 18 : 9 };
 }
 function updateCoin(dt) {
   if (coin) {
@@ -2091,19 +2103,21 @@ const SKINS = [
 // Every look has its own power in the game, so each one is worth unlocking for more than looks.
 const PERKS = {
   Backman:  { title: 'All-rounder', desc: 'The classic. No special power, no weakness.' },
-  ZOGHA:    { title: 'Sweet tooth', desc: 'An extra mushroom appears every level, and mushrooms give +2 credits.' },
-  ES:       { title: 'Deep freeze', desc: 'Lanterns keep the beetles scared 50% longer.' },
-  Sprout:   { title: 'Harvest', desc: 'Every seed is worth 15 points instead of 10.' },
-  FOX:      { title: 'Quick feet', desc: 'Runs 10% faster than everyone else.' },
-  Minty:    { title: 'Lucky leaf', desc: 'Gold coins appear twice as often.' },
-  Midnight: { title: 'Magic shield', desc: 'Survives the first beetle hit in every level.' },
-  MBN:      { title: 'Royal treasury', desc: 'Clearing a level pays double credits.' },
-  Shadow:   { title: 'Stealth', desc: 'Beetles notice you later and give you a longer head start.' },
-  Ranger:   { title: 'Survivor', desc: 'Starts every level with 4 lives instead of 3.' },
+  ZOGHA:    { title: 'Sweet tooth', desc: 'An extra mushroom every level, mushrooms give +2 credits, and their freeze lasts 5 seconds instead of 3.' },
+  ES:       { title: 'Deep freeze', desc: 'Lanterns keep the beetles scared 50% longer, and scared beetles crawl 20% slower.' },
+  Sprout:   { title: 'Harvest', desc: 'Seeds are worth 15 points instead of 10, and lanterns 150 instead of 50.' },
+  FOX:      { title: 'Quick feet', desc: 'Runs 10% faster than everyone else and never slows down in the gates.' },
+  Minty:    { title: 'Lucky leaf', desc: 'Gold coins appear twice as often and stay twice as long.' },
+  Midnight: { title: 'Magic shield', desc: 'Survives the first two beetle hits in every level.' },
+  MBN:      { title: 'Royal treasury', desc: 'Clearing a level pays double credits, and every beetle eaten gives 2 credits.' },
+  Shadow:   { title: 'Stealth', desc: 'Beetles notice you later, give you a longer head start, and move 5% slower.' },
+  Ranger:   { title: 'Survivor', desc: 'Starts every level with 4 lives, and the extra life comes at 3,000 points instead of 5,000.' },
 };
 const perk = () => SKINS[skinIndex].name;
 const hasPerk = n => !live && perk() === n;   // perks are off in live matches (fair play)
-let shieldUsed = false;
+let shieldUsed = 0;   // Midnight's shields used this level
+const SHIELDS = 2;
+const extraLifeAt = () => hasPerk('Ranger') ? 3000 : 5000;
 
 
 // ---------- Backman sprite ----------
@@ -2396,7 +2410,7 @@ function drawBeetle(b, now) {
 // ---------- HUD ----------
 // Shows the current character's power on the game screen, with its live state where it has one.
 const PERK_STATE = {
-  Midnight: () => shieldUsed ? 'Shield used this level' : 'Shield ready',
+  Midnight: () => shieldUsed >= SHIELDS ? 'Shields used this level' : `${SHIELDS - shieldUsed} shield${SHIELDS - shieldUsed > 1 ? 's' : ''} ready`,
   Ranger: () => '4 lives each level',
   ES: () => 'Lanterns last longer',
   FOX: () => '10% faster',
@@ -2414,7 +2428,7 @@ function updatePerkChip() {
   if (!show) return;
   $('perkName').textContent = pk.title;
   $('perkState').textContent = (PERK_STATE[name] || (() => ''))();
-  chip.classList.toggle('used', name === 'Midnight' && shieldUsed);
+  chip.classList.toggle('used', name === 'Midnight' && shieldUsed >= SHIELDS);
   const cv = $('perkFace');
   if (cv.dataset.look !== name) { cv.dataset.look = name; paintAvatar(cv, 30, 'look:' + skinIndex); }
 }
@@ -2536,7 +2550,7 @@ function renderPicker() {
       const unlocked = isSkinUnlocked(i);
       const b = document.createElement('button');
       b.className = 'skin' + (i === skinIndex ? ' sel' : '') + (unlocked ? '' : ' locked') + (i === pendingBuy ? ' pending' : '');
-      b.setAttribute('aria-label', unlocked ? sk.name : `${sk.name}: buy for ${skinPrice(i)} credits or clear level ${i}`);
+      b.setAttribute('aria-label', unlocked ? sk.name : `${sk.name}: buy for ${skinPrice(i)} credits`);
       const c = document.createElement('canvas'); const d = Math.min(window.devicePixelRatio || 1, 2);
       c.width = c.height = Math.round(52 * d);
       const g = c.getContext('2d'); g.scale(d, d); g.translate(29, 30); drawBackman(g, 15, sk);
@@ -2556,11 +2570,11 @@ function renderPicker() {
     if (pendingBuy >= 0) {
       const sk = SKINS[pendingBuy], price = skinPrice(pendingBuy);
       if (credits >= price) {
-        msg.innerHTML = `<b>${PERKS[sk.name].title}</b>: ${PERKS[sk.name].desc}<br>Buy <b>${sk.name}</b> for ${price} credits? (or clear level ${pendingBuy} to get it free)<br>` +
+        msg.innerHTML = `<b>${PERKS[sk.name].title}</b>: ${PERKS[sk.name].desc}<br>Buy <b>${sk.name}</b> for ${price} credits?<br>` +
           '<button class="buy">Buy</button><button class="cancel">Cancel</button>';
         msg.querySelector('.buy').addEventListener('click', () => buySkin(pendingBuy));
       } else {
-        msg.innerHTML = `<b>${PERKS[sk.name].title}</b>: ${PERKS[sk.name].desc}<br><b>${sk.name}</b> costs ${price} credits. You have ${credits}: you need ${price - credits} more, or clear level ${pendingBuy} to get it free.<br>` +
+        msg.innerHTML = `<b>${PERKS[sk.name].title}</b>: ${PERKS[sk.name].desc}<br><b>${sk.name}</b> costs ${price} credits. You have ${credits}: you need ${price - credits} more.<br>` +
           '<button class="cancel">OK</button>';
       }
       msg.querySelector('.cancel').addEventListener('click', () => { pendingBuy = -1; renderPicker(); });
@@ -3616,7 +3630,7 @@ function openSheet(which, fromRefresh = false) {
     wireLiveSheet(body);
   } else if (which === 'shop') {
     title = 'Shop · Skins';
-    body.innerHTML = `<p>You have <b style="color:#ffd75a">${credits}</b> credits. Clear a look's level to get it free, or buy it now.</p><div class="skins"></div><div class="shop-msg"></div>`;
+    body.innerHTML = `<p>You have <b style="color:#ffd75a">${credits}</b> credits. Every look has its own powers: buy it with credits to play with it.</p><div class="skins"></div><div class="shop-msg"></div>`;
     renderPicker();
   } else if (which === 'levels') {
     title = 'Levels';
