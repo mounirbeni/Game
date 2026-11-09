@@ -42,7 +42,7 @@
   #lives .life img { width: 24px; height: 24px; display: block; filter: drop-shadow(0 2px 1px #0008); }
   /* bottom bar: lives | score and level | pause, each on its stone-and-gold frame at its true proportions.
      One height is shared so the three frames always fit the screen width side by side. */
-  #hud { --hh: min(54px, calc((100vw - 40px) / 7.93)); gap: 8px; justify-content: center !important; margin: 0 auto; }
+  #hud { --hh: min(54px, calc((100vw - 48px) / 8.9)); position: relative; gap: 8px; justify-content: center !important; margin: 0 auto; }
   .hud-pill, #hud .icon-btn { height: var(--hh); padding: 0; border: 0; border-radius: 0; box-shadow: none; display: flex; align-items: center; justify-content: center;
     background: center / 100% 100% no-repeat; filter: drop-shadow(0 4px 5px #0009); }
   .hud-lives { flex: none; width: calc(var(--hh) * 2.507); min-width: 0; background-image: url(assets/frame-mid.webp); }
@@ -734,6 +734,24 @@
   .shop-soon p { margin: 2px 0 0 !important; font-size: 12px !important; }
   .shop-note { margin-top: 8px; text-align: center; font-size: 13px; font-weight: 800; color: #9dff7a; }
   .shop-note b { font-family: 'Lilita One', ui-rounded, system-ui, sans-serif; font-weight: 400; color: #ffd75a; }
+
+  /* ===================== power-ups ===================== */
+  #hud .hud-bag { position: relative; }
+  #hud .hud-bag img { width: 58%; height: 58%; filter: drop-shadow(0 2px 2px #0009); }
+  #hud .hud-bag i { position: absolute; right: -3px; top: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font: 400 12px/18px 'Lilita One', ui-rounded, system-ui, sans-serif;
+    font-style: normal; color: #fff; background: radial-gradient(circle at 35% 30%, #6dff5a, #1f9a2a); border: 2px solid #fff; box-shadow: 0 2px 3px #0009; }
+  .bag-tray { position: absolute; bottom: calc(100% + 8px); right: 4px; z-index: 6; display: flex; gap: 6px; padding: 8px; border-radius: 18px;
+    background: linear-gradient(#18307e, #071040); border: 2px solid #ffcf3a; box-shadow: 0 8px 18px #000c; animation: cardPop .25s cubic-bezier(.2, 1.5, .4, 1) both; }
+  .bag-tray.hidden { display: none; }
+  .bag-item { position: relative; width: 52px; height: 53px; padding: 7px; border: 0; cursor: pointer; background: url(assets/frame-square.webp) center / 100% 100% no-repeat; }
+  .bag-item img { width: 100%; height: 100%; filter: drop-shadow(0 2px 2px #0009); }
+  .bag-item i { position: absolute; right: -3px; bottom: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font: 400 12px/18px 'Lilita One', ui-rounded, system-ui, sans-serif;
+    font-style: normal; color: #fff; background: #0a1450; border: 2px solid #ffcf3a; }
+  .bag-item:active { transform: scale(.92); }
+  .si-img { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 3px 3px #0009); }
+  .shop-hint { margin: 0 0 8px !important; text-align: center; font-size: 12px !important; color: #c9d4ff !important; }
+  .shop-hint b { color: #ffd75a; }
+  .pb-cost img[src*="heart"] { width: 18px; height: 18px; }
 </style>
 </head>
 <body>
@@ -808,7 +826,9 @@
   <div id="hud">
     <div class="hud-pill hud-lives" aria-label="Lives"><div id="lives"></div></div>
     <div class="hud-pill hud-score"><span id="score">0</span><small><span id="levelLbl">Level</span> <span id="level">1</span></small></div>
+    <button class="icon-btn hud-bag hidden" id="bagBtn" aria-label="Power-ups"><img class="uiicon" src="assets/items/magnet.webp" alt="" draggable="false"><i id="bagCount">0</i></button>
     <div id="controls"><button class="icon-btn" id="pauseBtn" aria-label="Pause"></button></div>
+    <div class="bag-tray hidden" id="bagTray"></div>
     <span class="hud-credits" hidden><span id="credits">0</span></span>
   </div>
   <div id="wrap">
@@ -1391,7 +1411,7 @@ function speeds() {
   // Difficulty curve: level 1 is gentle (beetles ~64% of Backman's speed); each level adds a
   // little, capped at 80% so Backman can always get away by moving.
   const l = Math.min(level - 1, 10);
-  const player = (7.5 + l * 0.1) * (hasPerk('FOX') ? 1.1 : 1);
+  const player = (7.5 + l * 0.1) * (hasPerk('FOX') ? 1.1 : 1) * (bootsT > 0 && powersAllowed() ? 1.25 : 1);
   return {
     player,
     // levels without gates have no escape tunnel, so their beetles are a little slower
@@ -1417,6 +1437,7 @@ function resetMaze() {
 }
 
 function resetActors() {
+  magnetT = 0; bootsT = 0; bubble = 0; if (typeof closeBag === 'function') closeBag();
   Object.assign(player, { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [], ox: 0, oy: 0 });
   beetles = beetleDefs().slice(0, Math.min(level, MAX_BEETLES)).map((d, i) => ({
     i, ...d,
@@ -1550,7 +1571,7 @@ function nextLevel() {
   pulsePerk();
 }
 
-function setState(s, t = 0) { state = s; stateTimer = t; }
+function setState(s, t = 0) { state = s; stateTimer = t; try { updateBag(); if (s !== 'play') closeBag(); } catch (e) { /* not ready yet */ } }
 
 // ---------- Grid helpers ----------
 function tileAt(x, y) {
@@ -1691,6 +1712,73 @@ function drawRoyalAura(now) {
   }
   ctx.restore();
 }
+// ---------- Power-ups and hearts (bought in the shop) ----------
+const ITEMS = {
+  magnet:  { name: 'Magnet',      img: 'magnet',  price: 40, desc: 'Pulls in every seed around you for 15 seconds.' },
+  boots:   { name: 'Speed boots', img: 'boots',   price: 40, desc: 'Run 25% faster for 15 seconds.' },
+  ice:     { name: 'Ice bomb',    img: 'icebomb', price: 50, desc: 'Freezes every ladybug for 5 seconds.' },
+  shield:  { name: 'Bubble',      img: 'shield',  price: 60, desc: 'A bubble that saves you from one ladybug hit.' },
+  lantern: { name: 'Lantern',     img: 'lantern', price: 30, desc: 'Light it any time: the ladybugs get scared, like eating a lantern.' },
+};
+const HEART_PACKS = [
+  { id: 'h1', n: 1, img: 'heart',  price: 25, name: '1 heart' },
+  { id: 'h3', n: 3, img: 'basket', price: 60, name: 'Basket of 3 hearts' },
+  { id: 'h5', n: 5, img: 'chest',  price: 90, name: 'Chest of 5 hearts' },
+];
+let bag = loadJSON('bma.items', { magnet: 0, boots: 0, ice: 0, shield: 0, lantern: 0, hearts: 0 });
+const saveBag = () => saveJSON('bma.items', bag);
+let magnetT = 0, bootsT = 0, bubble = 0;
+const powersAllowed = () => !live && !duel;
+function useItem(k) {
+  if (!powersAllowed() || state !== 'play' || paused || !(bag[k] > 0)) return;
+  bag[k]--; saveBag();
+  const pp = pos(player);
+  if (k === 'magnet') { magnetT = 15; popup(pp.x, pp.y, 'MAGNET!', '#ff8a8a'); }
+  else if (k === 'boots') { bootsT = 15; popup(pp.x, pp.y, 'SPEED!', '#ffd75a'); }
+  else if (k === 'ice') { freezeTimer = Math.max(freezeTimer, 5); sfx.freeze(); popup(pp.x, pp.y, 'FREEZE!', '#9fe6ff');
+    beetles.forEach(bt => { if (bt.mode !== 'den' && bt.mode !== 'eaten') { const q = pos(bt); burst(q.x, q.y, '#bfefff', 12, 2.5, 0.6, 0.08); } }); }
+  else if (k === 'shield') { bubble = 1; popup(pp.x, pp.y, 'BUBBLE!', '#9fd8ff'); }
+  else if (k === 'lantern') { startFright(); sfx.lantern(); burst(pp.x, pp.y, '#ffb02e', 18, 4.5, 0.6, 0.1); }
+  if (k !== 'ice' && k !== 'lantern') sfx.bonus();
+  closeBag(); updateBag();
+}
+function updatePowers(dt) {
+  if (bootsT > 0) bootsT = Math.max(0, bootsT - dt);
+  if (magnetT > 0) {
+    magnetT = Math.max(0, magnetT - dt);
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (Math.abs(dx) + Math.abs(dy) <= 2) {
+      const x = player.tx + dx, y = player.ty + dy;
+      if (grid[y] && (grid[y][x] === '.' || grid[y][x] === 'o')) { eatAt(x, y); if (state !== 'play') return; }
+    }
+  }
+}
+function drawPowers(now) {
+  if (!powersAllowed() || (!bubble && !magnetT && !bootsT)) return;
+  const pp = pos(player), cx = (pp.x + player.ox) * T + T / 2, cy = (pp.y + player.oy) * T + T / 2, pulse = 0.5 + 0.5 * Math.sin(now / 150);
+  ctx.save();
+  if (magnetT > 0) { ctx.strokeStyle = `rgba(255,110,110,${0.25 + 0.2 * pulse})`; ctx.lineWidth = 2; ctx.setLineDash([4, 5]);
+    ctx.beginPath(); ctx.arc(cx, cy, T * 2.4, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+  if (bootsT > 0) for (let i = 1; i <= 3; i++) { const t = player.trail[player.trail.length - i]; if (!t) break;
+    ctx.fillStyle = `rgba(255,215,90,${0.28 / i})`; ctx.beginPath(); ctx.arc(t.x * T + T / 2, t.y * T + T / 2, T * 0.35, 0, Math.PI * 2); ctx.fill(); }
+  if (bubble) { const g = ctx.createRadialGradient(cx, cy, T * 0.3, cx, cy, T * 0.85);
+    g.addColorStop(0, 'rgba(160,220,255,0)'); g.addColorStop(0.8, `rgba(160,220,255,${0.25 + 0.15 * pulse})`); g.addColorStop(1, 'rgba(255,215,90,0.85)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, T * 0.85, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
+function updateBag() {
+  const n = Object.keys(ITEMS).reduce((a, k) => a + (bag[k] || 0), 0), b = $('bagBtn');
+  b.classList.toggle('hidden', !n || !powersAllowed() || state === 'title');
+  $('bagCount').textContent = n;
+  const first = Object.keys(ITEMS).find(k => bag[k] > 0); if (first) b.querySelector('img').src = `assets/items/${ITEMS[first].img}.webp`;
+}
+function openBag() {
+  const t = $('bagTray');
+  t.innerHTML = Object.keys(ITEMS).filter(k => bag[k] > 0).map(k => `<button class="bag-item" data-use="${k}" aria-label="${ITEMS[k].name}"><img class="uiicon" src="assets/items/${ITEMS[k].img}.webp" alt="" draggable="false"><i>${bag[k]}</i></button>`).join('');
+  t.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); useItem(b.dataset.use); }));
+  t.classList.remove('hidden');
+}
+function closeBag() { $('bagTray').classList.add('hidden'); }
+$('bagBtn').addEventListener('click', e => { e.stopPropagation(); $('bagTray').classList.contains('hidden') ? openBag() : closeBag(); });
 function startFright() {
   if (hasPerk('ES')) pulsePerk();
   if (hasPerk('MBN')) { freezeTimer = Math.max(freezeTimer, 1.5); pulsePerk(); }   // royal command: lanterns also freeze the beetles
@@ -1863,6 +1951,9 @@ function checkCollisions() {
       } else if (live) {
         if (player.safe > 0) continue;
         liveCaught(player, pp, b); return;
+      } else if (bubble && powersAllowed()) {
+        bubble = 0; b.mode = 'eaten'; b.frightened = false;
+        popup(pp.x, pp.y, 'POP!', '#9fd8ff'); burst(pp.x, pp.y, '#bfe9ff', 24, 5, 0.7, 0.1); sfx.lantern();
       } else if (hasPerk('Midnight') && shieldUsed < SHIELDS) {
         // magic shield: the beetle bounces off and is sent home
         shieldUsed++; updatePerkChip(); pulsePerk();
@@ -1978,6 +2069,7 @@ function update(dt) {
     checkCollisions();
     if (bonus) { bonus.timer -= dt; if (bonus.timer <= 0) bonus = null; }
     updateCoin(dt);
+    if (powersAllowed()) { updatePowers(dt); if (state !== 'play') return; }
     if (gatesMove()) updateGates(dt);
     if (freezeTimer > 0) freezeTimer = Math.max(0, freezeTimer - dt);
     return;
@@ -2019,9 +2111,11 @@ function gameOver() {
   setState('over');
   stats.games++; statsDirty = true; recordRun();
   ui.overText.innerHTML = score >= best && score > 0 ? `New best score: <b>${score.toLocaleString()}</b>` : `The ladybugs got you on level ${level}`;
-  const canContinue = credits > 0;
+  const useHeart = (bag.hearts || 0) > 0, canContinue = useHeart || credits > 0;
   $('continueBtn').classList.toggle('hidden', !canContinue);
-  $('continueBtn').innerHTML = `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
+  $('continueBtn').innerHTML = useHeart
+    ? `Continue <span class="pb-cost"><img class="uiicon" src="assets/items/heart.webp" alt="" draggable="false">1 of ${bag.hearts}</span>`
+    : `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
   $('againPlaque').classList.toggle('hidden', canContinue);   // no credits: Retry is the main button
   $('againPlaque').textContent = `Try again`;
   $('againBtn').classList.toggle('hidden', !canContinue);
@@ -2316,7 +2410,7 @@ function draw(now) {
   if (state !== 'clear' || stateTimer > 1.8) {
     for (const b of beetles) if (!(state === 'dying' && stateTimer < 1.2)) drawBeetle(b, now);
   }
-  if (live) liveDrawPlayers(now); else drawPlayer(now);
+  if (live) liveDrawPlayers(now); else { drawPowers(now); drawPlayer(now); }
   ctx.restore();
 
   drawParticles();
@@ -2983,9 +3077,11 @@ function buySkin(i) {
   renderPicker(); updateHud();
 }
 $('continueBtn').addEventListener('click', () => {
-  if (credits <= 0 || state !== 'over') return;
+  if (state !== 'over') return;
+  if ((bag.hearts || 0) > 0) { bag.hearts--; saveBag(); }      // a heart from the shop first
+  else if (credits > 0) { credits--; saveMeta(); }
+  else return;
   unlockAudio();
-  credits--; saveMeta();
   lives = 1;
   resetActors();                 // the maze and eaten seeds stay as they were
   hideCards();
@@ -4103,13 +4199,31 @@ function openSheet(which, fromRefresh = false) {
         return `<div class="shop-item"><canvas data-look="${i}"></canvas><div class="si-info"><b>${esc(sk.name)}</b><em>${esc(pk.title)}</em><p>${esc(pk.desc)}</p></div>` +
           `<button class="claim-btn si-buy" data-buy="${i}" ${can ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${price}</button></div>`; }).join('') + '</div>'
         : '<p class="hero-all">You own every hero!</p>';
+    } else if (tab === 'power') {
+      h += '<p class="shop-hint">Use them during a level from the backpack next to the pause button.</p><div class="shop-list">' + Object.entries(ITEMS).map(([k, it]) =>
+        `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${bag[k] || 0}</em><p>${it.desc}</p></div>` +
+        `<button class="claim-btn si-buy" data-item="${k}" ${credits >= it.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${it.price}</button></div>`).join('') + '</div>';
     } else {
-      h += `<div class="shop-soon"><img class="uiicon" src="icons/ui/${tab === 'hearts' ? 'heart' : 'gift'}.webp" alt="" draggable="false"><b>Coming soon</b><p>${tab === 'hearts' ? 'Heart packs to keep playing longer.' : 'Power-ups to use in a level: magnets, speed boots, freeze bombs and more.'}</p></div>`;
+      h += `<p class="shop-hint">Hearts let you <b>Continue</b> after Game Over, before your credits are used. You have <b>${bag.hearts || 0}</b>.</p><div class="shop-list">` + HEART_PACKS.map(pk =>
+        `<div class="shop-item"><img class="si-img" src="assets/items/${pk.img}.webp" alt=""><div class="si-info"><b>${pk.name}</b><em>+${pk.n} heart${pk.n > 1 ? 's' : ''}</em><p>${pk.n === 1 ? 'One more chance.' : pk.n === 3 ? 'Best for a tricky level.' : 'Best value: 18 credits a heart.'}</p></div>` +
+        `<button class="claim-btn si-buy" data-pack="${pk.id}" ${credits >= pk.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${pk.price}</button></div>`).join('') + '</div>';
     }
     h += '<div class="shop-note" id="shopNote"></div>';
     body.innerHTML = h;
     body.querySelectorAll('[data-stab]').forEach(b => b.addEventListener('click', () => { openSheet.shopTab = b.dataset.stab; openSheet('shop', true); }));
     body.querySelectorAll('.shop-item canvas').forEach(cv => paintAvatar(cv, 58, 'look:' + cv.dataset.look));
+    const confirmBuy = (b, price, done) => {   // tap once for "Buy?", again to buy
+      if (b.dataset.sure !== '1') {
+        body.querySelectorAll('.si-buy').forEach(o => { if (o !== b && o.dataset.sure === '1') { o.dataset.sure = ''; o.innerHTML = o.dataset.label; } });
+        b.dataset.label = b.innerHTML; b.dataset.sure = '1'; b.textContent = 'Buy?'; return;
+      }
+      if (credits < price) return;
+      credits -= price; saveMeta(); sfx.bonus(); refreshHome(); done();
+    };
+    body.querySelectorAll('[data-item]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.item;
+      confirmBuy(b, ITEMS[k].price, () => { bag[k] = (bag[k] || 0) + 1; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `<b>${ITEMS[k].name}</b> added to your backpack.`; }); }));
+    body.querySelectorAll('[data-pack]').forEach(b => b.addEventListener('click', () => { const pk = HEART_PACKS.find(x => x.id === b.dataset.pack);
+      confirmBuy(b, pk.price, () => { bag.hearts = (bag.hearts || 0) + pk.n; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} heart${pk.n > 1 ? 's' : ''}! You have <b>${bag.hearts}</b>.`; }); }));
     body.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.buy;
       if (b.dataset.sure !== '1') {   // tap once to see "Buy?", tap again to buy
@@ -4382,7 +4496,7 @@ window.__backman = { get state() { return state; }, get score() { return score; 
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
-  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, openSheet: (w) => openSheet(w), closeSheet: () => closeSheet(), get live() { return live; }, eatAll() { for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] === '.' || grid[y][x] === 'o') eatAt(x, y); }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
+  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, get bag() { return bag; }, get powers() { return { magnetT, bootsT, bubble }; }, openSheet: (w) => openSheet(w), closeSheet: () => closeSheet(), get live() { return live; }, eatAll() { for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] === '.' || grid[y][x] === 'o') eatAt(x, y); }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
 })();
 </script>
 </body>
