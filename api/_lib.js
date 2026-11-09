@@ -80,7 +80,7 @@ async function getAccount(name) {
 // phone that still holds a name and its key, for a name nobody has in the new database, gets that
 // account back (key included, no password yet: the game then asks the player to set a new one).
 // Only for a limited time after the move.
-const RESTORE_UNTIL = Date.UTC(2026, 11, 31);
+const RESTORE_UNTIL = Date.UTC(2026, 10, 17);   // one week after the move (17 November 2026)
 async function authedAccount(rawName, token) {
   const name = cleanName(rawName);
   if (!name || !token) return null;
@@ -352,8 +352,12 @@ export async function room(body) {
   const gone = { status: 404, body: { error: 'missing', message: 'No room with that code. Check the code with your friend.' } };
 
   if (body.action === 'list') {   // open rooms waiting for players (host seen in the last minute)
-    const paths = (await s.list('rooms/')).filter(p => /^rooms\/[A-Z]{4}\.json$/.test(p));
-    const rooms = (await Promise.all(paths.map(p => readJSON(s, p)))).filter(r => r && r.host !== me && now - r.created < ROOM_LIFE && now - (r.seen || r.created) < 60000);
+    const all = await s.list('rooms/'), paths = all.filter(p => /^rooms\/[A-Z]{4}\.json$/.test(p));
+    const found = await Promise.all(paths.map(p => readJSON(s, p)));
+    // rooms past their life (host closed the app without closing the room): delete them with their files
+    const dead = found.filter(r => r && now - r.created > ROOM_LIFE).map(r => r.code);
+    if (dead.length) await s.remove(all.filter(p => dead.some(c => p === `rooms/${c}.json` || p.startsWith(`rooms/${c}/`))));
+    const rooms = found.filter(r => r && r.host !== me && now - r.created < ROOM_LIFE && now - (r.seen || r.created) < 60000);
     const out = await Promise.all(rooms.slice(0, 30).map(async r => ({ code: r.code, host: r.host, mode: r.mode, players: 1 + (await s.list(`rooms/${r.code}/p-`)).length })));
     return { status: 200, body: { rooms: out.filter(r => r.players < 4).sort((a, b) => a.players - b.players).slice(0, 20) } };
   }
