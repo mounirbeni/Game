@@ -8,6 +8,10 @@
 //                                   read with a single list() call.
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
+import { createSnapshotCache } from './_snapshot-cache.js';
+
+// Cache only public leaderboard paths; account and save reads stay fresh.
+const leaderboardPaths = createSnapshotCache(5000);
 let store;
 async function blob() {
   if (store) return store;
@@ -75,17 +79,39 @@ async function getAccount(name) {
   const text = await (await blob()).read(`accounts/${name}.json`);
   return text ? JSON.parse(text) : null;
 }
+// Each device key also lives in its own file, created once and never rewritten, so logging in on
+// one device can never drop another device's key (overlapping rewrites of the account file did).
 async function authedAccount(rawName, token) {
   const name = cleanName(rawName);
   if (!name || !token) return null;
   const acc = await getAccount(name);
-  return acc && tokenHashes(acc).includes(hash(token)) ? acc : null;
+  if (!acc) return null;
+  const h = hash(token);
+  if (tokenHashes(acc).includes(h)) return acc;
+  return (await (await blob()).read(`keys/${name}/${h}.json`)) != null ? acc : null;
+}
+// Developer tool: set a new password for an account whose password was forgotten.
+const ADMIN_SECRET_HASH = '9f5a024ed6fd0de432998dae9b37dabaf5495a8cb3630e14a82909bf759b09e4';
+export async function adminReset({ secret, target, password }) {
+  if (typeof secret !== 'string' || hash(secret) !== ADMIN_SECRET_HASH) return { status: 403, body: { error: 'admin' } };
+  if (target === '*list') {   // names of every account
+    const names = (await (await blob()).list('accounts/')).map(p => (p.match(/^accounts\/([A-Z0-9]{3,5})\.json$/) || [])[1]).filter(Boolean);
+    return { status: 200, body: { accounts: names } };
+  }
+  const name = cleanName(target), acc = name && await getAccount(name);
+  if (!acc) return { status: 404, body: { error: 'missing' } };
+  if (!okPass(password)) return { status: 400, body: { error: 'password', message: PASS_RULE } };
+  acc.passHash = passHash(password);
+  await (await blob()).write(`accounts/${name}.json`, JSON.stringify(acc));
+  return { status: 200, body: { reset: name } };
 }
 async function authed(rawName, token) { const acc = await authedAccount(rawName, token); return acc ? acc.name : null; }
 const AUTH_FAIL = { status: 401, body: { error: 'auth', message: 'Unknown player or wrong key.' } };
 
 // ---------- Cloud save ----------
 const MAX_SAVE = 200000;
+// The game's developer accounts: unlimited credits, items, hearts, lives, looks and levels.
+const DEV_NAMES = ['MBN'];
 function cleanSave(save) {
   if (!save || typeof save !== 'object' || Array.isArray(save)) return null;
   const out = {};
@@ -107,18 +133,17 @@ export async function loadCloud({ name, token }) {
   if (!acc) return AUTH_FAIL;
   const text = await (await blob()).read(`saves/${acc.name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, t: rec ? rec.t : 0, save: rec ? rec.save : null } };
+  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? rec.save : null } };
 }
 // Log in on a new device with name + password: hands out a new key for that device.
 export async function login({ name: rawName, password }) {
   const name = cleanName(rawName), acc = name && await getAccount(name);
   if (!acc || !passOk(password, acc.passHash)) return { status: 401, body: { error: 'login', message: 'Wrong name or password.' } };
   const token = randomBytes(24).toString('hex');
-  acc.tokens = [...(acc.tokens || []), hash(token)].slice(-20);
-  await (await blob()).write(`accounts/${name}.json`, JSON.stringify(acc));
+  await (await blob()).write(`keys/${name}/${hash(token)}.json`, JSON.stringify({ t: Date.now() }));
   const text = await (await blob()).read(`saves/${name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name, token, hasPassword: true, t: rec ? rec.t : 0, save: rec ? rec.save : null } };
+  return { status: 200, body: { name, token, hasPassword: true, dev: DEV_NAMES.includes(name), t: rec ? rec.t : 0, save: rec ? rec.save : null } };
 }
 // ---------- Gifts ----------
 // Credits handed out to players. Each gift goes to every account that existed when it was made
@@ -161,15 +186,17 @@ export async function submit({ name: rawName, token, best, level, look }) {
   const next = { best: Math.max(cur.best, best), level: Math.max(cur.level, level), look };
   const path = `lb/${name}/${pad(next.best, 9)}-${pad(next.level, 4)}-${pad(next.look, 2)}`;
   if (!mine.some(x => x.p === path)) {
+    leaderboardPaths.invalidate();
     await s.write(path, '{}');
     await s.remove(mine.map(x => x.p).filter(p => p !== path));
+    leaderboardPaths.invalidate();
   }
   return { status: 200, body: { name, ...next } };
 }
 
 export async function board(me, names) {
   const s = await blob();
-  const rows = (await s.list('lb/')).map(parse).filter(Boolean)
+  const rows = (await leaderboardPaths.read(() => s.list('lb/'))).map(parse).filter(Boolean)
     .sort((a, b) => b.best - a.best || b.level - a.level || a.name.localeCompare(b.name));
   // one entry per player (in case a stale marker survived)
   const seen = new Set(), uniq = rows.filter(r => !seen.has(r.name) && seen.add(r.name));
@@ -189,7 +216,9 @@ export async function release({ name: rawName, token }) {
   const name = await authed(rawName, token);
   if (!name) return AUTH_FAIL;
   const s = await blob();
+  leaderboardPaths.invalidate();
   await s.remove([...(await s.list(`lb/${name}/`)), `accounts/${name}.json`, `saves/${name}.json`]);
+  leaderboardPaths.invalidate();
   return { status: 200, body: { released: name } };
 }
 
@@ -308,6 +337,13 @@ export async function room(body) {
   const load = async () => okCode(code) ? readJSON(s, `rooms/${code}.json`) : null;
   const gone = { status: 404, body: { error: 'missing', message: 'No room with that code. Check the code with your friend.' } };
 
+  if (body.action === 'list') {   // open rooms waiting for players (host seen in the last minute)
+    const paths = (await s.list('rooms/')).filter(p => /^rooms\/[A-Z]{4}\.json$/.test(p));
+    const rooms = (await Promise.all(paths.map(p => readJSON(s, p)))).filter(r => r && r.host !== me && now - r.created < ROOM_LIFE && now - (r.seen || r.created) < 60000);
+    const out = await Promise.all(rooms.slice(0, 30).map(async r => ({ code: r.code, host: r.host, mode: r.mode, players: 1 + (await s.list(`rooms/${r.code}/p-`)).length })));
+    return { status: 200, body: { rooms: out.filter(r => r.players < 4).sort((a, b) => a.players - b.players).slice(0, 20) } };
+  }
+
   if (body.action === 'create') {
     const mode = body.mode === 'coop' ? 'coop' : 'race';
     for (let i = 0; i < 8; i++) {
@@ -335,6 +371,7 @@ export async function room(body) {
   }
   if (r.host !== me) return { status: 403, body: { error: 'host', message: 'Only the host can do that.' } };
   if (body.action === 'poll') {   // the host looks for players asking to join
+    if (now - (r.seen || r.created) > 20000) { r.seen = now; await s.write(`rooms/${code}.json`, JSON.stringify(r)); }   // still here: keep the room listed
     const paths = (await s.list(`rooms/${code}/p-`));
     const players = (await Promise.all(paths.map(p => readJSON(s, p)))).filter(Boolean);
     return { status: 200, body: { room: r, players } };

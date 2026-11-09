@@ -219,6 +219,7 @@
   .map-lvl.cur b { color: #ffe066; -webkit-text-stroke-color: #6a3b00; filter: drop-shadow(0 .8cqw 0 #6a3b00) drop-shadow(0 0 2.5cqw #ffd84acc); animation: mapnum 1.2s ease-in-out infinite; }
   @keyframes mapnum { 50% { transform: scale(1.08); } }
   .map-lvl.star b { color: #ffb36b; }
+  .map-lvl.hell b { color: #ff3b2f; text-shadow: 0 0 1.5cqw #ff2a00; }
   .map-lvl.locked { cursor: default; }
   .map-lvl.locked svg { display: block; width: 9.5cqw; height: 11cqw; filter: drop-shadow(0 .8cqw .6cqw #000a); }
   .map-lvl.cur::before { content: ''; position: absolute; left: 50%; top: 50%; width: 18.6cqw; height: 16cqw; transform: translate(-50%, -50%); border-radius: 50%; border: .9cqw solid #ffe066; box-shadow: 0 0 3cqw 1cqw #ffd84a, inset 0 0 3cqw #ffd84a88; animation: mapglow 1.2s ease-in-out infinite; pointer-events: none; }
@@ -340,6 +341,7 @@
   /* sheets (Daily reward, Shop, Missions, ...) */
   .sheet { position: absolute; inset: 0; background: #020810aa; display: flex; align-items: flex-end; justify-content: center; z-index: 5; }
   .sheet.hidden { display: none; }
+  .life-inf { font-weight: 900; font-size: 22px; line-height: 1; color: #ffd75a; text-shadow: 0 2px 0 #3a2208; margin-left: 2px; }
   #gate { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: #020810e6; }
   #gate.hidden { display: none; }
   .gate-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 10px; padding: 20px 18px; border-radius: 24px; text-align: center; color: #fff;
@@ -353,6 +355,11 @@
   .gate-msg { min-height: 18px; font-size: 13px; font-weight: 800; color: #ffd75a; }
   .gate-msg.bad { color: #ff8a8a; }
   .gate-card .plink { align-self: center; }
+  .live-rooms { display: flex; flex-direction: column; gap: 8px; }
+  .live-room { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: #0c223a; border: 2px solid #2d6aa0; }
+  .live-room b { flex: 1; min-width: 0; color: #fff; font-size: 16px; letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; }
+  .live-room span { color: #9fc4ff; font-weight: 800; font-size: 13px; }
+  .live-none { text-align: center; color: #9fc4ff; font-size: 13px; margin: 4px 0; }
   .sheet-card { width: 100%; max-width: 560px; max-height: 86%; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 14px 16px calc(env(safe-area-inset-bottom) + 18px);
     background: linear-gradient(#123456, #0a1e33); border: 2px solid #2d6aa0; border-bottom: 0; box-shadow: 0 -8px 30px #000a; color: #fff; }
   .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -766,7 +773,7 @@
     <div class="home-top">
       <button class="avatar-btn" data-open="profile" aria-label="Profile"><canvas id="avatar" width="48" height="48"></canvas></button>
       <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Shop">+</button></div>
-      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"></span><b>3</b><small class="full">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
+      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"></span><b id="homeLives">3</b><small class="full" id="homeLivesFull">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
       <button class="gear" data-open="settings" aria-label="Settings"><img class="uiicon" src="icons/ui/gear.webp" alt="" draggable="false"></button>
     </div>
     <button class="xp-banner" data-open="stats" aria-label="Player level">
@@ -913,6 +920,12 @@
 //  - any other *.vercel.app address forwards the player (and their save) to the main address,
 //  - players can copy a save code and load it on another device or after reinstalling.
 const CANONICAL_HOST = 'backman-nu.vercel.app';
+// Developer mode: the server marks developer accounts (dev: true). They get unlimited credits,
+// items, hearts and lives, every look and every level.
+const DEV_CREDITS = 999999999, DEV_ITEMS = 999;
+// Show ∞ instead of the huge developer numbers.
+const inf = v => devMode ? '∞' : v;
+let devMode = (() => { try { const a = JSON.parse(localStorage.getItem('bma.account') || '{}'); return !!(a.token && a.dev); } catch (e) { return false; } })();
 const isSaveKey = k => typeof k === 'string' && (k.startsWith('backman.') || k.startsWith('bma.'));
 function readSave() {
   const d = {};
@@ -1074,52 +1087,57 @@ try { if (navigator.storage && navigator.storage.persist) navigator.storage.pers
 // Each level number always produces the same maze.
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 // W must be 4k+1 (13, 17, 21, 25) and H must be 4k+3 (15, 19, 23, ...) so cells, den and tunnel line up.
-function generateMaze(seed, W = 21, H = 31, loopChance = 0.22) {
+// mirror=false (hard levels): the whole maze is carved freely, not mirrored, with a preference for
+// turning at every step, so it is twisty and asymmetric with no safe repeating pattern.
+function generateMaze(seed, W = 21, H = 31, loopChance = 0.22, crossChance = 0.3, mirror = true) {
   const MID = (W - 1) / 2, G = (H - 1) / 2 - 1, TR = G + 1, PY = Math.min(G + 9, H - 4);
   const L = MID - 3, R = MID + 3; // den ring road columns
   for (let attempt = 0; attempt < 200; attempt++) {
     const rnd = mulberry32(seed * 7919 + attempt);
     const g = Array.from({ length: H }, () => Array(W).fill('#'));
-    const set = (x, y, c) => { g[y][x] = c; g[y][W - 1 - x] = c; };
+    const setSym = (x, y, c) => { g[y][x] = c; g[y][W - 1 - x] = c; };
+    const set = mirror ? setSym : (x, y, c) => { g[y][x] = c; };
+    const XMAX = mirror ? MID - 1 : W - 2;   // last cell column the carving may use
     // protected tiles the carving must not touch: den block and the walls around the tunnel
     const prot = (x, y) => (y >= G - 1 && y <= G + 3 && x >= L && x <= R) || ((y === G || y === G + 2) && (x < L || x > R));
     // 1) depth-first maze on the left half (cells at odd x, odd y)
-    const seen = new Set(), stack = [[1, 1]]; seen.add('1,1'); set(1, 1, '.');
+    const seen = new Set(), stack = [[1, 1, 0, 0]]; seen.add('1,1'); set(1, 1, '.');
     while (stack.length) {
-      const [x, y] = stack[stack.length - 1];
-      const nb = [[2, 0], [-2, 0], [0, 2], [0, -2]].map(([dx, dy]) => [x + dx, y + dy, x + dx / 2, y + dy / 2])
-        .filter(([nx, ny]) => nx >= 1 && nx <= MID - 1 && ny >= 1 && ny <= H - 2 && !seen.has(nx + ',' + ny));
+      const [x, y, px, py] = stack[stack.length - 1];
+      let nb = [[2, 0], [-2, 0], [0, 2], [0, -2]].map(([dx, dy]) => [x + dx, y + dy, x + dx / 2, y + dy / 2, dx, dy])
+        .filter(([nx, ny]) => nx >= 1 && nx <= XMAX && ny >= 1 && ny <= H - 2 && !seen.has(nx + ',' + ny));
       if (!nb.length) { stack.pop(); continue; }
-      const [nx, ny, wx, wy] = nb[Math.floor(rnd() * nb.length)];
-      seen.add(nx + ',' + ny); set(wx, wy, '.'); set(nx, ny, '.'); stack.push([nx, ny]);
+      if (!mirror) { const turn = nb.filter(c => c[4] !== px || c[5] !== py); if (turn.length && rnd() < 0.85) nb = turn; }
+      const [nx, ny, wx, wy, dx, dy] = nb[Math.floor(rnd() * nb.length)];
+      seen.add(nx + ',' + ny); set(wx, wy, '.'); set(nx, ny, '.'); stack.push([nx, ny, dx, dy]);
     }
     // 2) extra loops so it plays like an arcade maze, not a labyrinth
-    for (let y = 1; y < H - 1; y++) for (let x = 1; x <= MID - 1; x++) {
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x <= XMAX; x++) {
       const between = (x % 2 === 0) !== (y % 2 === 0); // a wall tile between two cells
       if (between && g[y][x] === '#' && !prot(x, y) && rnd() < loopChance) set(x, y, '.');
     }
     // 3) a few crossings through the centre column
-    for (let y = 1; y < H - 1; y += 2) if (y < G - 1 || y > G + 3) { if (rnd() < 0.3) set(MID, y, '.'); }
+    if (mirror) for (let y = 1; y < H - 1; y += 2) if (y < G - 1 || y > G + 3) { if (rnd() < crossChance) set(MID, y, '.'); }
     // 4) stamp the beetle den, its ring road, the side tunnel and the start row
     for (let x = L; x <= R; x++) { g[G - 1][x] = '.'; g[G + 3][x] = '.'; }
     for (let y = G - 1; y <= G + 3; y++) { g[y][L] = '.'; g[y][R] = '.'; }
     '##-##'.split('').forEach((c, i) => g[G][L + 1 + i] = c);
     '#EEE#'.split('').forEach((c, i) => g[TR][L + 1 + i] = c);
     '#####'.split('').forEach((c, i) => g[G + 2][L + 1 + i] = c);
-    for (let x = 0; x < L; x++) { set(x, G, '#'); set(x, G + 2, '#'); set(x, TR, x <= L - 3 ? ' ' : '.'); }
+    for (let x = 0; x < L; x++) { setSym(x, G, '#'); setSym(x, G + 2, '#'); setSym(x, TR, x <= L - 3 ? ' ' : '.'); }
     for (let x = L; x <= R; x++) g[PY][x] = '.';
     // 5) remove dead ends by knocking through a neighbouring wall
     const open = (x, y) => { if (y === TR && (x < 0 || x >= W)) return true; if (x < 0 || x >= W || y < 0 || y >= H) return false; return g[y][x] !== '#' && g[y][x] !== '-'; };
     let ok = true;
     for (let pass = 0; pass < 50; pass++) {
       let fixed = 0, stuck = 0;
-      for (let y = 1; y < H - 1; y++) for (let x = 1; x <= MID; x++) {
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x <= (mirror ? MID : W - 2); x++) {
         if (!open(x, y) || g[y][x] === 'E') continue;
         const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => open(x + dx, y + dy)).length;
         if (n >= 2) continue;
         const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => {
           const wx = x + dx, wy = y + dy, bx = x + 2 * dx, by = y + 2 * dy;
-          return wx >= 1 && wx <= MID && wy >= 1 && wy < H - 1 && g[wy][wx] === '#' && !prot(wx, wy) && open(bx, by) || (bx > MID && wx === MID && g[wy][wx] === '#' && !prot(wx, wy) && wy % 2 === 1);
+          return wx >= 1 && wx <= (mirror ? MID : W - 2) && wy >= 1 && wy < H - 1 && g[wy][wx] === '#' && !prot(wx, wy) && open(bx, by) || (mirror && bx > MID && wx === MID && g[wy][wx] === '#' && !prot(wx, wy) && wy % 2 === 1);
         });
         if (!opts.length) { stuck++; continue; }
         const [dx, dy] = opts[Math.floor(rnd() * opts.length)];
@@ -1129,7 +1147,7 @@ function generateMaze(seed, W = 21, H = 31, loopChance = 0.22) {
     }
     if (!ok) continue;
     // 6) lanterns, start, empty tunnel mouths
-    set(1, 3, 'o'); set(1, H - 4, 'o');
+    setSym(1, 3, 'o'); setSym(1, H - 4, 'o');
     g[PY][MID] = 'P';
     const rows = g.map(r => r.join(''));
     if (validate(rows)) return rows;
@@ -1169,12 +1187,72 @@ const LEVEL_SIZES = [
   [21, 23, 0.25], [21, 27, 0.23], [21, 31, 0.22], [25, 31, 0.2], [25, 35, 0.18],
 ];
 // A friend challenge uses the size of level n but its own maze (seed), the same for both players.
+// Level 100 is the developer's own maze: its walls spell MBN (top) and DEV (bottom).
+const MBN_DEV_LEVEL = 100;
+const MBN_DEV_MAP = [
+  '#################################',
+  '#o.............................o#',
+  '#.##.....##.#######...####...##.#',
+  '#.###...###.########..####...##.#',
+  '#.#########.##....##..#####..##.#',
+  '#.#########.##....##..#####..##.#',
+  '#.##..#..##.##........#####..##.#',
+  '#.##.....##.#######...##..#####.#',
+  '#.##.....##.#######...##..#####.#',
+  '#.##.....##.##........##..#####.#',
+  '#.##.....##.##....##..##...####.#',
+  '#.##.....##.##....##..##...####.#',
+  '#.##.....##.##....##..##...####.#',
+  '#.##.....##.########..##....###.#',
+  '#.##.....##.#######...##....###.#',
+  '#...............................#',
+  '#.####.####.####.####.####.####.#',
+  '#.####.####.####.####.####.####.#',
+  '#.####.####.####.####.####.####.#',
+  '#...............................#',
+  '#############.##-##.#############',
+  '           ...#EEE#...           ',
+  '#############.#####.#############',
+  '#...............................#',
+  '#.####.####.####.####.####.####.#',
+  '#.####.####.####.####.####.####.#',
+  '#.####.####.####.####.####.####.#',
+  '#...............................#',
+  '#.#######...#########.##.....##.#',
+  '#.########..#########.##.....##.#',
+  '#.##....##..##........##.....##.#',
+  '#.##....##..##........##.....##.#',
+  '#.##....##..##........##.....##.#',
+  '#.##....##..#######...##.....##.#',
+  '#.##........#######...##.....##.#',
+  '#.##....##..##.........##...##..#',
+  '#.##....##..##.........##...##..#',
+  '#.##....##..##..........#####...#',
+  '#.##....##..##..........#####...#',
+  '#.########..#########....###....#',
+  '#.#######...#########....###....#',
+  '#o..............P..............o#',
+  '#################################',
+];
 function mapForLevel(n, seed) {
   const key = seed ? `${n}:${seed}` : n;
   if (mapCache[key]) return mapCache[key];
+  if (!seed && n === MBN_DEV_LEVEL) return (mapCache[key] = MBN_DEV_MAP);
   const [w, h, loops] = LEVEL_SIZES[Math.min(n, LEVEL_SIZES.length) - 1];
+  const hell = !seed && isHell(n);
   let m = null;
+  // hell levels: no extra loops and almost no crossings, so long corridors and few ways out
+  if (hell) {   // try many seeds and keep the maze with the fewest junctions (fewest ways out)
+    let best = Infinity;
+    for (let k = 0; k < 40; k++) {
+      const c = generateMaze(n * 977 + k * 7919, w, h, 0, 0, false); if (!c) continue;
+      const open = (x, y) => y >= 0 && y < c.length && x >= 0 && x < w && !'#-E'.includes(c[y][x]);
+      let j = 0; for (let y = 0; y < c.length; y++) for (let x = 0; x < w; x++) if (open(x, y) && [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx, dy]) => open(x + dx, y + dy)).length >= 3) j++;
+      if (j < best) { best = j; m = c; }
+    }
+  }
   for (let k = 0; !m && k < 20; k++) m = generateMaze((seed || n) + k * 1000, w, h, loops);
+  if (m && hell) m = m.map((r, y) => y < h / 2 ? r.replace(/o/g, '.') : r);   // only the two bottom lanterns
   return (mapCache[key] = m);
 }
 // ---------- Gates ----------
@@ -1198,7 +1276,7 @@ function updateGates(dt) {
   TUNNEL_ROW = pick(gateRows, TUNNEL_ROW);
   if (gateCols.length) DOOR_COL = pick(gateCols, DOOR_COL);
   gateTimer = GATE_EVERY;
-  mazeLayer = buildMaze(false); mazeLayerFlash = null;
+  mazeLayer = buildMaze(false); freeFlashLayer();
   for (const [x, y] of [[0, TUNNEL_ROW], [COLS - 1, TUNNEL_ROW], [DOOR_COL, 0], [DOOR_COL, ROWS - 1]]) if (x >= 0) burst(x, y, '#ffcf5a', 10, 3, 0.5);
   sfx.portal();
 }
@@ -1245,6 +1323,18 @@ let T = 24;          // tile size in CSS px
 let dpr = 1;
 let mazeLayer = null; // pre-rendered hedges
 let mazeLayerFlash = null;
+// The full-maze layers are big. iPhones cap the total memory of all canvases and are slow to
+// free old ones, so after many levels new layers came out blank (no maze, no seeds). The layers
+// are now reused instead of recreated, the flash layer is emptied after use, and their
+// resolution (ldpr) is capped so each stays under about 4.5 million pixels.
+let ldpr = 1;
+const layerCanvases = {};
+function layerCanvas(key, w, h) {
+  const c = layerCanvases[key] || (layerCanvases[key] = document.createElement('canvas'));
+  c.width = w; c.height = h;   // resizing also clears it
+  return c;
+}
+function freeFlashLayer() { mazeLayerFlash = null; if (layerCanvases.flash) layerCanvases.flash.width = layerCanvases.flash.height = 0; }
 
 // ---------- Storage (best score) ----------
 function loadBest() { try { return parseInt(localStorage.getItem('backman.best') || '0', 10) || 0; } catch (e) { return 0; } }
@@ -1407,6 +1497,9 @@ const isChaseMode = () => modeIndex % 2 === 1;
 
 // Every 5th level (5, 10, 15, ...) is a challenge level: harder, worth more, multicoloured walls.
 const isChallenge = n => n % 5 === 0;
+// Hell levels (10, 15, 20, 25...): the tightest mazes, beetles almost as fast as you, short lantern
+// time, only two lanterns, everyone out of the den at once. Triple credits for clearing one.
+function isHell(n) { return n >= 10 && n % 5 === 0; }
 function speeds() {
   // Difficulty curve: level 1 is gentle (beetles ~64% of Backman's speed); each level adds a
   // little, capped at 80% so Backman can always get away by moving.
@@ -1415,11 +1508,11 @@ function speeds() {
   return {
     player,
     // levels without gates have no escape tunnel, so their beetles are a little slower
-    beetle: (isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1) * (hasPerk('Shadow') ? 0.95 : 1),
+    beetle: (isHell(level) ? player * 0.97 : isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1) * (hasPerk('Shadow') ? 0.95 : 1),
     fright: 4.2 * (hasPerk('ES') ? 0.8 : 1),   // ES: scared beetles crawl even slower
     tunnel: 3.6,
     eaten: 15,
-    frightTime: Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1) * (hasPerk('ES') ? 1.5 : 1),
+    frightTime: (isHell(level) ? 2.5 : Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1)) * (hasPerk('ES') ? 1.5 : 1),
   };
 }
 
@@ -1443,7 +1536,7 @@ function resetActors() {
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
     mode: i === 0 ? 'active' : 'den',
-    releaseAt: d.release * Math.max(0.5, 1 - (level - 1) * 0.08) * (isChallenge(level) ? 0.5 : 1),
+    releaseAt: d.release * Math.max(0.5, 1 - (level - 1) * 0.08) * (isHell(level) ? 0.2 : isChallenge(level) ? 0.5 : 1),
     frightened: false, bob: Math.random() * 6,
   }));
   frightTimer = 0; frightChain = 0;
@@ -1483,11 +1576,12 @@ function loadMeta() {
   if (!isSkinUnlocked(skinIndex)) skinIndex = 0;
 }
 // Looks are bought with credits (Backman is free). Stronger powers cost more.
-const SKIN_PRICES = { ZOGHA: 120, Sprout: 150, Minty: 180, ES: 220, FOX: 300, Shadow: 350, Ranger: 400, Midnight: 450, MBN: 600 };
+const SKIN_PRICES = { ZOGHA: 120, Sprout: 150, Minty: 180, ES: 220, FOX: 300, Shadow: 350, Ranger: 400, Seeker: 420, Voyager: 430, Midnight: 450, MBN: 600 };
 const skinPrice = i => SKIN_PRICES[SKINS[i].name] || 200;
-const isSkinUnlocked = i => i === 0 || (i < SKINS.length && ownedSkins.has(i));
+const isSkinUnlocked = i => i === 0 || (i < SKINS.length && (devMode || ownedSkins.has(i)));
 function saveMeta() {
-  if (typeof refreshHome === 'function' && document.getElementById('homeCredits')) document.getElementById('homeCredits').textContent = credits;
+  if (devMode) credits = DEV_CREDITS;   // developer: credits never run out
+  if (typeof refreshHome === 'function' && document.getElementById('homeCredits')) document.getElementById('homeCredits').textContent = inf(credits);
   try {
     localStorage.setItem('backman.credits', String(credits));
     localStorage.setItem('backman.cleared', String(highestCleared));
@@ -1513,13 +1607,13 @@ function levelCleared() {
   if (duel) { sfx.clear(); finishDuel(true); return; }
   const flawless = deathsThisLevel === 0;
   track('clears'); if (flawless) track('flawless'); if (isChallenge(level)) track('challenges');
-  const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1);
+  const earned = (flawless ? 4 : 2) * (isHell(level) ? 3 : isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1) + (hasPerk('Voyager') ? 2 : 0);
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
   try { localStorage.setItem('bma.looksKept', '1'); } catch (e) { /* ignore */ }   // progress from now on never unlocks looks
   if (level > highestCleared) highestCleared = level;
   saveMeta();
-  clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${isChallenge(level) ? ' · CHALLENGE BEATEN!' : flawless ? ' · FLAWLESS!' : ''}`;
+  clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${isHell(level) ? ' · HELL BEATEN!' : isChallenge(level) ? ' · CHALLENGE BEATEN!' : flawless ? ' · FLAWLESS!' : ''}`;
   setState('clear', 1.6);
   submitScore();
   sfx.clear();
@@ -1558,7 +1652,7 @@ function newGame(startLevel) {
 }
 
 function nextLevel() {
-  mazeLayerFlash = null;
+  freeFlashLayer();
   level++;
   deathsThisLevel = 0; creditsThisLevel = 0; shieldUsed = 0;
   if (hasPerk('Ranger') && lives < 4) lives = 4;
@@ -1731,7 +1825,7 @@ let magnetT = 0, bootsT = 0, bubble = 0;
 const powersAllowed = () => !live && !duel;
 function useItem(k) {
   if (!powersAllowed() || state !== 'play' || paused || !(bag[k] > 0)) return;
-  bag[k]--; saveBag();
+  if (!devMode) bag[k]--; saveBag();
   const pp = pos(player);
   if (k === 'magnet') { magnetT = 15; popup(pp.x, pp.y, 'MAGNET!', '#ff8a8a'); }
   else if (k === 'boots') { bootsT = 15; popup(pp.x, pp.y, 'SPEED!', '#ffd75a'); }
@@ -1768,12 +1862,12 @@ function drawPowers(now) {
 function updateBag() {
   const n = Object.keys(ITEMS).reduce((a, k) => a + (bag[k] || 0), 0), b = $('bagBtn');
   b.classList.toggle('hidden', !n || !powersAllowed() || state === 'title');
-  $('bagCount').textContent = n;
+  $('bagCount').textContent = inf(n);
   const first = Object.keys(ITEMS).find(k => bag[k] > 0); if (first) b.querySelector('img').src = `assets/items/${ITEMS[first].img}.webp`;
 }
 function openBag() {
   const t = $('bagTray');
-  t.innerHTML = Object.keys(ITEMS).filter(k => bag[k] > 0).map(k => `<button class="bag-item" data-use="${k}" aria-label="${ITEMS[k].name}"><img class="uiicon" src="assets/items/${ITEMS[k].img}.webp" alt="" draggable="false"><i>${bag[k]}</i></button>`).join('');
+  t.innerHTML = Object.keys(ITEMS).filter(k => bag[k] > 0).map(k => `<button class="bag-item" data-use="${k}" aria-label="${ITEMS[k].name}"><img class="uiicon" src="assets/items/${ITEMS[k].img}.webp" alt="" draggable="false"><i>${inf(bag[k])}</i></button>`).join('');
   t.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); useItem(b.dataset.use); }));
   t.classList.remove('hidden');
 }
@@ -1944,7 +2038,7 @@ function checkCollisions() {
     if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.5) {
       if (b.frightened) {
         b.frightened = false; b.mode = 'eaten';
-        const pts = 200 * 2 ** Math.min(frightChain, 3);
+        const pts = 200 * 2 ** Math.min(frightChain, 3) * (hasPerk('Seeker') ? 2 : 1);
         frightChain++;
         addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, '#ff3b3b', 16, 5, 0.55, 0.1); earnCredit(hasPerk('MBN') ? 2 : 1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
@@ -1960,7 +2054,7 @@ function checkCollisions() {
         b.mode = 'eaten'; b.frightened = false;
         popup(pp.x, pp.y, 'SHIELD!', '#c9a6ff'); burst(pp.x, pp.y, '#b48cff', 22, 5, 0.7, 0.1); sfx.lantern();
       } else {
-        lives--; updateHud();
+        if (!devMode) lives--; updateHud();
         setState('dying', 1.8); sfx.die(); deathsThisLevel++; burst(pp.x, pp.y, SKINS[skinIndex].body[1], 18, 3.5, 0.9, 0.11);
         return;
       }
@@ -1998,7 +2092,7 @@ function updateCoin(dt) {
     if (coin.timer <= 0) coin = null;
     else {
       const pp = pos(player);
-      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { track('coins'); if (hasPerk('Minty')) pulsePerk(); burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(1, coin.x, coin.y); coin = null; coinTimer = nextCoinDelay(); }
+      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { track('coins'); if (hasPerk('Minty')) pulsePerk(); burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(hasPerk('Seeker') ? 2 : 1, coin.x, coin.y); if (hasPerk('Seeker')) pulsePerk(); coin = null; coinTimer = nextCoinDelay(); }
     }
   } else if ((coinTimer -= dt) <= 0) { spawnCoin(); coinTimer = nextCoinDelay(); }
 }
@@ -2053,7 +2147,7 @@ function update(dt) {
 
   if (state === 'ready') {
     stateTimer -= dt;
-    if (stateTimer <= 0) { setState('play'); levelIntro = false; }
+    if (stateTimer <= 0) { if (levelIntro && hasPerk('Voyager')) { freezeTimer = Math.max(freezeTimer, 3); pulsePerk(); } setState('play'); levelIntro = false; }
     return;
   }
   if (live && live.role === 'guest') { liveGuestUpdate(dt); return; }
@@ -2114,7 +2208,7 @@ function gameOver() {
   const useHeart = (bag.hearts || 0) > 0, canContinue = useHeart || credits > 0;
   $('continueBtn').classList.toggle('hidden', !canContinue);
   $('continueBtn').innerHTML = useHeart
-    ? `Continue <span class="pb-cost"><img class="uiicon" src="assets/items/heart.webp" alt="" draggable="false">1 of ${bag.hearts}</span>`
+    ? `Continue <span class="pb-cost"><img class="uiicon" src="assets/items/heart.webp" alt="" draggable="false">1 of ${inf(bag.hearts)}</span>`
     : `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
   $('againPlaque').classList.toggle('hidden', canContinue);   // no credits: Retry is the main button
   $('againPlaque').textContent = `Try again`;
@@ -2142,8 +2236,9 @@ function resize() {
   canvas.style.height = viewH + 'px';
   canvas.width = Math.round(viewW * dpr);
   canvas.height = Math.round(viewH * dpr);
+  ldpr = Math.min(dpr, Math.sqrt(4.5e6 / (COLS * T * ROWS * T)));
+  freeFlashLayer();
   mazeLayer = buildMaze(false);
-  mazeLayerFlash = null;
   buildSeeds();
   updateCamera(0, true);
 }
@@ -2152,12 +2247,12 @@ function resize() {
 let seedLayer = null, seedCtx = null;
 function buildSeeds() {
   if (!grid) return;
-  seedLayer = poolCanvas('seeds', Math.round(COLS * T * dpr), Math.round(ROWS * T * dpr));
+  seedLayer = layerCanvas('seeds', Math.round(COLS * T * ldpr), Math.round(ROWS * T * ldpr));
   seedCtx = seedLayer.getContext('2d');
-  seedCtx.scale(dpr, dpr);
+  seedCtx.setTransform(ldpr, 0, 0, ldpr, 0, 0);
   const sprite = document.createElement('canvas');
-  sprite.width = sprite.height = Math.ceil(T * dpr);
-  const sg = sprite.getContext('2d'); sg.scale(dpr, dpr); sg.translate(T / 2, T / 2);
+  sprite.width = sprite.height = Math.ceil(T * ldpr);
+  const sg = sprite.getContext('2d'); sg.scale(ldpr, ldpr); sg.translate(T / 2, T / 2);
   if (mapArt.seed) {
     const glow = sg.createRadialGradient(0, 0, 0, 0, 0, T * 0.34);
     glow.addColorStop(0, 'rgba(255,200,60,0.35)'); glow.addColorStop(1, 'rgba(255,200,60,0)');
@@ -2228,7 +2323,7 @@ function wallTexture(n) {
   const g = c.getContext('2d'); g.drawImage(mapArt.wall, 0, 0, S, S);
   let d; try { d = g.getImageData(0, 0, S, S); } catch (e) { return (wallCache[n] = mapArt.wall); }
   const px = d.data;
-  const hues = isChallenge(n) ? [levelHue(n), (levelHue(n) + 120) % 360, (levelHue(n) + 220) % 360].slice(0, 2 + (n / 5) % 2) : [levelHue(n)];
+  const hues = n === MBN_DEV_LEVEL ? [282] : isChallenge(n) ? [levelHue(n), (levelHue(n) + 120) % 360, (levelHue(n) + 220) % 360].slice(0, 2 + (n / 5) % 2) : [levelHue(n)];
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const i = (y * S + x) * 4;
     const [, sat, val] = rgbToHsv(px[i], px[i + 1], px[i + 2]);
@@ -2243,6 +2338,11 @@ function wallTexture(n) {
       const a = hsvToRgb(hues[k], sat, val), bb = hsvToRgb(hues[k + 1], sat, val);
       r = a[0] + (bb[0] - a[0]) * f; gg = a[1] + (bb[1] - a[1]) * f; b = a[2] + (bb[2] - a[2]) * f;
     }
+    if (n === MBN_DEV_LEVEL) {   // MBN DEV maze: dark stone with purple veins drifting through it
+      const u = x / S, v = y / S, t = (Math.sin(2 * Math.PI * (u + v)) + Math.sin(2 * Math.PI * (2 * u - v)) + 2) / 4;
+      const k = 0.12 + 0.5 * t * t;
+      r *= k; gg *= k; b *= k;
+    }
     px[i] = r; px[i + 1] = gg; px[i + 2] = b;
   }
   g.putImageData(d, 0, 0);
@@ -2251,30 +2351,20 @@ function wallTexture(n) {
 
 // A repeating pattern from a texture, sized so one copy of the texture spans `size` CSS pixels.
 function texPattern(g, img, size) {
-  const c = document.createElement('canvas'), px = Math.max(8, Math.round(size * dpr));
+  const c = document.createElement('canvas'), px = Math.max(8, Math.round(size * ldpr));
   c.width = c.height = px; c.getContext('2d').drawImage(img, 0, 0, px, px);
   const pat = g.createPattern(c, 'repeat');
-  try { pat.setTransform(new DOMMatrix().scale(1 / dpr)); } catch (e) { /* older browsers: slightly larger texture */ }
+  try { pat.setTransform(new DOMMatrix().scale(1 / ldpr)); } catch (e) { /* older browsers: slightly larger texture */ }
   return pat;
 }
 
 // The maze is drawn once per level onto its own canvas: textured ground, then raised hedges
 // with a ground shadow, a darker side, a lit top face and some leaves.
-// iPhone Safari has a hard limit on total canvas memory and frees old canvases late; making a
-// new full-maze canvas each time (the moving gates redraw every 15 s) used it up and the maze went
-// black. So the big layers are made once and reused.
-const layerPool = {};
-function poolCanvas(key, w, h) {
-  const c = layerPool[key] || (layerPool[key] = document.createElement('canvas'));
-  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
-  const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h);
-  return c;
-}
 function buildMaze(flash) {
   const W = COLS * T, H = ROWS * T;
-  const c = poolCanvas(flash ? 'mazeFlash' : 'maze', Math.round(W * dpr), Math.round(H * dpr));
+  const c = layerCanvas(flash ? 'flash' : 'maze', Math.round(W * ldpr), Math.round(H * ldpr));
   const g = c.getContext('2d');
-  g.scale(dpr, dpr);
+  g.setTransform(ldpr, 0, 0, ldpr, 0, 0);
   const r = rng(42);
   const isWall = (x, y) => {
     if (x < 0 || x >= COLS) return y !== TUNNEL_ROW;
@@ -2349,6 +2439,25 @@ function buildMaze(flash) {
     }
     g.fillStyle = isWall(x, y - 1) ? mid : grad;
     cornerRect(g, fx, fy, fw, fh, a1, a2, a3, a4); g.fill();
+  }
+  // MBN DEV maze: a glowing purple neon edge around every wall
+  if (art && !flash && level === MBN_DEV_LEVEL) {
+    g.save(); g.lineCap = 'round'; g.shadowColor = '#b23cff';
+    const neon = (width, color, blur) => {
+      g.lineWidth = width; g.strokeStyle = color; g.shadowBlur = blur; g.beginPath();
+      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+        if (!isWall(x, y)) continue;
+        const [fx, fy, fw, fh] = faceRect(x, y);
+        if (!isWall(x, y - 1)) { g.moveTo(fx, fy); g.lineTo(fx + fw, fy); }
+        if (!isWall(x, y + 1)) { g.moveTo(fx, fy + fh); g.lineTo(fx + fw, fy + fh); }
+        if (!isWall(x - 1, y)) { g.moveTo(fx, fy); g.lineTo(fx, fy + fh); }
+        if (!isWall(x + 1, y)) { g.moveTo(fx + fw, fy); g.lineTo(fx + fw, fy + fh); }
+      }
+      g.stroke();
+    };
+    neon(T * 0.22, 'rgba(178,60,255,0.35)', T * 0.9);   // wide soft glow
+    neon(T * 0.07, '#f0c4ff', T * 0.35);                // bright core line
+    g.restore();
   }
   // leaves on the top face: light and dark dabs, fewer on the inside of big blocks
   if (!flash && !art) for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
@@ -2446,7 +2555,7 @@ function draw(now) {
 
   // banners
   if (live && state === 'ready') banner(live.mode === 'coop' ? 'TEAM PLAY' : 'LIVE RACE', '#7fe8ff', live.mode === 'coop' ? 'Clear the maze together!' : 'Eat the most seeds!');
-  else if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', isChallenge(level) ? '#ff7a5a' : '#ffcf5a', isChallenge(level) ? 'CHALLENGE LEVEL!' : hueName(levelHue(level)));
+  else if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', isHell(level) ? '#ff3b2f' : isChallenge(level) ? '#ff7a5a' : '#ffcf5a', level === MBN_DEV_LEVEL ? 'MBN DEV MAZE' : isHell(level) ? 'HELL LEVEL!' : isChallenge(level) ? 'CHALLENGE LEVEL!' : hueName(levelHue(level)));
   if (state === 'clear' && stateTimer > 1.8) {
     ctx.fillStyle = 'rgba(4,10,7,0.6)'; ctx.fillRect(0, 0, viewW, viewH);
     banner('GARDEN CLEARED!', '#7dffa1', clearMsg);
@@ -2585,6 +2694,8 @@ const SKINS = [
   { name: 'MBN', img: 'mbn',     body: ['#fff4b8', '#e0b000'], hat: null,      band: '#c0392b', pack: '#7a5a10', packDark: '#5a420b', roll: '#8e44ad', acc: 'crown' },
   { name: 'Shadow',   img: 'shadow', body: ['#d4d0ff', '#6c63ff'], hat: '#ffcf5a', band: '#2a2a2a', pack: '#2b2a5a', packDark: '#1d1c40', roll: '#ff7aa8', acc: 'bow' },
   { name: 'Ranger',   img: 'ranger', body: ['#d4d0ff', '#6c63ff'], hat: '#ffcf5a', band: '#2a2a2a', pack: '#2b2a5a', packDark: '#1d1c40', roll: '#ff7aa8', acc: 'bow' },
+  { name: 'Seeker',   img: 'seeker', body: ['#e2c6ff', '#8e2fd6'], hat: '#7a1fb8', band: '#d9a441', pack: '#5a1f85', packDark: '#3f1560', roll: '#c9b8ff', acc: null },
+  { name: 'Voyager',  img: 'voyager', body: ['#bfe9ea', '#1f6f78'], hat: '#1f6f78', band: '#b8893a', pack: '#7a4a24', packDark: '#5a3418', roll: '#d9b25a', acc: null },
 ];
 // Every look has its own power in the game, so each one is worth unlocking for more than looks.
 const PERKS = {
@@ -2598,6 +2709,8 @@ const PERKS = {
   MBN:      { title: 'The King', desc: 'Royal aura: beetles near you slow down by 25%. Royal command: every lantern also freezes the beetles for 1.5 seconds. Royal treasury: double credits for clearing a level and 2 credits per beetle.' },
   Shadow:   { title: 'Stealth', desc: 'Beetles notice you later, give you a longer head start, and move 5% slower.' },
   Ranger:   { title: 'Survivor', desc: 'Starts every level with 4 lives, and the extra life comes at 3,000 points instead of 5,000.' },
+  Seeker:   { title: 'Sharp eye', desc: 'Scared beetles are worth double points, and every gold coin gives 2 credits.' },
+  Voyager:  { title: 'Pathfinder', desc: 'The beetles stay frozen for the first 3 seconds of every level, and each cleared level pays 2 extra credits.' },
 };
 const perk = () => SKINS[skinIndex].name;
 const hasPerk = n => !live && perk() === n;   // perks are off in live matches (fair play)
@@ -2898,6 +3011,8 @@ function drawBeetle(b, now) {
 const PERK_STATE = {
   Midnight: () => shieldUsed >= SHIELDS ? 'Shields used this level' : `${SHIELDS - shieldUsed} shield${SHIELDS - shieldUsed > 1 ? 's' : ''} ready`,
   Ranger: () => '4 lives each level',
+  Seeker: () => 'Double beetle points, 2-credit coins',
+  Voyager: () => 'Beetles frozen at the start',
   ES: () => 'Lanterns last longer',
   FOX: () => '10% faster',
   Sprout: () => 'Seeds worth 15',
@@ -2928,7 +3043,7 @@ function updateHud() {
   ui.score.textContent = ((live ? live.me.score : score) || 0).toLocaleString();
   ui.level.textContent = live ? liveRankText() : level || 1;
   $('levelLbl').textContent = live ? (live.mode === 'coop' ? 'Mode' : 'Rank') : 'Level';
-  ui.credits.textContent = credits;
+  ui.credits.textContent = inf(credits);
   const n = live ? (live.mode === 'coop' ? live.teamLives : live.me.lives || 0) : Math.max(0, (lives || 0) - (state === 'ready' || state === 'play' ? 1 : 0));
   ui.lives.innerHTML = '';
   for (let i = 0; i < Math.min(n, 6); i++) {
@@ -2936,6 +3051,7 @@ function updateHud() {
     s.className = 'life'; s.innerHTML = '<img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false">';
     ui.lives.appendChild(s);
   }
+  if (devMode && !live) { const t = document.createElement('span'); t.className = 'life-inf'; t.textContent = '∞'; ui.lives.appendChild(t); }
 }
 function hideCards() { [ui.start, ui.pause, ui.over, $('duelCard'), $('liveCard'), $('winCard')].forEach(c => c.classList.add('hidden')); }
 function showCard(c) { hideCards(); c.classList.remove('hidden'); }
@@ -3007,7 +3123,7 @@ function togglePause() {
   if (paused) { fillPauseCard(); showCard(ui.pause); } else hideCards();
 }
 function fillPauseCard() {
-  $('pauseLevel').textContent = level; $('pauseScore').textContent = (score || 0).toLocaleString(); $('pauseCredits').textContent = credits;
+  $('pauseLevel').textContent = level; $('pauseScore').textContent = (score || 0).toLocaleString(); $('pauseCredits').textContent = inf(credits);
   ui.muteBtn.innerHTML = `${muted ? ICONS.muted : ICONS.sound}${muted ? 'Muted' : 'Sound'}`;
 }
 function toggleMute() {
@@ -3032,7 +3148,7 @@ const COIN_SVG = '<img class="coin uiicon" src="icons/ui/coin.webp" alt="" dragg
 const LOCK_SVG = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 let pendingBuy = -1, shopNote = '';
 function renderPicker() {
-  $('creditsPill').textContent = credits;
+  $('creditsPill').textContent = inf(credits);
   $('creditsWord').textContent = credits === 1 ? 'credit' : 'credits';
   for (const box of document.querySelectorAll('.skins')) {
     const msg = box.nextElementSibling;
@@ -3086,7 +3202,7 @@ function buySkin(i) {
 }
 $('continueBtn').addEventListener('click', () => {
   if (state !== 'over') return;
-  if ((bag.hearts || 0) > 0) { bag.hearts--; saveBag(); }      // a heart from the shop first
+  if ((bag.hearts || 0) > 0) { if (!devMode) bag.hearts--; saveBag(); }      // a heart from the shop first
   else if (credits > 0) { credits--; saveMeta(); }
   else return;
   unlockAudio();
@@ -3258,17 +3374,32 @@ async function cloudPull() {
   if (!account.token) return false;
   try {
     const r = await api('/api/account', { action: 'load', name: account.name, token: account.token });
-    if (account.hasPassword !== r.hasPassword) { account.hasPassword = r.hasPassword; saveJSON('bma.account', account); }
+    if (account.hasPassword !== r.hasPassword || !!account.dev !== !!r.dev) { account.hasPassword = r.hasPassword; account.dev = !!r.dev; saveJSON('bma.account', account); }
     cloudState = 'saved';
-    return mergeCloud(r.save);
+    const gained = mergeCloud(r.save);
+    setDevMode(!!r.dev);
+    return gained;
   } catch (e) { cloudState = 'offline'; return false; }
+}
+function applyDev() {
+  if (!devMode) return;
+  if (credits !== DEV_CREDITS) { credits = DEV_CREDITS; try { localStorage.setItem('backman.credits', String(credits)); } catch (e) { /* ignore */ } }
+  let changed = false;
+  for (const k of [...Object.keys(ITEMS), 'hearts']) if (bag[k] !== DEV_ITEMS) { bag[k] = DEV_ITEMS; changed = true; }
+  if (changed) saveBag();
+}
+function setDevMode(on) {
+  if (devMode === on) { applyDev(); return; }
+  devMode = on; applyDev();
+  try { updateHud(); updateBag(); renderPicker(); refreshHome(); } catch (e) { /* not ready yet */ }
 }
 async function loginAccount(raw, password) {
   const res = await api('/api/account', { action: 'login', name: raw, password });
   flushStats();
-  account = { name: res.name, token: res.token, hasPassword: true };
+  account = { name: res.name, token: res.token, hasPassword: true, dev: !!res.dev };
   saveJSON('bma.account', account);
   mergeCloud(res.save);
+  setDevMode(!!res.dev);
   profile = loadJSON('bma.profile', profile); profile.name = res.name; saveJSON('bma.profile', profile);
   backupNow();
 }
@@ -3918,7 +4049,8 @@ function liveSheetHtml() {
       <button class="gold-btn" id="liveCreate">Create a room</button>
       <div class="live-or">or join a friend's room</div>
       <div class="friend-add"><input id="liveCode" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ROOM CODE"><button class="claim-btn" id="liveJoin">Join</button></div>
-      <div class="live-msg" id="liveMsg">${esc(liveSheetHtml.msg || '')}</div>`;
+      <div class="live-msg" id="liveMsg">${esc(liveSheetHtml.msg || '')}</div>
+      <h4 class="phead">Open rooms</h4><div class="live-rooms" id="liveRooms">${openRoomsHtml()}</div>`;
   }
   const face = p => `<canvas class="lb-face" data-look="${p.look}"></canvas>`;
   const people = lobbyPeers();
@@ -3935,7 +4067,26 @@ function liveSheetHtml() {
   h += `<div class="live-msg ${L.ok ? 'ok' : ''}" id="liveMsg">${esc(L.msg || '')}</div><button class="plink" id="liveCancel">${L.role === 'host' ? 'Close the room' : 'Leave'}</button>`;
   return h;
 }
+// Open rooms anyone can join, refreshed every few seconds while the Play live window is open.
+let openRooms = null, openRoomsTimer = 0;
+function openRoomsHtml() {
+  if (!openRooms) return '<p class="live-none">Looking for rooms…</p>';
+  if (!openRooms.length) return '<p class="live-none">No open rooms right now. Create one!</p>';
+  return openRooms.map(r => `<div class="live-room"><b>${esc(r.host)}</b><span>${r.mode === 'coop' ? 'Team' : 'Race'} · ${r.players}/4</span><button class="claim-btn" data-room="${esc(r.code)}">Join</button></div>`).join('');
+}
+async function refreshOpenRooms() {
+  clearTimeout(openRoomsTimer);
+  if (sheetOpen !== 'live' || lobby || !account.token) return;
+  try { openRooms = (await roomApi({ action: 'list' })).rooms || []; } catch (e) { if (!openRooms) openRooms = []; }
+  const box = $('liveRooms');
+  if (box && sheetOpen === 'live' && !lobby) { box.innerHTML = openRoomsHtml(); wireOpenRooms(box); }
+  openRoomsTimer = setTimeout(refreshOpenRooms, 5000);
+}
+function wireOpenRooms(box) {
+  box.querySelectorAll('[data-room]').forEach(b => b.addEventListener('click', () => { liveSheetHtml.msg = ''; liveJoin(b.dataset.room); }));
+}
 function wireLiveSheet(body) {
+  if ($('liveRooms')) { wireOpenRooms($('liveRooms')); refreshOpenRooms(); }
   body.querySelectorAll('[data-lmode]').forEach(b => b.addEventListener('click', () => { if (lobby) liveSetMode(b.dataset.lmode); else { liveSheetHtml.mode = b.dataset.lmode; openSheet('live', true); } }));
   if ($('liveCreate')) $('liveCreate').addEventListener('click', () => { liveSheetHtml.msg = ''; liveCreate(liveSheetHtml.mode || 'race'); });
   if ($('liveCode')) {
@@ -3963,8 +4114,8 @@ function openMap(page) {
   const art = $('mapArt'), first = mapPage * MAP_PER + 1;
   let h = '';
   MAP_SPOTS.forEach(([x, y], i) => {
-    const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : 'locked';
-    h += `<button class="map-lvl ${cls} ${isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? MAP_LOCK : `<b>${n}</b>`}</button>`;
+    const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : devMode ? 'done' : 'locked';
+    h += `<button class="map-lvl ${cls} ${isHell(n) ? 'hell' : isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? MAP_LOCK : `<b>${n}</b>`}</button>`;
     if (n === reached) { const sk = SKINS[skinIndex] || SKINS[0]; h += `<img class="map-me" alt="" src="assets/${sk.img ? 'skins/' + sk.img : 'backman'}.webp" style="left:${x}%;top:${y - 5.2}%">`; }
   });
   art.innerHTML = h;
@@ -4002,7 +4153,8 @@ function refreshHome() {
   $('pLevel').textContent = pl.lvl;
   $('xpFill').style.width = `${Math.round(100 * pl.xp / pl.need)}%`;
   $('xpText').textContent = `${pl.xp} / ${pl.need}`;
-  $('homeCredits').textContent = credits;
+  $('homeCredits').textContent = inf(credits);
+  $('homeLives').textContent = inf(3); $('homeLivesFull').classList.toggle('hidden', devMode);
   $('playLevel').textContent = `Level ${prog.level}`;
   const dailyReady = !dailyState().claimedToday;
   $('dailyBadge').classList.toggle('hidden', !dailyReady);
@@ -4199,7 +4351,7 @@ function openSheet(which, fromRefresh = false) {
     title = 'Shop';
     const tab = openSheet.shopTab || 'heroes';
     const TABS = [['heroes', 'Heroes'], ['power', 'Powers'], ['hearts', 'Hearts']];
-    let h = `<div class="shop-wallet"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b>${credits.toLocaleString()}</b><small>credits</small></div>` +
+    let h = `<div class="shop-wallet"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b>${inf(credits.toLocaleString())}</b><small>credits</small></div>` +
       `<div class="tabs shop-tabs">${TABS.map(([k, t]) => `<button data-stab="${k}" class="${tab === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
     if (tab === 'heroes') {
       const forSale = SKINS.map((sk, i) => i).filter(i => !isSkinUnlocked(i)).sort((a, b) => skinPrice(a) - skinPrice(b));
@@ -4209,10 +4361,10 @@ function openSheet(which, fromRefresh = false) {
         : '<p class="hero-all">You own every hero!</p>';
     } else if (tab === 'power') {
       h += '<p class="shop-hint">Use them during a level from the backpack next to the pause button.</p><div class="shop-list">' + Object.entries(ITEMS).map(([k, it]) =>
-        `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${bag[k] || 0}</em><p>${it.desc}</p></div>` +
+        `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${inf(bag[k] || 0)}</em><p>${it.desc}</p></div>` +
         `<button class="claim-btn si-buy" data-item="${k}" ${credits >= it.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${it.price}</button></div>`).join('') + '</div>';
     } else {
-      h += `<p class="shop-hint">Hearts let you <b>Continue</b> after Game Over, before your credits are used. You have <b>${bag.hearts || 0}</b>.</p><div class="shop-list">` + HEART_PACKS.map(pk =>
+      h += `<p class="shop-hint">Hearts let you <b>Continue</b> after Game Over, before your credits are used. You have <b>${inf(bag.hearts || 0)}</b>.</p><div class="shop-list">` + HEART_PACKS.map(pk =>
         `<div class="shop-item"><img class="si-img" src="assets/items/${pk.img}.webp" alt=""><div class="si-info"><b>${pk.name}</b><em>+${pk.n} heart${pk.n > 1 ? 's' : ''}</em><p>${pk.n === 1 ? 'One more chance.' : pk.n === 3 ? 'Best for a tricky level.' : 'Best value: 18 credits a heart.'}</p></div>` +
         `<button class="claim-btn si-buy" data-pack="${pk.id}" ${credits >= pk.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${pk.price}</button></div>`).join('') + '</div>';
     }
@@ -4231,7 +4383,7 @@ function openSheet(which, fromRefresh = false) {
     body.querySelectorAll('[data-item]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.item;
       confirmBuy(b, ITEMS[k].price, () => { bag[k] = (bag[k] || 0) + 1; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `<b>${ITEMS[k].name}</b> added to your backpack.`; }); }));
     body.querySelectorAll('[data-pack]').forEach(b => b.addEventListener('click', () => { const pk = HEART_PACKS.find(x => x.id === b.dataset.pack);
-      confirmBuy(b, pk.price, () => { bag.hearts = (bag.hearts || 0) + pk.n; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} heart${pk.n > 1 ? 's' : ''}! You have <b>${bag.hearts}</b>.`; }); }));
+      confirmBuy(b, pk.price, () => { bag.hearts = (bag.hearts || 0) + pk.n; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} heart${pk.n > 1 ? 's' : ''}! You have <b>${inf(bag.hearts)}</b>.`; }); }));
     body.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.buy;
       if (b.dataset.sure !== '1') {   // tap once to see "Buy?", tap again to buy
@@ -4246,7 +4398,7 @@ function openSheet(which, fromRefresh = false) {
     title = 'Levels';
     const reached = loadProgress().level, shown = Math.max(reached + 4, 15);
     body.innerHTML = '<p>Replay any level you have reached. Your progress is kept.</p><div class="lvls">' +
-      Array.from({ length: shown }, (_, i) => i + 1).map(n => `<button class="lvl ${n === reached ? 'cur' : ''}" data-l="${n}" ${n > reached ? 'disabled' : ''}>${n}</button>`).join('') + '</div>';
+      Array.from({ length: shown }, (_, i) => i + 1).map(n => `<button class="lvl ${n === reached ? 'cur' : ''}" data-l="${n}" ${n > reached && !devMode ? 'disabled' : ''}>${n}</button>`).join('') + '</div>';
     body.querySelectorAll('.lvl:not(:disabled)').forEach(b => b.addEventListener('click', () => startPlay(+b.dataset.l)));
   } else if (which === 'profile') {
     title = 'Profile';
@@ -4468,6 +4620,7 @@ function frame(now) {
 
 // Title screen shows the maze in the background.
 loadMeta();
+applyDev();
 { const saved = loadProgress(); level = saved.level; score = saved.score; }
 lives = 3;
 renderPicker();
