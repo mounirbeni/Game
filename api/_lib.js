@@ -91,7 +91,7 @@ async function authedAccount(rawName, token) {
   return (await (await blob()).read(`keys/${name}/${h}.json`)) != null ? acc : null;
 }
 // Developer tool: set a new password for an account whose password was forgotten.
-const ADMIN_SECRET_HASH = '9f5a024ed6fd0de432998dae9b37dabaf5495a8cb3630e14a82909bf759b09e4';
+const ADMIN_SECRET_HASH = '0105b612b6b404f02b147869bc57c3b774440eec812ba3f0c47aae5f62a6b7d8';
 export async function adminReset({ secret, target, password }) {
   if (typeof secret !== 'string' || hash(secret) !== ADMIN_SECRET_HASH) return { status: 403, body: { error: 'admin' } };
   if (target === '*list') {   // names of every account
