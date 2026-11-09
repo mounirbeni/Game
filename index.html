@@ -880,14 +880,22 @@ function unlockAudio() {
   const a = audio(); if (!a) return;
   if (a.state !== 'running') a.resume().catch(() => {});
   try { const s = a.createBufferSource(); s.buffer = a.createBuffer(1, 1, 22050); s.connect(a.destination); s.start(0); } catch (e) { /* ignore */ }
-  if (!document.hidden) {
+  // iOS 17+ has the Audio Session API: 'playback' already plays through the silent switch, so the
+  // silent <audio> trick (which made the game show up in the lock-screen media player) isn't needed.
+  if (!document.hidden && !navigator.audioSession) {
     if (!unlockEl) { unlockEl = new Audio(SILENT_WAV); unlockEl.loop = true; unlockEl.setAttribute('playsinline', ''); }
     if (unlockEl.paused) unlockEl.play().catch(() => {});
   }
 }
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { if (unlockEl) unlockEl.pause(); }
+  if (document.hidden) {
+    // leaving the game: unload the silent track and suspend the audio so nothing stays in the
+    // lock screen / Control Center media player
+    if (unlockEl) { try { unlockEl.pause(); unlockEl.removeAttribute('src'); unlockEl.load(); } catch (e) { /* ignore */ } unlockEl = null; }
+    if (actx && actx.state === 'running') actx.suspend().catch(() => {});
+    try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* ignore */ }
+  }
   else if (actx && !muted) actx.resume().catch(() => {});
 });
 
