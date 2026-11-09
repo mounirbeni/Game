@@ -94,10 +94,15 @@
     display: flex; flex-direction: column; background: #050c12; }
   #home.hidden { display: none; }
   /* ---- Level map: 8 stone platforms per page on a jungle path ---- */
-  #mapScreen { position: fixed; left: 0; top: 0; width: 100%; height: var(--app-h, 100%); z-index: 45; background: #0b2a2c; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #mapScreen { position: fixed; left: 0; top: 0; width: 100%; height: var(--app-h, 100%); z-index: 45; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    background: #061033 url(assets/level-map.webp) center / cover no-repeat; }
+  #mapScreen::before { content: ''; position: absolute; inset: 0; background: inherit; filter: blur(14px) brightness(.7); transform: scale(1.1); }
   #mapScreen.hidden { display: none; }
-  .map-art { position: relative; height: 100%; aspect-ratio: 941 / 1672; max-width: 100%; background: url(assets/level-map.webp) center / cover no-repeat; container-type: inline-size; }
-  @supports not (aspect-ratio: 1) { .map-art { width: 100%; } }
+  /* the artwork keeps its exact shape (never cropped), so the level spots always line up with the circles */
+  .map-art { position: relative; flex: none; width: min(100vw, calc(var(--app-h, 100vh) * 941 / 1672)); height: min(var(--app-h, 100vh), calc(100vw * 1672 / 941));
+    container-type: inline-size; }
+  .map-art::before { content: ''; position: absolute; inset: 0; background: url(assets/level-map.webp) center / 100% 100% no-repeat;
+    -webkit-mask-image: linear-gradient(transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(transparent, #000 5%, #000 95%, transparent); }
   .map-lvl { position: absolute; transform: translate(-50%, -50%); width: 17cqw; height: 15cqw; line-height: 0; border: 0; padding: 0; background: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
   .map-lvl:active { transform: translate(-50%, -46%); }
