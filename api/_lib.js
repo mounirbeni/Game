@@ -240,6 +240,40 @@ export async function release({ name: rawName, token }) {
   return { status: 200, body: { released: name } };
 }
 
+// ---------- TURN relay (metered.ca) ----------
+// METERED_APP is the app name (<app>.metered.live). With METERED_API_KEY the relay list is fetched
+// directly; with METERED_SECRET_KEY the server makes one TURN credential itself the first time and
+// keeps it in config/turn.json.
+const RELAY = 'global.relay.metered.ca';
+async function turnServers(s) {
+  const app = process.env.METERED_APP, key = process.env.METERED_API_KEY, secret = process.env.METERED_SECRET_KEY;
+  if (!app) return [];
+  const base = `https://${encodeURIComponent(app)}.metered.live/api/v1/turn`;
+  try {
+    if (key) {
+      const r = await fetch(`${base}/credentials?apiKey=${encodeURIComponent(key)}`);
+      const turn = r.ok ? await r.json() : null;
+      return Array.isArray(turn) ? turn.filter(x => x && x.urls) : [];
+    }
+    if (secret) {
+      let cred = await readJSON(s, 'config/turn.json');
+      if (!cred) {
+        const r = await fetch(`${base}/credential?secretKey=${encodeURIComponent(secret)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label: 'bugmaze-game' }) });
+        const j = r.ok ? await r.json() : null;
+        if (!j || !j.username || !j.password) { console.error('turn: could not create a credential', r.status); return []; }
+        await s.create('config/turn.json', JSON.stringify({ username: j.username, password: j.password }));
+        cred = await readJSON(s, 'config/turn.json');
+      }
+      const c = { username: cred.username, credential: cred.password };
+      return [
+        { urls: `turn:${RELAY}:80`, ...c }, { urls: `turn:${RELAY}:80?transport=tcp`, ...c },
+        { urls: `turn:${RELAY}:443`, ...c }, { urls: `turns:${RELAY}:443?transport=tcp`, ...c },
+      ];
+    }
+  } catch (e) { console.error('turn', e); }
+  return [];
+}
+
 // ---------- Push notifications ----------
 //   push/<NAME>/<hash>.json   { sub, t }   one per phone that allowed notifications
 //   config/vapid.json         { publicKey, privateKey }   made by the server itself on first use
@@ -417,14 +451,7 @@ export async function room(body) {
 
   if (body.action === 'ice') {   // connection helpers for the phones: STUN, plus a TURN relay when one is set up
     const list = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
-    const app = process.env.METERED_APP, key = process.env.METERED_API_KEY;
-    if (app && key) {
-      try {
-        const r = await fetch(`https://${encodeURIComponent(app)}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(key)}`);
-        const turn = r.ok ? await r.json() : null;
-        if (Array.isArray(turn)) list.push(...turn.filter(x => x && x.urls));
-      } catch (e) { console.error('turn', e); }
-    }
+    list.push(...await turnServers(s));
     return { status: 200, body: { iceServers: list, relay: list.length > 1 } };
   }
 
