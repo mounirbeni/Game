@@ -1237,6 +1237,7 @@ function updatePlayer(dt) {
 function e_mid_reverse() { return player.progress > 0 && opposite(player.want, player.dir); }
 
 function eatAt(x, y) {
+  if (live && live.role === 'guest') { liveGuestEat(x, y); return; }
   if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
   const c = grid[y][x];
   const loud = !live || player === live.me;   // in a live match you hear your own bites
@@ -2258,7 +2259,7 @@ function ladyFor(color) {
 
 function drawBeetle(b, now) {
   if (ladySprites.ready && b.mode !== 'eaten') {
-    let p = pos(b);
+    let p = pos(b); p = { x: p.x + (b.ox || 0), y: p.y + (b.oy || 0) };
     if (b.mode === 'den') p = { x: b.tx, y: b.ty + Math.sin(b.bob) * 0.18 };
     const d = b.mode === 'den' ? DIRS.up : b.dir;
     // face the way it is walking, turning smoothly
@@ -2284,7 +2285,7 @@ function drawBeetle(b, now) {
     ctx.restore();
     return;
   }
-  let p = pos(b);
+  let p = pos(b); p = { x: p.x + (b.ox || 0), y: p.y + (b.oy || 0) };
   if (b.mode === 'den') p = { x: b.tx, y: b.ty + Math.sin(b.bob) * 0.18 };
   const cx = p.x * T + T / 2, cy = p.y * T + T / 2;
   const R = T * 0.4;
@@ -2393,7 +2394,6 @@ function showCard(c) { hideCards(); c.classList.remove('hidden'); }
 // ---------- Input ----------
 function setWant(name) {
   player.want = DIRS[name];
-  if (live && live.role === 'guest') liveInput(name);
   if (state === 'title' || state === 'over') return;
 }
 const KEYMAP = {
@@ -2907,12 +2907,18 @@ function wireDuels(body) {
 // ---------- Live play (real time, up to 4 players) ----------
 // Phones talk directly to each other (WebRTC data channels). The server only passes the
 // connection offers and answers through a room code. The host's phone runs the match (seeds,
-// beetles, every player) and sends the state about 20 times a second; the others send their
-// direction and draw what the host sends. Modes: 'race' (shared seeds, most points wins, own
-// lives) and 'coop' (clear the maze together with shared lives).
+// beetles, catches, scores) and sends the state 30 times a second. To feel lag-free:
+//  - each phone moves its own player itself, instantly, and tells the host where it is
+//    (the host only steps in after a catch or a respawn),
+//  - positions travel on a "fast" channel that never waits for lost packets (a newer update
+//    replaces a lost one); seeds, sounds and the start/end of the match use a reliable channel,
+//  - between updates everyone else keeps gliding along the maze, and corrections are eased in.
+// Modes: 'race' (shared seeds, most points wins, own lives) and 'coop' (clear the maze together
+// with shared lives).
 var live = null, lobby = null;
 const LIVE_MAX = 4, LIVE_COLORS = ['#ffd75a', '#7fe8ff', '#ff8ad8', '#9dff7a'];
-const RTC_CFG = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }] };
+const RTC_CFG = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }] };
+const LIVE_HZ = 1 / 30;   // state updates per second, both ways
 const LIVE_REWARD = { win: 10, play: 2, team: 5, teamLost: 1 };
 const roomApi = body => api('/api/room', { name: account.name, token: account.token, ...body });
 function iceDone(pc) {
@@ -2930,7 +2936,14 @@ function lobbyPeers() {   // everyone in the lobby, host first
   return lobby.list || [];
 }
 function lobbySend(peer, msg) { try { if (peer.dc && peer.dc.readyState === 'open') peer.dc.send(JSON.stringify(msg)); } catch (e) { /* closed */ } }
+// Positions and pings: the unreliable, unordered channel when it is open (falls back to the reliable one).
+function lobbySendFast(peer, msg) {
+  try { if (peer.fdc && peer.fdc.readyState === 'open') { peer.fdc.send(JSON.stringify(msg)); return; } } catch (e) { /* closed */ }
+  lobbySend(peer, msg);
+}
 function lobbyBroadcast(msg) { if (lobby) for (const p of Object.values(lobby.peers)) lobbySend(p, msg); }
+function lobbyBroadcastFast(msg) { if (lobby) { const text = JSON.stringify(msg); for (const p of Object.values(lobby.peers)) {
+  try { if (p.fdc && p.fdc.readyState === 'open') p.fdc.send(text); else if (p.dc && p.dc.readyState === 'open') p.dc.send(text); } catch (e) { /* closed */ } } } }
 function lobbyShare() { lobbyBroadcast({ t: 'lobby', list: lobbyPeers(), mode: lobby.mode }); lobbyRender(); }
 
 async function liveCreate(mode) {
@@ -2941,7 +2954,7 @@ async function liveCreate(mode) {
     const r = await roomApi({ action: 'create', mode });
     if (!lobby) return;
     lobby.code = r.room.code; lobbyMsg('Share the code. Friends join with it.', true); lobbyRender();
-    lobby.timer = setInterval(hostPoll, 2000); hostPoll();
+    lobby.timer = setInterval(hostPoll, 1000); hostPoll();
   } catch (e) { lobby = null; lobbyMsg(e.message || 'No connection. Try again.'); lobbyRender(); }
 }
 async function hostPoll() {
@@ -2952,9 +2965,9 @@ async function hostPoll() {
     if (cur && cur.t === p.t) continue;            // already answered this offer
     if (!cur && Object.keys(lobby.peers).length >= LIVE_MAX - 1) continue;   // room full
     if (cur) try { cur.pc.close(); } catch (e) { /* ignore */ }
-    const peer = { name: p.name, look: p.look, t: p.t, open: false, pc: new RTCPeerConnection(RTC_CFG), dc: null };
+    const peer = { name: p.name, look: p.look, t: p.t, open: false, pc: new RTCPeerConnection(RTC_CFG), dc: null, fdc: null };
     lobby.peers[p.name] = peer;
-    peer.pc.ondatachannel = ev => hostChannel(peer, ev.channel);
+    peer.pc.ondatachannel = ev => { if (ev.channel.label === 'fast') { peer.fdc = ev.channel; ev.channel.onmessage = e => hostMessage(peer, e); } else hostChannel(peer, ev.channel); };
     peer.pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(peer.pc.connectionState)) hostLost(peer); };
     try {
       await peer.pc.setRemoteDescription({ type: 'offer', sdp: p.offer });
@@ -2969,11 +2982,38 @@ function hostChannel(peer, dc) {
   peer.dc = dc;
   dc.onopen = () => { peer.open = true; lobbyShare(); };
   dc.onclose = () => hostLost(peer);
-  dc.onmessage = ev => {
-    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-    if (m.t === 'i' && live) { const rp = live.players.find(q => q.name === peer.name); if (rp && DIRS[m.w]) rp.want = DIRS[m.w]; }
-  };
+  dc.onmessage = ev => hostMessage(peer, ev);
 }
+function hostMessage(peer, ev) {
+  let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+  if (m.t === 'pg') { lobbySendFast(peer, { t: 'po', c: m.c }); return; }
+  if (!live || live.role !== 'host') return;
+  if (m.t === 'sync?') {   // a guest's seeds don't match: send the whole seed map
+    lobbySend(peer, { t: 'sync', g: grid.map(r => r.map(c => (c === '.' || c === 'o') ? c : '_').join('')) });
+    return;
+  }
+  const rp = live.players.find(q => q.name === peer.name);
+  if (!rp || rp === live.me || rp.out || m.k !== rp.sp) return;   // ignore anything from before a respawn
+  if (m.t === 'p') {          // where that player is now (they move themselves)
+    if (rp.dead > 0 || !(m.q > (rp.lq || 0))) return;   // caught, or an older update arriving late
+    rp.lq = m.q;
+    const dx = Math.sign(m.dx | 0), dy = Math.sign(m.dy | 0);
+    if (!Number.isFinite(m.x) || !Number.isFinite(m.y) || Math.abs(m.x) > COLS + 1 || Math.abs(m.y) > ROWS + 1) return;
+    if (m.x >= 0 && m.x < COLS && m.y >= 0 && m.y < ROWS && !canEnter(m.x, m.y, false)) return;
+    rp.tx = m.x; rp.ty = m.y; rp.dir = { x: dx, y: dy }; rp.progress = clamp(+m.pr || 0, 0, 0.999); rp.facing = m.f < 0 ? -1 : 1;
+    if (dx || dy) rp.walk += 0.4;
+  } else if (m.t === 'a' && state === 'play') {   // they stepped onto a tile: eat what is there
+    const near = Math.abs(m.x - rp.tx) + Math.abs(m.y - rp.ty) <= 4 || rp.tx < 1 || rp.tx > COLS - 2 || rp.ty < 1 || rp.ty > ROWS - 2;
+    if (!near) return;
+    const me = player; player = rp; eatAt(m.x | 0, m.y | 0); player = me;
+  }
+}
+// Slide along the current direction through tile centres, stopping at walls (no eating).
+function liveCoast(e, dist, gateOk) {
+  if (!e.dir.x && !e.dir.y) return;
+  advance(e, dist, q => { if (!canEnter(q.tx + q.dir.x, q.ty + q.dir.y, gateOk)) q.dir = DIRS.none; });
+}
+function liveBeetleSpeed(b, sp) { return b.mode === 'eaten' ? sp.eaten : b.frightened ? sp.fright : b.mode === 'leaving' ? sp.beetle * 0.6 : sp.beetle; }
 function hostLost(peer) {
   if (!lobby || !lobby.peers[peer.name]) return;
   delete lobby.peers[peer.name];
@@ -2987,10 +3027,16 @@ async function liveJoin(code) {
   lobby = { role: 'guest', code, peers: {}, list: [], msg: '' };
   lobbyMsg('Connecting…', true); lobbyRender();
   const pc = new RTCPeerConnection(RTC_CFG), dc = pc.createDataChannel('game', { ordered: true });
-  const host = { name: '', pc, dc, open: false };
+  const fdc = pc.createDataChannel('fast', { ordered: false, maxRetransmits: 0 });
+  const host = { name: '', pc, dc, fdc, open: false };
+  fdc.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } guestMessage(m); };
   lobby.host = host;
   pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) guestLost(); };
-  dc.onopen = () => { host.open = true; lobbyMsg('Connected! Waiting for the host to start…', true); lobbyRender(); };
+  dc.onopen = () => {
+    host.open = true; lobbyMsg('Connected! Waiting for the host to start…', true); lobbyRender();
+    const ping = () => { if (lobby && lobby.host === host) lobbySendFast(host, { t: 'pg', c: performance.now() }); };
+    lobby.timer = setInterval(ping, 1000); ping();
+  };
   dc.onclose = guestLost;
   dc.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } guestMessage(m); };
   try {
@@ -3001,7 +3047,7 @@ async function liveJoin(code) {
     lobby.mode = r.room.mode; host.name = r.room.host; lobbyRender();
     const t0 = Date.now();
     while (lobby && !lobby.answered && Date.now() - t0 < 45000) {
-      await new Promise(res => setTimeout(res, 1500));
+      await new Promise(res => setTimeout(res, 700));
       if (!lobby) return;
       const w = await roomApi({ action: 'wait', code }).catch(() => null);
       if (w && w.answer && !lobby.answered) { lobby.answered = true; await pc.setRemoteDescription({ type: 'answer', sdp: w.answer }); }
@@ -3017,9 +3063,18 @@ function guestLost() {
   lobbyMsg('The host left the room.'); lobbyRender();
 }
 function guestMessage(m) {
+  if (!lobby) return;
+  if (m.t === 'po') {   // ping answer: round-trip time, smoothed
+    const rtt = performance.now() - m.c;
+    if (rtt >= 0 && rtt < 5000) lobby.rtt = lobby.rtt ? lobby.rtt * 0.7 + rtt * 0.3 : rtt;
+    if (!live && lobby.host && lobby.host.open) { const el = $('liveMsg'); if (el) el.textContent = `Connected (${Math.round(lobby.rtt)} ms). Waiting for the host to start…`; }
+    return;
+  }
   if (m.t === 'lobby') { lobby.list = m.list; lobby.mode = m.mode; lobbyRender(); }
   else if (m.t === 'start') liveStart('guest', m.cfg);
   else if (m.t === 's' && live) liveApply(m);
+  else if (m.t === 'ev' && live) liveEvents(m);
+  else if (m.t === 'sync' && live) liveSeedSync(m.g);
   else if (m.t === 'end' && live) liveShowResult(m.r);
 }
 function liveSetMode(mode) { if (lobby && lobby.role === 'host') { lobby.mode = mode; lobbyShare(); } }
@@ -3057,7 +3112,8 @@ function liveStart(role, cfg) {
   const startXs = [0, -2, 2, -1, 1];
   live = { role, mode: cfg.mode, cfg, home, teamLives: 3 + cfg.players.length - 1, snapT: 0, eaten: [], fx: [], done: false,
     players: cfg.players.map((p, i) => ({ name: p.name, look: Math.min(+p.look || 0, SKINS.length - 1), color: LIVE_COLORS[i % 4], score: 0, lives: 3,
-      tx: 0, ty: 0, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [], ox: 0, oy: 0, dead: 0, safe: 0, out: false, slot: startXs[i] })) };
+      tx: 0, ty: 0, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [], ox: 0, oy: 0, dead: 0, safe: 0, out: false, slot: startXs[i], sp: 0, lq: 0 })),
+    q: 0, lq: 0, sendT: 0 };
   live.me = live.players.find(p => p.name === account.name) || live.players[0];
   player = live.me;
   level = cfg.level;
@@ -3074,6 +3130,7 @@ function liveSpawn(p) {
   let x = START.x + p.slot;
   if (!canEnter(x, START.y, false)) x = START.x;
   Object.assign(p, { tx: x, ty: START.y, dir: DIRS.none, progress: 0, ox: 0, oy: 0, trail: [] });
+  p.sp = (p.sp || 0) + 1;   // a new "life": position reports from before it are ignored
 }
 function liveNearest(b) {
   let best = null, bd = Infinity;
@@ -3105,6 +3162,7 @@ function liveHostUpdate(dt) {
     if (p.out) continue;
     if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) { p.dead = 0; liveSpawn(p); p.safe = 2.5; } continue; }
     if (p.safe > 0) p.safe -= dt;
+    if (p !== live.me) { liveCoast(p, speeds().player * dt, false); continue; }   // guests move themselves; glide until their next report
     player = p;
     updatePlayer(dt);
     if (live.done || state !== 'play') { player = me; return; }
@@ -3122,67 +3180,132 @@ function liveHostUpdate(dt) {
   live.hudT = (live.hudT || 0) - dt; if (live.hudT <= 0) { live.hudT = 0.25; updateHud(); }   // keep the rank fresh
   liveSend(dt);
 }
-// The host sends the state ~20 times a second; eaten seeds are sent as they happen.
+// The host sends the state 30 times a second on the fast channel; eaten seeds and sounds go
+// right away on the reliable channel so none are ever lost.
 function liveSend(dt) {
   if (!live || live.role !== 'host') return;
-  live.snapT -= dt || 0.016;
-  if (live.snapT > 0 && !live.eaten.length) return;
-  live.snapT = 0.05;
-  const r2 = v => Math.round(v * 100) / 100;
-  const msg = { t: 's', st: state, sT: r2(stateTimer), ft: r2(frightTimer), fz: r2(freezeTimer), tl: live.teamLives,
-    p: live.players.map(p => [p.tx, p.ty, p.dir.x, p.dir.y, r2(p.progress), p.facing, p.score || 0, p.lives, p.dead > 0 ? 1 : 0, p.out ? 1 : 0, p.safe > 0 ? 1 : 0]),
-    b: beetles.map(b => [b.tx, b.ty, b.dir.x, b.dir.y, r2(b.progress), b.mode, b.frightened ? 1 : 0]),
-    e: live.eaten.map(t => t.y * COLS + t.x), bn: bonus ? [bonus.x, bonus.y, r2(bonus.timer)] : 0, fx: live.fx };
-  live.eaten = []; live.fx = [];
-  lobbyBroadcast(msg);
+  if (live.eaten.length || live.fx.length) {
+    lobbyBroadcast({ t: 'ev', e: live.eaten.map(t => t.y * COLS + t.x), fx: live.fx });
+    live.eaten = []; live.fx = [];
+  }
+  live.snapT -= dt === undefined ? 1 : dt;
+  if (live.snapT > 0) return;
+  live.snapT = LIVE_HZ;
+  const r3 = v => Math.round(v * 1000) / 1000;
+  lobbyBroadcastFast({ t: 's', q: ++live.q, st: state, sT: r3(stateTimer), ft: r3(frightTimer), fz: r3(freezeTimer), tl: live.teamLives,
+    p: live.players.map(p => [p.tx, p.ty, p.dir.x, p.dir.y, r3(p.progress), p.facing, p.score || 0, p.lives, p.dead > 0 ? 1 : 0, p.out ? 1 : 0, p.safe > 0 ? 1 : 0, p.sp]),
+    b: beetles.map(b => [b.tx, b.ty, b.dir.x, b.dir.y, r3(b.progress), b.mode, b.frightened ? 1 : 0]),
+    bn: bonus ? [bonus.x, bonus.y, r3(bonus.timer)] : 0, sl: seedsLeft });
 }
 function liveApply(m) {
+  if (!(m.q > live.lq)) return;   // a newer update already arrived
+  live.lq = m.q;
   if (state !== m.st && m.st === 'play') levelIntro = false;
   live.heard = Date.now();
-  const ft0 = frightTimer;
+  const ft0 = frightTimer, sp = speeds();
+  const lead = Math.min(0.12, ((lobby && lobby.rtt) || 80) / 2000);   // the update is this old: move it forward to "now"
   state = m.st; stateTimer = m.sT; frightTimer = m.ft; freezeTimer = m.fz; live.teamLives = m.tl;
+  const ease = (e, before) => {   // hide small corrections: start from where it was drawn and ease in
+    const now = pos(e), dx = before.x - now.x, dy = before.y - now.y;
+    if (Math.abs(dx) + Math.abs(dy) < 2.5) { e.ox = dx; e.oy = dy; } else { e.ox = 0; e.oy = 0; }
+  };
   m.p.forEach((a, i) => {
     const p = live.players[i]; if (!p) return;
-    const [tx, ty, dx, dy, pr, f, sc, lv, dead, out, safe] = a;
-    p.tx = tx; p.ty = ty; p.dir = { x: dx, y: dy }; p.progress = pr; p.facing = f; p.score = sc; p.lives = lv; p.dead = dead; p.out = !!out; p.safe = safe;
+    const [tx, ty, dx, dy, pr, f, sc, lv, dead, out, safe, k] = a;
+    p.score = sc; p.lives = lv; p.out = !!out; p.safe = safe;
+    if (p === live.me) {
+      // My own player moves on this phone. Only take the host's position after a catch or a
+      // respawn, before the round starts, or if we somehow ended up far apart.
+      const far = Math.abs(p.tx - tx) + Math.abs(p.ty - ty) > 4 && !(p.tx < 1 || p.tx > COLS - 2 || p.ty < 1 || p.ty > ROWS - 2);
+      const reset = k !== p.sp || dead || m.st !== 'play' || far;
+      const newLife = k !== p.sp || dead;
+      p.dead = dead;
+      if (reset) {
+        const before = { x: pos(p).x + p.ox, y: pos(p).y + p.oy };
+        p.sp = k; p.tx = tx; p.ty = ty; p.dir = { x: dx, y: dy }; p.progress = pr; p.facing = f;
+        if (far || newLife) { p.ox = 0; p.oy = 0; } else ease(p, before);
+        if (newLife) p.trail = [];
+      }
+      return;
+    }
+    const before = { x: pos(p).x + (p.ox || 0), y: pos(p).y + (p.oy || 0) };
+    p.tx = tx; p.ty = ty; p.dir = { x: dx, y: dy }; p.progress = pr; p.facing = f; p.dead = dead;
+    if (m.st === 'play' && !dead) liveCoast(p, sp.player * lead, false);
+    ease(p, before);
     if (dx || dy) p.walk += 0.6;
   });
   m.b.forEach((a, i) => {
     const b = beetles[i]; if (!b) return;
+    const before = { x: pos(b).x + (b.ox || 0), y: pos(b).y + (b.oy || 0) }, wasDen = b.mode === 'den';
     [b.tx, b.ty] = a; b.dir = { x: a[2], y: a[3] }; b.progress = a[4]; b.mode = a[5]; b.frightened = !!a[6];
+    if (m.st === 'play' && b.mode !== 'den' && freezeTimer <= 0) liveCoast(b, liveBeetleSpeed(b, sp) * lead, true);
+    if (wasDen || b.mode === 'den') { b.ox = 0; b.oy = 0; } else ease(b, before);
   });
-  const wasFright = ft0;
-  for (const k of m.e) {
+  if (m.ft > ft0 + 1) sfx.lantern();
+  // Safety net: if the seeds here and on the host disagree for a moment, ask for the full map.
+  if (m.sl !== undefined && m.sl !== seedsLeft) {
+    if (!live.misSince) live.misSince = Date.now();
+    else if (Date.now() - live.misSince > 1200 && Date.now() - (live.syncAt || 0) > 3000) { live.syncAt = Date.now(); lobbySend(lobby.host, { t: 'sync?' }); }
+  } else live.misSince = 0;
+  bonus = m.bn ? { x: m.bn[0], y: m.bn[1], timer: m.bn[2], value: 0 } : null;
+  live.hudT = (live.hudT || 0) - 1; if (live.hudT <= 0) { live.hudT = 8; updateHud(); }
+}
+// Seeds eaten and sounds, from the reliable channel.
+function liveEvents(m) {
+  for (const k of m.e || []) {
     const x = k % COLS, y = Math.floor(k / COLS), c = grid[y] && grid[y][x];
     if (c === '.' || c === 'o') {
       grid[y][x] = ' '; eraseSeed(x, y); seedsLeft--; seedsEaten++;
       if (Math.abs(x - live.me.tx) + Math.abs(y - live.me.ty) <= 1) { burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); sfx.seed(); }
     }
   }
-  if (m.ft > wasFright + 1) sfx.lantern();
-  bonus = m.bn ? { x: m.bn[0], y: m.bn[1], timer: m.bn[2], value: 0 } : null;
-  for (const n of m.fx) if (sfx[n]) sfx[n]();
+  for (const n of m.fx || []) if (sfx[n]) sfx[n]();
   updateHud();
 }
-// Between messages the guest keeps everyone sliding along their direction so it looks smooth.
+function liveSeedSync(rows) {
+  if (!Array.isArray(rows) || rows.length !== ROWS) return;
+  let left = 0;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const h = rows[y][x], c = grid[y][x];
+    if (h === '.' || h === 'o') { grid[y][x] = h; left++; }
+    else if (c === '.' || c === 'o') grid[y][x] = ' ';
+  }
+  seedsEaten += seedsLeft - left; seedsLeft = left; live.misSince = 0;
+  buildSeeds(); updateHud();
+}
+// A guest's own player stepped onto a tile: the seed disappears at once here, and the host
+// (who keeps the score) is told.
+function liveGuestEat(x, y) {
+  lobbySend(lobby.host, { t: 'a', x, y, k: live.me.sp });
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+  if (grid[y][x] === '.') { grid[y][x] = ' '; eraseSeed(x, y); seedsLeft--; seedsEaten++; burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); sfx.seed(); }
+}
+// Every frame on a guest: move my own player right away (no waiting for the host) and keep
+// everyone else gliding between updates.
 function liveGuestUpdate(dt) {
   if (state !== 'over' && live.heard && Date.now() - live.heard > 8000) { liveShowResult({ reason: 'hostLeft', mode: live.mode, players: live.players.map(livePub) }); return; }
+  const k = Math.exp(-dt * 14);
+  for (const p of live.players) if (p !== live.me) { p.ox = (p.ox || 0) * k; p.oy = (p.oy || 0) * k; }
+  for (const b of beetles) { b.ox = (b.ox || 0) * k; b.oy = (b.oy || 0) * k; }
   if (state !== 'play') { if (state === 'ready') stateTimer -= dt; return; }
-  const sp = speeds();
-  for (const p of live.players) if (!p.out && !p.dead && (p.dir.x || p.dir.y)) p.progress = Math.min(0.95, p.progress + sp.player * dt);
+  const sp = speeds(), me = live.me;
+  player = me;
+  if (!me.out && !me.dead) {
+    updatePlayer(dt);
+    live.sendT -= dt;
+    if (live.sendT <= 0 && lobby && lobby.host) {
+      live.sendT = LIVE_HZ;
+      const r3 = v => Math.round(v * 1000) / 1000;
+      lobbySendFast(lobby.host, { t: 'p', q: ++live.q, k: me.sp, x: me.tx, y: me.ty, dx: me.dir.x, dy: me.dir.y, pr: r3(me.progress), f: me.facing });
+    }
+  }
+  for (const p of live.players) if (p !== me && !p.out && !p.dead) { liveCoast(p, sp.player * dt, false); if (p.dir.x || p.dir.y) p.walk += dt * 12; }
   for (const b of beetles) {
-    if (b.mode === 'den' || freezeTimer > 0) continue;
-    const v = b.mode === 'eaten' ? sp.eaten : b.frightened ? sp.fright : b.mode === 'leaving' ? sp.beetle * 0.6 : sp.beetle;
-    if (b.dir.x || b.dir.y) b.progress = Math.min(0.95, b.progress + v * dt);
     b.bob += dt * 6;
+    if (b.mode === 'den' || freezeTimer > 0) continue;
+    liveCoast(b, liveBeetleSpeed(b, sp) * dt, true);
   }
   if (frightTimer > 0) frightTimer = Math.max(0, frightTimer - dt);
-}
-let liveLastSent = '';
-function liveInput(name) {
-  if (!lobby || !lobby.host || name === liveLastSent) return;
-  liveLastSent = name; lobbySend(lobby.host, { t: 'i', w: name });
-  setTimeout(() => { liveLastSent = ''; }, 300);
 }
 function liveRankText() {
   if (!live) return '';
