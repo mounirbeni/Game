@@ -73,11 +73,13 @@
     background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.42) 100%); }
   canvas { display: block; border-radius: 10px; box-shadow: 0 0 0 2px #163323, 0 10px 40px #000a; }
   #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-  .card { pointer-events: auto; position: relative; background: linear-gradient(#22379a, #0e1a5e 60%, #0a1347); border: 3px solid #ffcf3a; border-radius: 24px;
-    padding: 24px 24px 20px; text-align: center; width: min(86vw, 320px); box-shadow: inset 0 0 0 3px #0a1240, inset 0 3px 0 5px #ffffff14, 0 0 24px #ffcf3a44, 0 14px 40px #000d; }
+  /* cards use the stone-and-gold frame artwork; the corners (leaves, ladybug) never stretch */
+  .card { pointer-events: auto; position: relative; text-align: center; width: min(88vw, 330px); background: none;
+    border: 1px solid transparent; border-image: url(assets/card-frame.webp) 165 190 185 150 fill / 89px 103px 100px 81px stretch;
+    padding: 56px 50px 60px 40px; filter: drop-shadow(0 14px 24px #000c); }
   .card h2 { color: #ffd75a; font-weight: 900; letter-spacing: .02em; text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00; }
   .card p { color: #cfd8ff !important; }
-  .card button.big { width: 100%; background: linear-gradient(#ffe58a, #ffb81f); color: #3a2400; box-shadow: 0 4px 0 #a06d12, 0 6px 12px #0008; }
+  .card button.big { width: 100%; white-space: nowrap; padding-left: 12px; padding-right: 12px; background: linear-gradient(#ffe58a, #ffb81f); color: #3a2400; box-shadow: 0 4px 0 #a06d12, 0 6px 12px #0008; }
   .card button.install { background: linear-gradient(#2a44c8, #14268a); color: #fff; border: 2px solid #ffcf3a; }
   .pause-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 6px; }
   .pause-info span { display: flex; flex-direction: column; gap: 3px; padding: 8px 4px; border-radius: 14px; background: #0a1240aa; border: 1px solid #ffcf3a55; }
@@ -1678,7 +1680,7 @@ function gameOver() {
   $('againBtn').textContent = `Retry level ${level}`;
   const canContinue = credits > 0;
   $('continueBtn').classList.toggle('hidden', !canContinue);
-  $('continueBtn').innerHTML = `Continue here · 1 credit`;
+  $('continueBtn').innerHTML = `Continue · 1 credit`;
   $('againBtn').className = canContinue ? 'install' : 'big';
   $('creditHint').innerHTML = canContinue
     ? `You have ${credits} credit${credits > 1 ? 's' : ''}. Continuing gives you 1 extra life and keeps the seeds you've eaten.`
