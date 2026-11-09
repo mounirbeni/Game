@@ -2208,7 +2208,7 @@ function gameOver() {
   const useHeart = (bag.hearts || 0) > 0, canContinue = useHeart || credits > 0;
   $('continueBtn').classList.toggle('hidden', !canContinue);
   $('continueBtn').innerHTML = useHeart
-    ? `Continue <span class="pb-cost"><img class="uiicon" src="assets/items/heart.webp" alt="" draggable="false">1 of ${inf(bag.hearts)}</span>`
+    ? `Continue <span class="pb-cost"><img class="uiicon" src="assets/items/heart.webp" alt="" draggable="false">${devMode ? '∞' : `1 of ${bag.hearts}`}</span>`
     : `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
   $('againPlaque').classList.toggle('hidden', canContinue);   // no credits: Retry is the main button
   $('againPlaque').textContent = `Try again`;
@@ -3046,7 +3046,7 @@ function updateHud() {
   ui.credits.textContent = inf(credits);
   const n = live ? (live.mode === 'coop' ? live.teamLives : live.me.lives || 0) : Math.max(0, (lives || 0) - (state === 'ready' || state === 'play' ? 1 : 0));
   ui.lives.innerHTML = '';
-  for (let i = 0; i < Math.min(n, 6); i++) {
+  for (let i = 0; i < Math.min(devMode && !live ? 1 : n, 6); i++) {   // developer: one heart and ∞
     const s = document.createElement('span');
     s.className = 'life'; s.innerHTML = '<img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false">';
     ui.lives.appendChild(s);
@@ -4362,11 +4362,11 @@ function openSheet(which, fromRefresh = false) {
     } else if (tab === 'power') {
       h += '<p class="shop-hint">Use them during a level from the backpack next to the pause button.</p><div class="shop-list">' + Object.entries(ITEMS).map(([k, it]) =>
         `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${inf(bag[k] || 0)}</em><p>${it.desc}</p></div>` +
-        `<button class="claim-btn si-buy" data-item="${k}" ${credits >= it.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${it.price}</button></div>`).join('') + '</div>';
+        (devMode ? '' : `<button class="claim-btn si-buy" data-item="${k}" ${credits >= it.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${it.price}</button>`) + '</div>').join('') + '</div>';
     } else {
       h += `<p class="shop-hint">Hearts let you <b>Continue</b> after Game Over, before your credits are used. You have <b>${inf(bag.hearts || 0)}</b>.</p><div class="shop-list">` + HEART_PACKS.map(pk =>
         `<div class="shop-item"><img class="si-img" src="assets/items/${pk.img}.webp" alt=""><div class="si-info"><b>${pk.name}</b><em>+${pk.n} heart${pk.n > 1 ? 's' : ''}</em><p>${pk.n === 1 ? 'One more chance.' : pk.n === 3 ? 'Best for a tricky level.' : 'Best value: 18 credits a heart.'}</p></div>` +
-        `<button class="claim-btn si-buy" data-pack="${pk.id}" ${credits >= pk.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${pk.price}</button></div>`).join('') + '</div>';
+        (devMode ? '' : `<button class="claim-btn si-buy" data-pack="${pk.id}" ${credits >= pk.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${pk.price}</button>`) + '</div>').join('') + '</div>';
     }
     h += '<div class="shop-note" id="shopNote"></div>';
     body.innerHTML = h;
