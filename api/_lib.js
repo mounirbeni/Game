@@ -1,4 +1,4 @@
-// Shared helpers for the online leaderboard (Vercel Functions + a private Vercel Blob store).
+// Shared helpers for the online leaderboard (Vercel Functions + Neon Postgres; the old Vercel Blob store is only read to migrate).
 //
 // Storage layout:
 //   accounts/<NAME>.json            { name, tokenHash, tokens[], passHash, created }
@@ -12,10 +12,48 @@ import { createSnapshotCache } from './_snapshot-cache.js';
 
 // Cache only public leaderboard paths; account and save reads stay fresh.
 const leaderboardPaths = createSnapshotCache(5000);
+// Neon Postgres: the same small key/value store (path -> text) the game always used, in one table.
+// `create` only succeeds once per path, which keeps names unique and rewards claimable only once.
+async function neonStore(url) {
+  const { neon } = await import('@neondatabase/serverless');
+  const sql = neon(url);
+  await sql`create table if not exists kv (path text primary key, data text not null, t timestamptz not null default now())`;
+  const like = prefix => prefix.replace(/[\\%_]/g, m => '\\' + m) + '%';
+  return {
+    async create(path, text) { const r = await sql`insert into kv (path, data) values (${path}, ${text}) on conflict (path) do nothing returning path`; return r.length > 0; },
+    async write(path, text) { await sql`insert into kv (path, data) values (${path}, ${text}) on conflict (path) do update set data = excluded.data, t = now()`; },
+    async read(path) { const r = await sql`select data from kv where path = ${path}`; return r.length ? r[0].data : null; },
+    async list(prefix) { const r = await sql`select path from kv where path like ${like(prefix)} order by path`; return r.map(x => x.path); },
+    async remove(paths) { if (paths.length) await sql`delete from kv where path = any(${paths})`; },
+  };
+}
+// The old Vercel Blob store, read-only, to copy everything into Neon once.
+async function oldBlobStore() {
+  const b = await import('@vercel/blob');
+  return {
+    async list(prefix, cursor) { const r = await b.list({ prefix, cursor, limit: 500 }); return { paths: r.blobs.map(x => x.pathname), cursor: r.hasMore ? r.cursor : null }; },
+    async read(path) { const r = await b.get(path, { access: 'private', useCache: false }).catch(() => null); return r && r.statusCode === 200 ? await new Response(r.stream).text() : null; },
+  };
+}
+// Developer tool: copy one page of the old Blob store into Neon. Call again with the returned
+// cursor until it says done. Existing Neon rows are never overwritten.
+export async function migrateFromBlob({ secret, cursor }) {
+  if (typeof secret !== 'string' || hash(secret) !== ADMIN_SECRET_HASH) return { status: 403, body: { error: 'admin' } };
+  if (!process.env.DATABASE_URL) return { status: 400, body: { error: 'no-database' } };
+  const src = await oldBlobStore(), dst = await blob();
+  const page = await src.list('', cursor || undefined);
+  let copied = 0, skipped = 0, failed = [];
+  await Promise.all(page.paths.map(async p => {
+    try { const t = await src.read(p); if (t == null) { failed.push(p); return; } (await dst.create(p, t)) ? copied++ : skipped++; }
+    catch (e) { failed.push(p); }
+  }));
+  return { status: 200, body: { copied, skipped, failed: failed.length, failedPaths: failed.slice(0, 20), cursor: page.cursor, done: !page.cursor } };
+}
 let store;
 async function blob() {
   if (store) return store;
   if (process.env.MOCK_STORE_DIR) store = await import('./_mockstore.js');   // local tests only
+  else if (process.env.DATABASE_URL) store = await neonStore(process.env.DATABASE_URL);   // Neon Postgres
   else {
     const b = await import('@vercel/blob');
     const opts = { access: 'private' };
