@@ -913,6 +913,10 @@
 //  - any other *.vercel.app address forwards the player (and their save) to the main address,
 //  - players can copy a save code and load it on another device or after reinstalling.
 const CANONICAL_HOST = 'backman-nu.vercel.app';
+// Developer mode: the server marks developer accounts (dev: true). They get unlimited credits,
+// items, hearts and lives, every look and every level.
+const DEV_CREDITS = 999999999, DEV_ITEMS = 999;
+let devMode = (() => { try { const a = JSON.parse(localStorage.getItem('bma.account') || '{}'); return !!(a.token && a.dev); } catch (e) { return false; } })();
 const isSaveKey = k => typeof k === 'string' && (k.startsWith('backman.') || k.startsWith('bma.'));
 function readSave() {
   const d = {};
@@ -1497,8 +1501,9 @@ function loadMeta() {
 // Looks are bought with credits (Backman is free). Stronger powers cost more.
 const SKIN_PRICES = { ZOGHA: 120, Sprout: 150, Minty: 180, ES: 220, FOX: 300, Shadow: 350, Ranger: 400, Seeker: 420, Voyager: 430, Midnight: 450, MBN: 600 };
 const skinPrice = i => SKIN_PRICES[SKINS[i].name] || 200;
-const isSkinUnlocked = i => i === 0 || (i < SKINS.length && ownedSkins.has(i));
+const isSkinUnlocked = i => i === 0 || (i < SKINS.length && (devMode || ownedSkins.has(i)));
 function saveMeta() {
+  if (devMode) credits = DEV_CREDITS;   // developer: credits never run out
   if (typeof refreshHome === 'function' && document.getElementById('homeCredits')) document.getElementById('homeCredits').textContent = credits;
   try {
     localStorage.setItem('backman.credits', String(credits));
@@ -1743,7 +1748,7 @@ let magnetT = 0, bootsT = 0, bubble = 0;
 const powersAllowed = () => !live && !duel;
 function useItem(k) {
   if (!powersAllowed() || state !== 'play' || paused || !(bag[k] > 0)) return;
-  bag[k]--; saveBag();
+  if (!devMode) bag[k]--; saveBag();
   const pp = pos(player);
   if (k === 'magnet') { magnetT = 15; popup(pp.x, pp.y, 'MAGNET!', '#ff8a8a'); }
   else if (k === 'boots') { bootsT = 15; popup(pp.x, pp.y, 'SPEED!', '#ffd75a'); }
@@ -1972,7 +1977,7 @@ function checkCollisions() {
         b.mode = 'eaten'; b.frightened = false;
         popup(pp.x, pp.y, 'SHIELD!', '#c9a6ff'); burst(pp.x, pp.y, '#b48cff', 22, 5, 0.7, 0.1); sfx.lantern();
       } else {
-        lives--; updateHud();
+        if (!devMode) lives--; updateHud();
         setState('dying', 1.8); sfx.die(); deathsThisLevel++; burst(pp.x, pp.y, SKINS[skinIndex].body[1], 18, 3.5, 0.9, 0.11);
         return;
       }
@@ -3095,7 +3100,7 @@ function buySkin(i) {
 }
 $('continueBtn').addEventListener('click', () => {
   if (state !== 'over') return;
-  if ((bag.hearts || 0) > 0) { bag.hearts--; saveBag(); }      // a heart from the shop first
+  if ((bag.hearts || 0) > 0) { if (!devMode) bag.hearts--; saveBag(); }      // a heart from the shop first
   else if (credits > 0) { credits--; saveMeta(); }
   else return;
   unlockAudio();
@@ -3267,17 +3272,32 @@ async function cloudPull() {
   if (!account.token) return false;
   try {
     const r = await api('/api/account', { action: 'load', name: account.name, token: account.token });
-    if (account.hasPassword !== r.hasPassword) { account.hasPassword = r.hasPassword; saveJSON('bma.account', account); }
+    if (account.hasPassword !== r.hasPassword || !!account.dev !== !!r.dev) { account.hasPassword = r.hasPassword; account.dev = !!r.dev; saveJSON('bma.account', account); }
     cloudState = 'saved';
-    return mergeCloud(r.save);
+    const gained = mergeCloud(r.save);
+    setDevMode(!!r.dev);
+    return gained;
   } catch (e) { cloudState = 'offline'; return false; }
+}
+function applyDev() {
+  if (!devMode) return;
+  if (credits !== DEV_CREDITS) { credits = DEV_CREDITS; try { localStorage.setItem('backman.credits', String(credits)); } catch (e) { /* ignore */ } }
+  let changed = false;
+  for (const k of [...Object.keys(ITEMS), 'hearts']) if (bag[k] !== DEV_ITEMS) { bag[k] = DEV_ITEMS; changed = true; }
+  if (changed) saveBag();
+}
+function setDevMode(on) {
+  if (devMode === on) { applyDev(); return; }
+  devMode = on; applyDev();
+  try { updateHud(); updateBag(); renderPicker(); refreshHome(); } catch (e) { /* not ready yet */ }
 }
 async function loginAccount(raw, password) {
   const res = await api('/api/account', { action: 'login', name: raw, password });
   flushStats();
-  account = { name: res.name, token: res.token, hasPassword: true };
+  account = { name: res.name, token: res.token, hasPassword: true, dev: !!res.dev };
   saveJSON('bma.account', account);
   mergeCloud(res.save);
+  setDevMode(!!res.dev);
   profile = loadJSON('bma.profile', profile); profile.name = res.name; saveJSON('bma.profile', profile);
   backupNow();
 }
@@ -3972,7 +3992,7 @@ function openMap(page) {
   const art = $('mapArt'), first = mapPage * MAP_PER + 1;
   let h = '';
   MAP_SPOTS.forEach(([x, y], i) => {
-    const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : 'locked';
+    const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : devMode ? 'done' : 'locked';
     h += `<button class="map-lvl ${cls} ${isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? MAP_LOCK : `<b>${n}</b>`}</button>`;
     if (n === reached) { const sk = SKINS[skinIndex] || SKINS[0]; h += `<img class="map-me" alt="" src="assets/${sk.img ? 'skins/' + sk.img : 'backman'}.webp" style="left:${x}%;top:${y - 5.2}%">`; }
   });
@@ -4255,7 +4275,7 @@ function openSheet(which, fromRefresh = false) {
     title = 'Levels';
     const reached = loadProgress().level, shown = Math.max(reached + 4, 15);
     body.innerHTML = '<p>Replay any level you have reached. Your progress is kept.</p><div class="lvls">' +
-      Array.from({ length: shown }, (_, i) => i + 1).map(n => `<button class="lvl ${n === reached ? 'cur' : ''}" data-l="${n}" ${n > reached ? 'disabled' : ''}>${n}</button>`).join('') + '</div>';
+      Array.from({ length: shown }, (_, i) => i + 1).map(n => `<button class="lvl ${n === reached ? 'cur' : ''}" data-l="${n}" ${n > reached && !devMode ? 'disabled' : ''}>${n}</button>`).join('') + '</div>';
     body.querySelectorAll('.lvl:not(:disabled)').forEach(b => b.addEventListener('click', () => startPlay(+b.dataset.l)));
   } else if (which === 'profile') {
     title = 'Profile';
@@ -4474,6 +4494,7 @@ function frame(now) {
 
 // Title screen shows the maze in the background.
 loadMeta();
+applyDev();
 { const saved = loadProgress(); level = saved.level; score = saved.score; }
 lives = 3;
 renderPicker();

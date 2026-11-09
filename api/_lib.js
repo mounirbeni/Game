@@ -86,6 +86,8 @@ const AUTH_FAIL = { status: 401, body: { error: 'auth', message: 'Unknown player
 
 // ---------- Cloud save ----------
 const MAX_SAVE = 200000;
+// The game's developer accounts: unlimited credits, items, hearts, lives, looks and levels.
+const DEV_NAMES = ['MBN'];
 function cleanSave(save) {
   if (!save || typeof save !== 'object' || Array.isArray(save)) return null;
   const out = {};
@@ -107,7 +109,7 @@ export async function loadCloud({ name, token }) {
   if (!acc) return AUTH_FAIL;
   const text = await (await blob()).read(`saves/${acc.name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, t: rec ? rec.t : 0, save: rec ? rec.save : null } };
+  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? rec.save : null } };
 }
 // Log in on a new device with name + password: hands out a new key for that device.
 export async function login({ name: rawName, password }) {
