@@ -363,6 +363,30 @@
   .live-room b { flex: 1; min-width: 0; color: #fff; font-size: 16px; letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; }
   .live-room span { color: #9fc4ff; font-weight: 800; font-size: 13px; }
   .live-none { text-align: center; color: #9fc4ff; font-size: 13px; margin: 4px 0; }
+  /* Play live, polished */
+  .live-room .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff4d5e; box-shadow: 0 0 0 0 #ff4d5e99; animation: livePulse 1.6s infinite; flex: none; }
+  @keyframes livePulse { 0% { box-shadow: 0 0 0 0 #ff4d5e99; } 70% { box-shadow: 0 0 0 8px #ff4d5e00; } 100% { box-shadow: 0 0 0 0 #ff4d5e00; } }
+  .live-room .tag { padding: 2px 8px; border-radius: 999px; background: #050c33; border: 1px solid var(--rim); color: #cfe0ff; font-size: 11px; font-weight: 800; }
+  .live-room .count { color: #ffd75a; font-weight: 900; font-size: 13px; }
+  .live-head { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 18px 0 8px; }
+  .live-head .phead { margin: 0; }
+  .live-head small { color: #9fc4ff; font-size: 11px; font-weight: 700; }
+  .live-codebox { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 4px 0 10px; padding: 10px 12px 12px; border-radius: 16px; background: linear-gradient(#0f1d66, var(--navy-2)); border: 2px solid var(--rim-strong); }
+  .live-codebox p { margin: 0 !important; font-size: 12px; color: #9fc4ff !important; text-transform: uppercase; letter-spacing: .12em; font-weight: 800; }
+  .live-codebox .live-code { margin: 0; line-height: 1; text-shadow: 0 3px 0 #6a3b00; }
+  .live-share { margin-top: 6px; }
+  .live-bottom { display: flex; justify-content: center; margin-top: 10px; }
+  .live-room-info { text-align: center; margin: 2px 0 8px; color: #d6defc; font-size: 14px; }
+  .live-room-info b { color: #ffd75a; letter-spacing: .08em; }
+  /* notification popup: what you get, one line each */
+  .push-perks { list-style: none; margin: 2px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+  .push-perks li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 12px; background: linear-gradient(#0f1d66, var(--navy-2)); border: 1px solid var(--rim); color: #e6eeff; font-size: 14px; font-weight: 700; }
+  .push-perks li span { font-size: 20px; width: 26px; text-align: center; flex: none; }
+  /* account window: show/hide the password */
+  .pw-wrap { position: relative; display: flex; }
+  .pw-wrap input { flex: 1; min-width: 0; padding-right: 48px !important; }
+  .pw-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border: 0; background: none; color: #cfe0ff; font-size: 18px; cursor: pointer; }
+  .gate-hint { font-size: 12px !important; color: #9fc4ff !important; margin-top: -2px !important; }
   .sheet-card { width: 100%; max-width: 560px; max-height: 86%; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 14px 16px calc(env(safe-area-inset-bottom) + 18px);
     background: linear-gradient(#123456, #0a1e33); border: 2px solid #2d6aa0; border-bottom: 0; box-shadow: 0 -8px 30px #000a; color: #fff; }
   .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -564,7 +588,7 @@
   .gold-btn, .claim-btn, .mission button, .shop-msg .buy, .tabs button.on, .toggle.on {
     border: 14px solid transparent !important; border-image: url(assets/btn-green.webp) 70 80 70 80 fill / 14px 16px 14px 16px stretch !important; background: none !important;
     color: #fff !important; text-shadow: 0 2px 0 #135a0d, 1px 0 0 #135a0d, -1px 0 0 #135a0d !important; box-shadow: none !important; filter: drop-shadow(0 3px 3px #0008); border-radius: 0 !important; }
-  .tabs button, .toggle, .shop-msg .cancel, .danger-btn, .lb-x, .gate-card .plink, button.install {
+  .tabs button, .toggle, .shop-msg .cancel, .danger-btn, .lb-x, .gate-card .plink, button.install, .live-leave, .live-share {
     border: 14px solid transparent !important; border-image: url(assets/btn-blue.webp) 90 80 90 80 fill / 14px 16px 14px 16px stretch !important; background: none !important;
     color: #fff !important; text-shadow: 0 2px 0 #0a1a6e, 1px 0 0 #0a1a6e, -1px 0 0 #0a1a6e !important; box-shadow: none !important; filter: drop-shadow(0 3px 3px #0008); border-radius: 0 !important; text-decoration: none !important; }
   .gold-btn { width: 88%; margin: 10px auto 0; padding: 4px 8px 6px; font-size: 20px !important; }
@@ -576,9 +600,9 @@
   .lb-x { width: 34px; height: 30px; padding: 0 !important; font-size: 16px; border-width: 10px !important; border-image-width: 10px !important; }
   .gold-btn:disabled, .claim-btn:disabled, .mission button:disabled { filter: grayscale(1) brightness(.75) !important; }
   .gold-btn:active, .claim-btn:active, .tabs button:active, .mission button:active, .toggle:active { transform: translateY(2px) scale(.98); }
-  .gate-card .plink, button.install { padding: 0 8px 2px !important; font-size: 14px !important; }
+  .gate-card .plink, button.install, .live-leave, .live-share { padding: 0 10px 2px !important; font-size: 14px !important; cursor: pointer; }
   /* rows, tiles and panels inside: deep navy with a thin gold rim */
-  .lb-row, .mission, .day, .live-p, .duel, .pstat, .rows td, .set-row, .live-res div, .kit-panel {
+  .lb-row, .mission, .day, .live-p, .duel, .pstat, .rows td, .set-row, .live-res div, .kit-panel, .live-room {
     background: linear-gradient(#0f1d66, var(--navy-2)) !important; border: 2px solid var(--rim) !important; border-radius: 14px; box-shadow: inset 0 1px 0 #ffffff1a; }
   .rows td, .set-row { background: none !important; border: 0 !important; border-bottom: 1px solid #ffcf3a33 !important; border-radius: 0; box-shadow: none; }
   .lb-row.me { border-color: #7dff6a !important; box-shadow: 0 0 10px #7dff6a44; }
@@ -826,7 +850,8 @@
     <h3 id="gateTitle"></h3>
     <p id="gateText"></p>
     <input id="gName" maxlength="5" autocapitalize="characters" autocomplete="username" spellcheck="false" placeholder="NAME" aria-label="Player name">
-    <input id="gPass" type="password" maxlength="64" placeholder="Password (6+ characters)" aria-label="Password">
+    <div class="pw-wrap"><input id="gPass" type="password" maxlength="64" placeholder="Password (6+ characters)" aria-label="Password"><button type="button" class="pw-eye" id="gEye" aria-label="Show password">👁</button></div>
+    <p class="gate-hint hidden" id="gHint">Forgot your password? Ask MBN, the game's developer, to reset it.</p>
     <button class="gold-btn" id="gGo"></button>
     <div class="gate-msg" id="gMsg"></div>
     <button class="plink" id="gSwitch"></button>
@@ -3434,6 +3459,7 @@ function updateGate() {
   $('gPass').autocomplete = login ? 'current-password' : 'new-password';
   $('gGo').textContent = setPass ? 'Save password' : login ? 'Log in' : 'Create account';
   $('gSwitch').classList.toggle('hidden', setPass);
+  $('gHint').classList.toggle('hidden', !login);
   $('gSwitch').textContent = login ? 'New player? Create an account' : 'Already have an account? Log in';
   $('gMsg').textContent = ''; $('gMsg').className = 'gate-msg'; $('gGo').disabled = false;
   if (state === 'playing') paused = true;
@@ -3441,6 +3467,8 @@ function updateGate() {
 }
 $('gName').addEventListener('input', () => { const n = $('gName'), v = n.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); if (v !== n.value) n.value = v; });
 $('gSwitch').addEventListener('click', () => { gateMode = gateMode === 'login' ? 'claim' : 'login'; updateGate(); });
+$('gEye').addEventListener('click', () => { const i = $('gPass'), show = i.type === 'password'; i.type = show ? 'text' : 'password'; $('gEye').textContent = show ? '🙈' : '👁'; $('gEye').setAttribute('aria-label', show ? 'Hide password' : 'Show password'); });
+$('gName').addEventListener('keydown', e => { if (e.key === 'Enter') $('gPass').focus(); });
 $('gPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('gGo').click(); });
 $('gGo').addEventListener('click', async () => {
   const msg = $('gMsg'), go = $('gGo'), v = $('gName').value, pw = $('gPass').value, setPass = !!account.token, login = !setPass && gateMode === 'login';
@@ -3514,7 +3542,7 @@ function maybeAskPush() {
   const later = days => { try { localStorage.setItem('bmapushask', JSON.stringify({ until: Date.now() + days * 86400000 })); } catch (e) { /* ignore */ } $('pushAsk').classList.add('hidden'); };
   $('pushAskMsg').textContent = '';
   if (mode === 'ask') {
-    $('pushAskText').textContent = 'Get a notification when a friend challenges you, opens a live room or passes your score, and when your daily reward is ready.';
+    $('pushAskText').innerHTML = 'Never miss a moment:<ul class="push-perks"><li><span>⚔️</span>A friend challenges you</li><li><span>🎮</span>A friend opens a live room</li><li><span>🏆</span>Someone passes your score</li><li><span>🎁</span>Your daily reward is ready</li></ul>';
     $('pushAskYes').textContent = 'Turn on'; $('pushAskYes').classList.remove('hidden'); $('pushAskNo').textContent = 'Not now';
     $('pushAskYes').onclick = async () => {
       $('pushAskYes').disabled = true;
@@ -4143,21 +4171,21 @@ function liveSheetHtml() {
       <div class="live-or">or join a friend's room</div>
       <div class="friend-add"><input id="liveCode" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ROOM CODE"><button class="claim-btn" id="liveJoin">Join</button></div>
       <div class="live-msg" id="liveMsg">${esc(liveSheetHtml.msg || '')}</div>
-      <h4 class="phead">Open rooms</h4><div class="live-rooms" id="liveRooms">${openRoomsHtml()}</div>`;
+      <div class="live-head"><h4 class="phead">Open rooms</h4><small>updates by itself</small></div><div class="live-rooms" id="liveRooms">${openRoomsHtml()}</div>`;
   }
   const face = p => `<canvas class="lb-face" data-look="${p.look}"></canvas>`;
   const people = lobbyPeers();
   let h = '';
   if (L.role === 'host') {
-    h += L.code ? `<p style="text-align:center;margin:0">Room code</p><div class="live-code">${L.code}</div>` : '';
+    h += L.code ? `<div class="live-codebox"><p>Room code</p><div class="live-code">${L.code}</div><button class="live-share" id="liveShare">Share the code</button></div>` : '';
     h += `<div class="live-modes"><button data-lmode="race" class="${L.mode === 'race' ? 'on' : ''}">Race<small>Most points wins</small></button><button data-lmode="coop" class="${L.mode === 'coop' ? 'on' : ''}">Team<small>Clear it together</small></button></div>`;
-  } else h += `<p style="text-align:center">Room <b style="color:#ffd75a">${L.code}</b>${L.host && L.host.name ? ` · host ${esc(L.host.name)}` : ''} · ${L.mode === 'coop' ? 'Team' : 'Race'}</p>`;
+  } else h += `<p class="live-room-info">Room <b>${L.code}</b>${L.host && L.host.name ? ` · host ${esc(L.host.name)}` : ''} · ${L.mode === 'coop' ? 'Team' : 'Race'}</p>`;
   h += '<div class="live-players">' + people.map(p => `<div class="live-p">${face(p)}<span>${esc(p.name)}${p.name === account.name ? ' <small class="you">YOU</small>' : ''}</span><small class="${p.ok ? 'ok' : ''}">${p.ok ? 'Ready' : 'Connecting…'}</small></div>`).join('') + '</div>';
   if (L.role === 'host') {
     const n = Object.values(L.peers).filter(p => p.open).length;
     h += `<button class="gold-btn" id="liveStart" ${n ? '' : 'disabled'}>${n ? `Start (${n + 1} players)` : 'Waiting for friends…'}</button>`;
   }
-  h += `<div class="live-msg ${L.ok ? 'ok' : ''}" id="liveMsg">${esc(L.msg || '')}</div><button class="plink" id="liveCancel">${L.role === 'host' ? 'Close the room' : 'Leave'}</button>`;
+  h += `<div class="live-msg ${L.ok ? 'ok' : ''}" id="liveMsg">${esc(L.msg || '')}</div><div class="live-bottom"><button class="live-leave" id="liveCancel">${L.role === 'host' ? 'Close the room' : 'Leave the room'}</button></div>`;
   return h;
 }
 // Open rooms anyone can join, refreshed every few seconds while the Play live window is open.
@@ -4165,7 +4193,7 @@ let openRooms = null, openRoomsTimer = 0;
 function openRoomsHtml() {
   if (!openRooms) return '<p class="live-none">Looking for rooms…</p>';
   if (!openRooms.length) return '<p class="live-none">No open rooms right now. Create one!</p>';
-  return openRooms.map(r => `<div class="live-room"><b>${esc(r.host)}</b><span>${r.mode === 'coop' ? 'Team' : 'Race'} · ${r.players}/4</span><button class="claim-btn" data-room="${esc(r.code)}">Join</button></div>`).join('');
+  return openRooms.map(r => `<div class="live-room"><i class="live-dot"></i><b>${esc(r.host)}</b><span class="tag">${r.mode === 'coop' ? 'Team' : 'Race'}</span><span class="count">${r.players}/4</span><button class="claim-btn" data-room="${esc(r.code)}">Join</button></div>`).join('');
 }
 async function refreshOpenRooms() {
   clearTimeout(openRoomsTimer);
@@ -4189,6 +4217,11 @@ function wireLiveSheet(body) {
     $('liveJoin').addEventListener('click', go); inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
   }
   if ($('liveStart')) $('liveStart').addEventListener('click', liveHostStart);
+  if ($('liveShare')) $('liveShare').addEventListener('click', async e => {
+    const code = lobby && lobby.code, text = `Join my Bug Maze live room! Code: ${code}  https://${CANONICAL_HOST}/#live`;
+    try { if (navigator.share) { await navigator.share({ title: 'Bug Maze live room', text }); return; } } catch (err) { if (err && err.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text); e.target.textContent = 'Copied!'; } catch (err) { e.target.textContent = code; }
+  });
   if ($('liveCancel')) $('liveCancel').addEventListener('click', () => { liveLeave(true); liveSheetHtml.msg = ''; openSheet('live', true); });
   body.querySelectorAll('.lb-face').forEach(cv => paintAvatar(cv, 30, 'look:' + Math.min(+cv.dataset.look || 0, SKINS.length - 1)));
 }
