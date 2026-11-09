@@ -120,7 +120,7 @@ export async function login({ name: rawName, password }) {
   await (await blob()).write(`accounts/${name}.json`, JSON.stringify(acc));
   const text = await (await blob()).read(`saves/${name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name, token, hasPassword: true, t: rec ? rec.t : 0, save: rec ? rec.save : null } };
+  return { status: 200, body: { name, token, hasPassword: true, dev: DEV_NAMES.includes(name), t: rec ? rec.t : 0, save: rec ? rec.save : null } };
 }
 // ---------- Gifts ----------
 // Credits handed out to players. Each gift goes to every account that existed when it was made

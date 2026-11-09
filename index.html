@@ -3320,8 +3320,23 @@ let worldBoard = null, worldBoardAt = 0, myRank = null, submitTimer = 0, lastSen
 async function api(path, body) {
   const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' } : { cache: 'no-store' });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = new Error(data.message || 'Network error'); e.code = data.error; throw e; }
+  if (!r.ok) {
+    const e = new Error(data.message || 'Network error'); e.code = data.error;
+    // this device's key was refused: ask the player to log in again instead of failing silently
+    if (data.error === 'auth' && body && body.token && body.token === account.token) keyRefused();
+    throw e;
+  }
   return data;
+}
+function keyRefused() {
+  if (!account.token) return;
+  flushStats(); backupNow();
+  const name = account.name;
+  account = { name: '', token: '', hasPassword: false }; saveJSON('bma.account', account);
+  gateMode = 'login';
+  try { $('gName').value = name; } catch (e) { /* ignore */ }
+  updateGate();
+  try { $('gMsg').className = 'gate-msg bad'; $('gMsg').textContent = 'Please log in again to keep your progress saved online.'; } catch (e) { /* ignore */ }
 }
 async function claimName(raw, password) {
   const res = await api('/api/claim', { name: raw, password });
