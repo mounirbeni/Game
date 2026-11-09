@@ -126,7 +126,8 @@ each player can only play once and collect once.
 
 ## Gates
 
-Every maze has a gate in the left and right walls: walk out of one side and come back in on the
+Levels 1 to 5 have no gates (their beetles are a little slower to make up for it). From level 6
+every maze has a gate in the left and right walls: walk out of one side and come back in on the
 other. From **level 20** there is also a gate in the top and bottom walls, and every **15 seconds
 all the gates move** to new places. The open gates blink orange just before they move. They wait
 for anyone standing in a doorway, so nobody gets stuck. Beetles slow down in the doorways.

@@ -755,10 +755,10 @@ function mapForLevel(n, seed) {
 // ---------- Gates ----------
 // Every maze has a gate on the left and right (one row). From level 20 there are also gates in
 // the top and bottom walls (one column), and every 15 seconds all the gates move somewhere new.
-const MOVING_GATES_LEVEL = 20, GATE_EVERY = 15, GATE_WARN = 2.5;
+const NO_GATES_UNTIL = 5, MOVING_GATES_LEVEL = 20, GATE_EVERY = 15, GATE_WARN = 2.5;
 const gatesMove = () => level >= MOVING_GATES_LEVEL && !duel;
 function setupGates(n) {
-  TUNNEL_ROW = GATE.y + 1; DOOR_COL = -1; gateTimer = GATE_EVERY;
+  TUNNEL_ROW = n <= NO_GATES_UNTIL ? -1 : GATE.y + 1; DOOR_COL = -1; gateTimer = GATE_EVERY;
   gateRows = []; gateCols = [];
   for (let y = 1; y < ROWS - 1; y++) if (MAP[y][1] !== '#') gateRows.push(y);
   for (let x = 2; x < COLS - 2; x++) if (MAP[1][x] !== '#' && MAP[ROWS - 2][x] !== '#') gateCols.push(x);
@@ -777,8 +777,18 @@ function updateGates(dt) {
   for (const [x, y] of [[0, TUNNEL_ROW], [COLS - 1, TUNNEL_ROW], [DOOR_COL, 0], [DOOR_COL, ROWS - 1]]) if (x >= 0) burst(x, y, '#ffcf5a', 10, 3, 0.5);
   sfx.portal();
 }
+// Levels 1-5 have no gates at all: the side tunnel is filled in so it doesn't leave a dead end.
+function sealTunnel(M) {
+  const rows = M.map(r => r.split('')), y = M.findIndex(r => r.includes('-')) + 1, W = rows[0].length;
+  for (let x = 0; x < W / 2; x++) {
+    if (rows[y][x] === '#' || rows[y - 1][x] !== '#' || rows[y + 1][x] !== '#') break;   // reached the ring road
+    rows[y][x] = '#'; rows[y][W - 1 - x] = '#';
+  }
+  return rows.map(r => r.join(''));
+}
 function applyLevelMap(n, seed) {
   MAP = mapForLevel(n, seed);
+  if (n <= NO_GATES_UNTIL) MAP = sealTunnel(MAP);
   COLS = MAP[0].length; ROWS = MAP.length;
   GATE = findTile('-');
   setupGates(n);
@@ -969,7 +979,8 @@ function speeds() {
   const player = (7.5 + l * 0.1) * (hasPerk('FOX') ? 1.1 : 1);
   return {
     player,
-    beetle: isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2),
+    // levels without gates have no escape tunnel, so their beetles are a little slower
+    beetle: (isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1),
     fright: 4.2,
     tunnel: 3.6,
     eaten: 15,
