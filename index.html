@@ -93,6 +93,37 @@
   #home { position: fixed; left: 0; top: 0; width: 100%; height: var(--app-h, 100%); z-index: 40; overflow: hidden; isolation: isolate;
     display: flex; flex-direction: column; background: #050c12; }
   #home.hidden { display: none; }
+  /* ---- Level map: 8 stone platforms per page on a jungle path ---- */
+  #mapScreen { position: fixed; left: 0; top: 0; width: 100%; height: var(--app-h, 100%); z-index: 45; background: #0b2a2c; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #mapScreen.hidden { display: none; }
+  .map-art { position: relative; height: 100%; aspect-ratio: 941 / 1672; max-width: 100%; background: url(assets/level-map.webp) center / cover no-repeat; container-type: inline-size; }
+  @supports not (aspect-ratio: 1) { .map-art { width: 100%; } }
+  .map-lvl { position: absolute; transform: translate(-50%, -50%); width: 25cqw; height: 13cqw; border: 0; padding: 0; background: none; cursor: pointer;
+    font: 900 10cqw/1 ui-rounded, system-ui, sans-serif; color: #fff; -webkit-tap-highlight-color: transparent;
+    text-shadow: 0 0.5cqw 0 #12305a, 0.4cqw 0 0 #12305a, -0.4cqw 0 0 #12305a, 0 -0.4cqw 0 #12305a, 0 1cqw 2cqw #000a; }
+  .map-lvl:active { transform: translate(-50%, -46%); }
+  .map-lvl.locked { color: #9fb3c8; cursor: default; text-shadow: 0 0.5cqw 0 #233; opacity: .8; }
+  .map-lvl.locked::after { content: ''; position: absolute; left: 50%; top: 46%; width: 5cqw; height: 4cqw; transform: translateX(-50%); border-radius: .8cqw; background: #4b5d70; box-shadow: 0 -2.4cqw 0 -0.6cqw transparent; }
+  .map-lvl.locked::before { content: ''; position: absolute; left: 50%; top: 24%; width: 3cqw; height: 3cqw; transform: translateX(-50%); border: .8cqw solid #4b5d70; border-bottom: 0; border-radius: 2cqw 2cqw 0 0; }
+  .map-lvl.done small { position: absolute; left: 50%; top: 86%; transform: translateX(-50%); font-size: 3.2cqw; color: #ffd75a; text-shadow: 0 .3cqw 0 #5a3a00; letter-spacing: .5cqw; }
+  .map-lvl.cur { color: #fff6b0; }
+  .map-lvl.cur::before { content: ''; position: absolute; inset: -6% -4%; border-radius: 50%; box-shadow: 0 0 4cqw 1.5cqw #ffe36a; opacity: .55; animation: mapglow 1.4s ease-in-out infinite; pointer-events: none; }
+  .map-lvl.star { color: #ffcf7a; }
+  @keyframes mapglow { 50% { opacity: .15; } }
+  .map-me { position: absolute; width: 15cqw; height: 15cqw; object-fit: contain; transform: translate(-50%, -100%); pointer-events: none; animation: maphop 1s ease-in-out infinite; filter: drop-shadow(0 1.5cqw 1cqw #000a); }
+  @keyframes maphop { 50% { margin-top: -2.5cqw; } }
+  .map-gate { position: absolute; left: 68%; top: 12.8%; width: 26cqw; height: 18cqw; transform: translate(-50%, -50%); border: 0; background: none; cursor: pointer; }
+  .map-gate span, .map-down span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; padding: 1cqw 3cqw; border-radius: 99px;
+    font: 900 4cqw/1.1 ui-rounded, system-ui, sans-serif; color: #fff; background: #0b3a24cc; border: .6cqw solid #9dff7a; }
+  .map-down { position: absolute; left: 50%; bottom: 1.5%; width: 40cqw; height: 9cqw; transform: translateX(-50%); border: 0; background: none; cursor: pointer; }
+  .map-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; padding: calc(env(safe-area-inset-top) + 2cqw) 3cqw 0; pointer-events: none; }
+  .map-top h3 { margin: 0; padding: 1.5cqw 4cqw; border-radius: 99px; font: 900 5cqw/1.1 ui-rounded, system-ui, sans-serif; color: #ffd75a; background: #08142acc; border: .6cqw solid #ffcf3a; }
+  .map-top button { pointer-events: auto; width: 11cqw; height: 11cqw; border-radius: 50%; border: .7cqw solid #8fa4ff; background: #23338e; color: #fff; font: 900 6cqw/1 system-ui; cursor: pointer; }
+  /* the home Level button: stone plaque with a ladybug */
+  #home .play-btn { min-width: 0; width: min(78vw, 300px); aspect-ratio: 2139 / 665; padding: 0 0 1% 0; border: 0; border-radius: 0; box-shadow: none;
+    background: url(assets/level-btn.webp) center / contain no-repeat; filter: drop-shadow(0 6px 10px #000a); display: flex; align-items: center; justify-content: center; }
+  #home .play-btn:active { transform: translateY(3px) scale(.98); box-shadow: none; filter: drop-shadow(0 3px 6px #000a) brightness(1.08); }
+  #home .play-btn .pb-text { text-shadow: 0 3px 0 #0b2a7a, 2px 0 0 #0b2a7a, -2px 0 0 #0b2a7a, 0 -2px 0 #0b2a7a, 0 4px 10px #000c; }
   /* the artwork starts a little lower so the ladybug above the logo sits below the level bar;
      the strip above it shows the blurred copy and fades in softly */
   #home::before { content: ''; position: absolute; inset: calc(env(safe-area-inset-top) + 40px) 0 0; max-width: min(560px, 56.3vh); margin: 0 auto; z-index: -1;
@@ -333,7 +364,7 @@
     .avatar-btn { width: 48px; height: 48px; } .hpill { height: 36px; } .hpill b { font-size: 15px; } .hicon img { width: 28px; height: 28px; }
     .hpill small.full { display: none; } .gear { width: 40px; height: 40px; }
     .bubble { width: 70px; height: 70px; } .blabel { font-size: 11.5px; }
-    .pb-text { font-size: 27px; } .play-btn { min-width: 160px; }
+    .pb-text { font-size: 27px; } #home .play-btn { width: min(72vw, 260px); }
   }
   @media (max-height: 700px) {
     .bubbles { gap: 14px; } .bubble { width: 62px; height: 62px; } .blabel { font-size: 11px; padding: 1px 7px; bottom: -12px; }
@@ -390,6 +421,9 @@
 </head>
 <body>
 
+<div id="mapScreen" class="hidden" role="dialog" aria-label="Levels">
+  <div class="map-art" id="mapArt"></div>
+</div>
 <div id="home">
   <div class="fireflies" aria-hidden="true"><i style="left:10%;top:48%;animation-delay:0s;animation-duration:7s"></i><i style="left:24%;top:62%;animation-delay:1.5s;animation-duration:9s"></i><i style="left:40%;top:55%;animation-delay:3s;animation-duration:8s"></i><i style="left:58%;top:66%;animation-delay:0.8s;animation-duration:10s"></i><i style="left:74%;top:50%;animation-delay:2.2s;animation-duration:7.5s"></i><i style="left:88%;top:60%;animation-delay:4s;animation-duration:9s"></i><i style="left:16%;top:74%;animation-delay:2.8s;animation-duration:8.5s"></i><i style="left:66%;top:78%;animation-delay:1.2s;animation-duration:9.5s"></i><i style="left:90%;top:72%;animation-delay:3.6s;animation-duration:7s"></i><i style="left:48%;top:80%;animation-delay:0.4s;animation-duration:8s"></i></div>
   <div class="home-col">
@@ -3394,6 +3428,32 @@ function wireLiveSheet(body) {
   body.querySelectorAll('.lb-face').forEach(cv => paintAvatar(cv, 30, 'look:' + Math.min(+cv.dataset.look || 0, SKINS.length - 1)));
 }
 
+// ---------- Level map ----------
+// The jungle path has 8 stone platforms: levels 8p+1 .. 8p+8 (bottom to top). The glowing gate at
+// the top opens the next 8 levels; the button at the bottom goes back.
+const MAP_SPOTS = [[36.3, 81.3], [71.7, 68.8], [32.7, 59.4], [66.2, 50.5], [32.4, 41.6], [66.7, 33.1], [36.1, 26.2], [62.2, 20.2]];
+let mapPage = 0;
+function openMap(page) {
+  const reached = loadProgress().level;
+  mapPage = page != null ? Math.max(0, page) : Math.floor((reached - 1) / 8);
+  const art = $('mapArt'), first = mapPage * 8 + 1;
+  let h = `<div class="map-top"><h3>Levels ${first}–${first + 7}</h3><button id="mapClose" aria-label="Close">&times;</button></div>`;
+  MAP_SPOTS.forEach(([x, y], i) => {
+    const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : 'locked';
+    h += `<button class="map-lvl ${cls} ${isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? '' : n}${cls === 'done' ? '<small>★★★</small>' : ''}</button>`;
+    if (n === reached) { const sk = SKINS[skinIndex] || SKINS[0]; h += `<img class="map-me" alt="" src="assets/${sk.img ? 'skins/' + sk.img : 'backman'}.webp" style="left:${x}%;top:${y - 3}%">`; }
+  });
+  h += `<button class="map-gate" id="mapNext" aria-label="Next levels"><span>Levels ${first + 8}–${first + 15} &#9650;</span></button>`;
+  if (mapPage > 0) h += `<button class="map-down" id="mapPrev" aria-label="Previous levels"><span>&#9660; Levels ${first - 8}–${first - 1}</span></button>`;
+  art.innerHTML = h;
+  art.querySelectorAll('.map-lvl:not([disabled])').forEach(b => b.addEventListener('click', () => { closeMap(); startPlay(+b.dataset.l); }));
+  $('mapNext').addEventListener('click', () => openMap(mapPage + 1));
+  if ($('mapPrev')) $('mapPrev').addEventListener('click', () => openMap(mapPage - 1));
+  $('mapClose').addEventListener('click', closeMap);
+  $('mapScreen').classList.remove('hidden');
+}
+function closeMap() { $('mapScreen').classList.add('hidden'); }
+
 // ---------- home UI ----------
 const homeEl = $('home');
 let sheetOpen = null;
@@ -3438,7 +3498,8 @@ function closeSheet() { sheetOpen = null; $('sheet').classList.add('hidden'); }
 
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function openSheet(which, fromRefresh = false) {
-  if (which === 'home') { closeSheet(); return; }
+  if (which === 'home') { closeSheet(); closeMap(); return; }
+  if (which === 'levels') { closeSheet(); openMap(); return; }
   sheetOpen = which;
   const body = $('sheetBody'); let title = '';
   if (which === 'daily') {
