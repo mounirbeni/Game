@@ -42,12 +42,12 @@
   #lives .life img { width: 24px; height: 24px; display: block; filter: drop-shadow(0 2px 1px #0008); }
   /* bottom bar: lives | score and level | pause, each on its stone-and-gold frame at its true proportions.
      One height is shared so the three frames always fit the screen width side by side. */
-  #hud { --hh: min(54px, calc((100vw - 34px) / 7.95)); gap: 8px; justify-content: center; }
+  #hud { --hh: min(54px, calc((100vw - 40px) / 7.93)); gap: 8px; justify-content: center !important; margin: 0 auto; }
   .hud-pill, #hud .icon-btn { height: var(--hh); padding: 0; border: 0; border-radius: 0; box-shadow: none; display: flex; align-items: center; justify-content: center;
     background: center / 100% 100% no-repeat; filter: drop-shadow(0 4px 5px #0009); }
-  .hud-lives { aspect-ratio: 1617 / 645; min-width: 0; background-image: url(assets/frame-mid.webp); }
-  .hud-score { aspect-ratio: 2101 / 473; flex: none; max-width: none; flex-direction: column; line-height: 1; background-image: url(assets/frame-long.webp); }
-  #hud .icon-btn { width: auto; aspect-ratio: 1096 / 1123; background-image: url(assets/frame-square.webp); color: #fff; }
+  .hud-lives { flex: none; width: calc(var(--hh) * 2.507); min-width: 0; background-image: url(assets/frame-mid.webp); }
+  .hud-score { width: calc(var(--hh) * 4.442); flex: none; max-width: none; flex-direction: column; line-height: 1; background-image: url(assets/frame-long.webp); }
+  #hud .icon-btn { flex: none; width: calc(var(--hh) * .976); background-image: url(assets/frame-square.webp); color: #fff; }
   #hud .icon-btn svg { width: 42%; height: 42%; filter: drop-shadow(0 2px 0 #060b2e); }
   #hud .icon-btn:active { transform: translateY(2px); }
   .hud-score #score { font-size: calc(var(--hh) * .4); font-weight: 900; color: #fff; text-shadow: 0 2px 0 #060b2e, 1px 0 0 #060b2e, -1px 0 0 #060b2e; font-variant-numeric: tabular-nums; }
@@ -84,9 +84,9 @@
     padding: 56px 50px 60px 40px; filter: drop-shadow(0 14px 24px #000c); }
   /* win / lose cards: the plain stone frame, the two characters popping out over the top, one title,
      one line of info, a green button for the main action and blue buttons for the others */
-  .card.fate-card { border: 0; border-image: none; width: min(88vw, 350px, calc(var(--app-h, 100vh) * .6)); aspect-ratio: 1075 / 1328; padding: 0 8cqw 7cqw;
-    background: url(assets/frame-plain.webp) center / 100% 100% no-repeat; max-height: none; overflow: visible; container-type: inline-size;
-    display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0; padding-top: 0; margin-top: 16cqw; }
+  .card.fate-card { width: min(88vw, 350px); aspect-ratio: auto; padding: 0 12px 10px; background: none;
+    border: 26px solid transparent; border-image: url(assets/frame-plain.webp) 70 52 70 52 fill / 34px 26px 34px 26px stretch; max-height: none; overflow: visible; container-type: inline-size;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4.4cqw; margin-top: 18cqw; }
   .fate-scene { position: relative; width: 92cqw; margin-top: -16cqw; flex: none; pointer-events: none; filter: drop-shadow(0 2cqw 2cqw #000a); }
   .fate-card.lose .fate-scene { width: 98cqw; margin-top: -12cqw; }
   .fate-card > .fate-title { margin-top: 1cqw; }
@@ -1170,6 +1170,7 @@ function unlockAudio() {
   const a = audio(); if (!a) return;
   if (a.state !== 'running') a.resume().catch(() => {});
   try { const s = a.createBufferSource(); s.buffer = a.createBuffer(1, 1, 22050); s.connect(a.destination); s.start(0); } catch (e) { /* ignore */ }
+  audioIdleSoon();
 }
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => {
@@ -1178,14 +1179,22 @@ document.addEventListener('visibilitychange', () => {
     if (actx && actx.state === 'running') actx.suspend().catch(() => {});
     try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* ignore */ }
   }
-  else if (actx && !muted) actx.resume().catch(() => {});
+  else if (actx && !muted) audioIdleSoon();   // it wakes up again with the next sound
 });
 
 const jitter = (v, amt) => v * (1 + (Math.random() * 2 - 1) * amt);
+// The audio is switched off whenever the game is quiet for a moment: an idle but running audio
+// channel makes iOS show a "now playing" waveform in the Dynamic Island / status bar.
+let audioIdleTimer = 0;
+function audioIdleSoon() {
+  clearTimeout(audioIdleTimer);
+  audioIdleTimer = setTimeout(() => { if (actx && actx.state === 'running') actx.suspend().catch(() => {}); }, 1500);
+}
 function play(fn) {
   if (muted) return;
   const a = audio(); if (!a) return;
-  if (a.state !== 'running') { a.resume().catch(() => {}); return; }
+  audioIdleSoon();
+  if (a.state !== 'running') { a.resume().then(() => { try { fn(a.currentTime + 0.01); } catch (e) { /* ignore */ } }).catch(() => {}); return; }
   fn(a.currentTime + 0.005);
 }
 // a burst of filtered noise: crunch, pop, whoosh
