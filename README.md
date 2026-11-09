@@ -131,3 +131,18 @@ every maze has a gate in the left and right walls: walk out of one side and come
 other. From **level 20** there is also a gate in the top and bottom walls, and every **15 seconds
 all the gates move** to new places. The open gates blink orange just before they move. They wait
 for anyone standing in a doorway, so nobody gets stuck. Beetles slow down in the doorways.
+
+## Play live with friends (real time)
+
+Tap **Play live with friends** on the home screen. One player creates a room and shares its
+4-letter code; up to 3 friends join with the code. Two modes:
+
+- **Race**: shared seeds. Each player has 3 lives, and the most points when the maze is empty wins
+  (+10 credits; everyone else gets +2).
+- **Team**: clear the maze together with shared lives (3 + 1 per extra player). The team gets +5
+  credits each when it clears the maze, +1 if it runs out of lives.
+
+The phones talk directly to each other (WebRTC data channels, STUN only). `/api/room` only passes
+the connection offer and answer through the room code. The host's phone runs the match and sends
+the state about 20 times a second; the others send their direction. Character powers are off in
+live matches. The maze uses the host's level (between 6 and 12) with a fresh layout.

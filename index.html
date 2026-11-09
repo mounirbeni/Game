@@ -152,6 +152,27 @@
   .play-btn { min-width: 180px; padding: 8px 26px 10px; border-radius: 24px; cursor: pointer; font: inherit;
     background: linear-gradient(#8fe86a 0%, #4fcb3a 50%, #2fa72a 100%); border: 4px solid #1d6a1a;
     box-shadow: inset 0 5px 0 #c8ff9e, inset 0 -7px 0 #23861f, 0 6px 0 #124e10, 0 10px 22px #000a; }
+  .live-btn { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 999px; cursor: pointer;
+    font: 900 15px/1.1 ui-rounded, system-ui, sans-serif; color: #fff; text-shadow: 0 1px 1px #000; background: linear-gradient(#3fb6ff, #1f6fd8);
+    border: 3px solid #0d3f8a; box-shadow: inset 0 3px 0 #9fdcff, 0 4px 0 #0a2f66, 0 6px 14px #0009; }
+  .live-btn:active { transform: translateY(2px); }
+  .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff4d5e; box-shadow: 0 0 0 3px #ff4d5e55; animation: livepulse 1.2s infinite; }
+  @keyframes livepulse { 50% { box-shadow: 0 0 0 6px #ff4d5e22; } }
+  .live-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+  .live-modes button { padding: 10px 8px; border-radius: 14px; border: 2px solid #2d6aa0; background: #0c223a; color: #cfe0ff; font: inherit; font-weight: 900; cursor: pointer; text-align: center; }
+  .live-modes button small { display: block; font-weight: 700; font-size: 11px; color: #9fc4ff; margin-top: 3px; }
+  .live-modes button.on { border-color: #ffcf3a; color: #fff; background: linear-gradient(#3a2f08, #0c223a); }
+  .live-code { text-align: center; font-size: 44px; font-weight: 900; letter-spacing: 10px; color: #ffd75a; margin: 6px 0 0; }
+  .live-or { text-align: center; color: #9fc4ff; font-size: 12px; margin: 12px 0 6px; }
+  .live-msg { min-height: 16px; font-size: 12px; color: #ffb0b8; text-align: center; margin-top: 6px; }
+  .live-msg.ok { color: #9fffa8; }
+  .live-players { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+  .live-p { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 14px; background: #0c223a; border: 2px solid #2d6aa0; font-weight: 900; }
+  .live-p small { color: #9fc4ff; font-weight: 700; font-size: 11px; }
+  .live-p small.ok { color: #7dff6a; }
+  .live-res { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; text-align: left; }
+  .live-res div { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; padding: 6px 10px; border-radius: 12px; background: #0c223a; border: 2px solid #2d6aa0; font-weight: 900; }
+  .live-res div.me { border-color: #7dff6a; } .live-res b { color: #ffd75a; }
   .play-btn:active { transform: translateY(3px); box-shadow: inset 0 5px 0 #c8ff9e, inset 0 -7px 0 #23861f, 0 3px 0 #124e10, 0 6px 14px #000a; }
   .pb-text { display: block; font-size: 31px; font-weight: 900; color: #fff; letter-spacing: .01em;
     text-shadow: 0 3px 0 #1d6a1a, 2px 0 0 #1d6a1a, -2px 0 0 #1d6a1a, 0 -2px 0 #1d6a1a; }
@@ -393,6 +414,7 @@
         <button class="bubble ring-blue" data-open="stats"><span class="bicon"><img class="uiicon" src="icons/ui/stats.webp" alt="" draggable="false"></span></button>
       </div>
       <button id="playBtn" class="play-btn"><span class="pb-text" id="playLevel">Level 1</span></button>
+      <button id="liveBtn" class="live-btn" data-open="live"><i class="live-dot"></i>Play live with friends</button>
       <button class="install hidden" id="installBtn">Install app</button>
       <p class="hint hidden" id="iosHint"></p>
     </div>
@@ -423,7 +445,7 @@
 <div id="app">
   <div id="hud">
     <div class="stat"><small>Score</small><span id="score">0</span></div>
-    <div class="stat" style="align-items:center"><small>Level</small><span id="level">1</span></div>
+    <div class="stat" style="align-items:center"><small id="levelLbl">Level</small><span id="level">1</span></div>
     <div class="stat" style="align-items:center"><small>Credits</small><span class="credit-val"><img class="coin uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><span id="credits">0</span></span></div>
     <div class="stat" style="align-items:center"><small>Lives</small><div id="lives"></div></div>
     <div id="controls">
@@ -465,6 +487,11 @@
         <button class="big" id="againBtn">Retry level</button>
         <p class="hint" id="creditHint"></p>
         <button class="install" id="overHomeBtn">Home</button>
+      </div>
+      <div class="card hidden" id="liveCard">
+        <h2 id="liveTitle">Match over</h2>
+        <div id="liveText"></div>
+        <button class="big" id="liveBackBtn">Back home</button>
       </div>
       <div class="card hidden" id="duelCard">
         <h2 id="duelTitle">Challenge</h2>
@@ -945,7 +972,7 @@ let extraLifeGiven = false;
 let time = 0;
 let levelIntro = false; // show the level name banner until play starts
 
-const player = { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: 1, walk: 0, trail: [], ox: 0, oy: 0 };
+let player = { tx: START.x, ty: START.y, dir: DIRS.none, want: DIRS.left, progress: 0, facing: 1, walk: 0, trail: [], ox: 0, oy: 0 };
 
 // One beetle on level 1, one more each level (up to 8). kind picks the chase style.
 const MAX_BEETLES = 8;
@@ -1051,6 +1078,7 @@ function saveMeta() {
 }
 // Credits are earned while playing: gold coins, beetles, mushrooms, and a bonus for clearing.
 function earnCredit(n, x, y) {
+  if (live) return;   // live matches pay out at the end
   credits += n; creditsThisLevel += n;
   saveMeta();
   popups.push({ x, y: y - 0.7, text: `+${n}`, color: '#ffcf5a', t: 1.2, coin: true });
@@ -1061,6 +1089,7 @@ function earnCredit(n, x, y) {
 }
 
 function levelCleared() {
+  if (live) { liveEnd('cleared'); return; }
   if (duel) { sfx.clear(); finishDuel(true); return; }
   const flawless = deathsThisLevel === 0;
   track('clears'); if (flawless) track('flawless'); if (isChallenge(level)) track('challenges');
@@ -1210,8 +1239,10 @@ function e_mid_reverse() { return player.progress > 0 && opposite(player.want, p
 function eatAt(x, y) {
   if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
   const c = grid[y][x];
+  const loud = !live || player === live.me;   // in a live match you hear your own bites
+  if ((c === '.' || c === 'o') && live) live.eaten.push({ x, y });
   if (c === '.') {
-    grid[y][x] = ' '; eraseSeed(x, y); track('seeds'); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(hasPerk('Sprout') ? 15 : 10); seedsLeft--; seedsEaten++; sfx.seed();
+    grid[y][x] = ' '; eraseSeed(x, y); track('seeds'); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(hasPerk('Sprout') ? 15 : 10); seedsLeft--; seedsEaten++; if (loud) sfx.seed();
   } else if (c === 'o') {
     grid[y][x] = ' '; burst(x, y, '#ffb02e', 16, 4.5, 0.6, 0.1); addScore(50); seedsLeft--; seedsEaten++; sfx.lantern();
     startFright();
@@ -1221,6 +1252,7 @@ function eatAt(x, y) {
 }
 
 function addScore(n) {
+  if (live) { player.score = (player.score || 0) + n; if (player === live.me) updateHud(); return; }
   score += n;
   stats.totalScore += n; statsDirty = true;
   if (!extraLifeGiven && score >= 5000) { extraLifeGiven = true; lives++; sfx.life(); popup(player.tx, player.ty, '1UP', '#7dffa1'); }
@@ -1329,8 +1361,9 @@ function roamTarget(b) {
 }
 
 function updateBeetles(dt) {
-  const sp = speeds();
+  const sp = speeds(), me = player;
   for (const b of beetles) {
+    if (live) player = liveNearest(b) || me;
     b.bob += dt * 6;
     if (b.mode === 'den') {
       if (time >= b.releaseAt) { b.mode = 'leaving'; b.progress = 0; }
@@ -1367,6 +1400,7 @@ function updateBeetles(dt) {
       e.dir = chooseDir(e, target, false, false);
     });
   }
+  player = me;
 }
 
 function updateModes(dt) {
@@ -1396,6 +1430,9 @@ function checkCollisions() {
         frightChain++;
         addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, '#ff3b3b', 16, 5, 0.55, 0.1); earnCredit(1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
+      } else if (live) {
+        if (player.safe > 0) continue;
+        liveCaught(player, pp, b); return;
       } else if (hasPerk('Midnight') && !shieldUsed) {
         // magic shield: the beetle bounces off and is sent home
         shieldUsed = true; updatePerkChip(); pulsePerk();
@@ -1498,6 +1535,8 @@ function update(dt) {
     if (stateTimer <= 0) { setState('play'); levelIntro = false; }
     return;
   }
+  if (live && live.role === 'guest') { liveGuestUpdate(dt); return; }
+  if (live && state === 'play') { liveHostUpdate(dt); return; }
   if (state === 'play') {
     time += dt;
     updateModes(dt);
@@ -1831,7 +1870,7 @@ function draw(now) {
   if (state !== 'clear' || stateTimer > 1.8) {
     for (const b of beetles) if (!(state === 'dying' && stateTimer < 1.2)) drawBeetle(b, now);
   }
-  drawPlayer(now);
+  if (live) liveDrawPlayers(now); else drawPlayer(now);
   ctx.restore();
 
   drawParticles();
@@ -1858,7 +1897,8 @@ function draw(now) {
   drawOffscreenMarkers();
 
   // banners
-  if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', isChallenge(level) ? '#ff7a5a' : '#ffcf5a', isChallenge(level) ? 'CHALLENGE LEVEL!' : hueName(levelHue(level)));
+  if (live && state === 'ready') banner(live.mode === 'coop' ? 'TEAM PLAY' : 'LIVE RACE', '#7fe8ff', live.mode === 'coop' ? 'Clear the maze together!' : 'Eat the most seeds!');
+  else if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', isChallenge(level) ? '#ff7a5a' : '#ffcf5a', isChallenge(level) ? 'CHALLENGE LEVEL!' : hueName(levelHue(level)));
   if (state === 'clear' && stateTimer > 1.8) {
     ctx.fillStyle = 'rgba(4,10,7,0.6)'; ctx.fillRect(0, 0, viewW, viewH);
     banner('GARDEN CLEARED!', '#7dffa1', clearMsg);
@@ -2012,7 +2052,7 @@ const PERKS = {
   Ranger:   { title: 'Survivor', desc: 'Starts every level with 4 lives instead of 3.' },
 };
 const perk = () => SKINS[skinIndex].name;
-const hasPerk = n => perk() === n;
+const hasPerk = n => !live && perk() === n;   // perks are off in live matches (fair play)
 let shieldUsed = false;
 
 
@@ -2335,10 +2375,11 @@ function pulsePerk() {
 
 function updateHud() {
   updatePerkChip();
-  ui.score.textContent = (score || 0).toLocaleString();
-  ui.level.textContent = level || 1;
+  ui.score.textContent = ((live ? live.me.score : score) || 0).toLocaleString();
+  ui.level.textContent = live ? liveRankText() : level || 1;
+  $('levelLbl').textContent = live ? (live.mode === 'coop' ? 'Mode' : 'Rank') : 'Level';
   ui.credits.textContent = credits;
-  const n = Math.max(0, (lives || 0) - (state === 'ready' || state === 'play' ? 1 : 0));
+  const n = live ? (live.mode === 'coop' ? live.teamLives : live.me.lives || 0) : Math.max(0, (lives || 0) - (state === 'ready' || state === 'play' ? 1 : 0));
   ui.lives.innerHTML = '';
   for (let i = 0; i < Math.min(n, 6); i++) {
     const s = document.createElement('span');
@@ -2346,12 +2387,13 @@ function updateHud() {
     ui.lives.appendChild(s);
   }
 }
-function hideCards() { [ui.start, ui.pause, ui.over, $('duelCard')].forEach(c => c.classList.add('hidden')); }
+function hideCards() { [ui.start, ui.pause, ui.over, $('duelCard'), $('liveCard')].forEach(c => c.classList.add('hidden')); }
 function showCard(c) { hideCards(); c.classList.remove('hidden'); }
 
 // ---------- Input ----------
 function setWant(name) {
   player.want = DIRS[name];
+  if (live && live.role === 'guest') liveInput(name);
   if (state === 'title' || state === 'over') return;
 }
 const KEYMAP = {
@@ -2407,6 +2449,7 @@ const ICONS = {
   muted: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>',
 };
 function togglePause() {
+  if (live) { if (state !== 'over' && confirm('Leave this live match?')) liveLeave(); return; }
   if (state === 'title' || state === 'over') return;
   paused = !paused;
   ui.pauseBtn.innerHTML = paused ? ICONS.play : ICONS.pause;
@@ -2427,7 +2470,7 @@ ui.pauseBtn.addEventListener('click', togglePause);
 ui.muteBtn.addEventListener('click', toggleMute);
 ui.muteBtn.innerHTML = muted ? ICONS.muted : ICONS.sound;
 ui.pauseBtn.innerHTML = ICONS.pause;
-document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && (state === 'play' || state === 'ready')) togglePause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && !live && !paused && (state === 'play' || state === 'ready')) togglePause(); });
 window.addEventListener('resize', resize);
 
 // ---------- Look picker and credits ----------
@@ -2534,6 +2577,7 @@ let dayLog = loadJSON('bma.day', { date: today(), seeds: 0, beetles: 0, coins: 0
 let board = (loadJSON('bma.board', { runs: [] }).runs || []).slice(0, 10);
 
 function track(what) {
+  if (live) return;
   stats[what]++; statsDirty = true;
   if (dayLog.date !== today()) dayLog = { date: today(), seeds: 0, beetles: 0, coins: 0, clears: 0, flawless: 0, claimed: [] };
   dayLog[what]++;
@@ -2850,6 +2894,372 @@ function wireDuels(body) {
   body.querySelectorAll('[data-duel-claim]').forEach(b => b.addEventListener('click', () => { b.disabled = true; claimDuel(b.dataset.duelClaim); }));
 }
 
+// ---------- Live play (real time, up to 4 players) ----------
+// Phones talk directly to each other (WebRTC data channels). The server only passes the
+// connection offers and answers through a room code. The host's phone runs the match (seeds,
+// beetles, every player) and sends the state about 20 times a second; the others send their
+// direction and draw what the host sends. Modes: 'race' (shared seeds, most points wins, own
+// lives) and 'coop' (clear the maze together with shared lives).
+var live = null, lobby = null;
+const LIVE_MAX = 4, LIVE_COLORS = ['#ffd75a', '#7fe8ff', '#ff8ad8', '#9dff7a'];
+const RTC_CFG = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }] };
+const LIVE_REWARD = { win: 10, play: 2, team: 5, teamLost: 1 };
+const roomApi = body => api('/api/room', { name: account.name, token: account.token, ...body });
+function iceDone(pc) {
+  return new Promise(res => {
+    if (pc.iceGatheringState === 'complete') return res();
+    const t = setTimeout(res, 3000);
+    pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } });
+  });
+}
+function lobbyMsg(t, ok) { if (lobby) { lobby.msg = t; lobby.ok = !!ok; } else liveSheetHtml.msg = t; const m = $('liveMsg'); if (m) { m.textContent = t; m.className = 'live-msg' + (ok ? ' ok' : ''); } }
+function lobbyRender() { if (sheetOpen === 'live') openSheet('live', true); }
+function lobbyPeers() {   // everyone in the lobby, host first
+  if (!lobby) return [];
+  if (lobby.role === 'host') return [{ name: account.name, look: skinIndex, ok: true }, ...Object.values(lobby.peers).map(p => ({ name: p.name, look: p.look, ok: p.open }))];
+  return lobby.list || [];
+}
+function lobbySend(peer, msg) { try { if (peer.dc && peer.dc.readyState === 'open') peer.dc.send(JSON.stringify(msg)); } catch (e) { /* closed */ } }
+function lobbyBroadcast(msg) { if (lobby) for (const p of Object.values(lobby.peers)) lobbySend(p, msg); }
+function lobbyShare() { lobbyBroadcast({ t: 'lobby', list: lobbyPeers(), mode: lobby.mode }); lobbyRender(); }
+
+async function liveCreate(mode) {
+  if (lobby) return;
+  lobby = { role: 'host', mode, peers: {}, code: '', msg: '' };
+  lobbyMsg('Making a room…'); lobbyRender();
+  try {
+    const r = await roomApi({ action: 'create', mode });
+    if (!lobby) return;
+    lobby.code = r.room.code; lobbyMsg('Share the code. Friends join with it.', true); lobbyRender();
+    lobby.timer = setInterval(hostPoll, 2000); hostPoll();
+  } catch (e) { lobby = null; lobbyMsg(e.message || 'No connection. Try again.'); lobbyRender(); }
+}
+async function hostPoll() {
+  if (!lobby || lobby.role !== 'host' || lobby.started) return;
+  let r; try { r = await roomApi({ action: 'poll', code: lobby.code }); } catch (e) { return; }
+  for (const p of r.players || []) {
+    const cur = lobby.peers[p.name];
+    if (cur && cur.t === p.t) continue;            // already answered this offer
+    if (!cur && Object.keys(lobby.peers).length >= LIVE_MAX - 1) continue;   // room full
+    if (cur) try { cur.pc.close(); } catch (e) { /* ignore */ }
+    const peer = { name: p.name, look: p.look, t: p.t, open: false, pc: new RTCPeerConnection(RTC_CFG), dc: null };
+    lobby.peers[p.name] = peer;
+    peer.pc.ondatachannel = ev => hostChannel(peer, ev.channel);
+    peer.pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(peer.pc.connectionState)) hostLost(peer); };
+    try {
+      await peer.pc.setRemoteDescription({ type: 'offer', sdp: p.offer });
+      await peer.pc.setLocalDescription(await peer.pc.createAnswer());
+      await iceDone(peer.pc);
+      await roomApi({ action: 'answer', code: lobby.code, to: p.name, sdp: peer.pc.localDescription.sdp });
+    } catch (e) { delete lobby.peers[p.name]; }
+    lobbyRender();
+  }
+}
+function hostChannel(peer, dc) {
+  peer.dc = dc;
+  dc.onopen = () => { peer.open = true; lobbyShare(); };
+  dc.onclose = () => hostLost(peer);
+  dc.onmessage = ev => {
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.t === 'i' && live) { const rp = live.players.find(q => q.name === peer.name); if (rp && DIRS[m.w]) rp.want = DIRS[m.w]; }
+  };
+}
+function hostLost(peer) {
+  if (!lobby || !lobby.peers[peer.name]) return;
+  delete lobby.peers[peer.name];
+  if (live) { const rp = live.players.find(q => q.name === peer.name); if (rp) { rp.out = true; rp.left = true; } liveCheckEnd(); }
+  else lobbyShare();
+}
+async function liveJoin(code) {
+  code = String(code || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (code.length !== 4) { lobbyMsg('Room codes have 4 letters.'); return; }
+  if (lobby) return;
+  lobby = { role: 'guest', code, peers: {}, list: [], msg: '' };
+  lobbyMsg('Connecting…', true); lobbyRender();
+  const pc = new RTCPeerConnection(RTC_CFG), dc = pc.createDataChannel('game', { ordered: true });
+  const host = { name: '', pc, dc, open: false };
+  lobby.host = host;
+  pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) guestLost(); };
+  dc.onopen = () => { host.open = true; lobbyMsg('Connected! Waiting for the host to start…', true); lobbyRender(); };
+  dc.onclose = guestLost;
+  dc.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } guestMessage(m); };
+  try {
+    await pc.setLocalDescription(await pc.createOffer());
+    await iceDone(pc);
+    const r = await roomApi({ action: 'join', code, look: skinIndex, offer: pc.localDescription.sdp });
+    if (!lobby) return;
+    lobby.mode = r.room.mode; host.name = r.room.host; lobbyRender();
+    const t0 = Date.now();
+    while (lobby && !lobby.answered && Date.now() - t0 < 45000) {
+      await new Promise(res => setTimeout(res, 1500));
+      if (!lobby) return;
+      const w = await roomApi({ action: 'wait', code }).catch(() => null);
+      if (w && w.answer && !lobby.answered) { lobby.answered = true; await pc.setRemoteDescription({ type: 'answer', sdp: w.answer }); }
+    }
+    if (lobby && !lobby.answered) { liveLeave(true); lobbyMsg('The host did not answer. The room may be full.'); lobbyRender(); return; }
+    setTimeout(() => { if (lobby && lobby.role === 'guest' && !host.open) { liveLeave(true); lobbyMsg('Could not connect to the host. Try on Wi-Fi.'); lobbyRender(); } }, 15000);
+  } catch (e) { lobby = null; try { pc.close(); } catch (x) { /* ignore */ } lobbyMsg(e.message || 'No connection. Try again.'); lobbyRender(); }
+}
+function guestLost() {
+  if (!lobby || lobby.role !== 'guest' || lobby.closing) return;
+  if (live && state !== 'over') { liveShowResult({ reason: 'hostLeft', players: live.players.map(livePub), mode: live.mode }); }
+  liveLeave(true, true);
+  lobbyMsg('The host left the room.'); lobbyRender();
+}
+function guestMessage(m) {
+  if (m.t === 'lobby') { lobby.list = m.list; lobby.mode = m.mode; lobbyRender(); }
+  else if (m.t === 'start') liveStart('guest', m.cfg);
+  else if (m.t === 's' && live) liveApply(m);
+  else if (m.t === 'end' && live) liveShowResult(m.r);
+}
+function liveSetMode(mode) { if (lobby && lobby.role === 'host') { lobby.mode = mode; lobbyShare(); } }
+async function liveHostStart() {
+  if (!lobby || lobby.role !== 'host') return;
+  const guests = Object.values(lobby.peers).filter(p => p.open);
+  if (!guests.length) { lobbyMsg('Wait for at least one friend to connect.'); return; }
+  for (const p of Object.values(lobby.peers)) if (!p.open) { try { p.pc.close(); } catch (e) { /* ignore */ } delete lobby.peers[p.name]; }
+  lobby.started = true; clearInterval(lobby.timer);
+  roomApi({ action: 'close', code: lobby.code }).catch(() => {});
+  const cfg = { mode: lobby.mode, level: Math.max(6, Math.min(12, loadProgress().level)), seed: 100000 + Math.floor(Math.random() * 900000000),
+    players: lobbyPeers().map(p => ({ name: p.name, look: p.look })) };
+  lobbyBroadcast({ t: 'start', cfg });
+  liveStart('host', cfg);
+}
+function liveLeave(quiet, keepMsg) {
+  if (lobby) {
+    lobby.closing = true; clearInterval(lobby.timer);
+    if (lobby.role === 'host' && lobby.code && !lobby.started) roomApi({ action: 'close', code: lobby.code }).catch(() => {});
+    for (const p of Object.values(lobby.peers)) { try { p.dc && p.dc.close(); p.pc.close(); } catch (e) { /* ignore */ } }
+    if (lobby.host) { try { lobby.host.dc.close(); lobby.host.pc.close(); } catch (e) { /* ignore */ } }
+  }
+  lobby = null;
+  const wasLive = !!live;
+  if (live) { player = live.home; live = null; }
+  if (wasLive && !quiet) { applyLevelMap(loadProgress().level); level = loadProgress().level; resetMaze(); resetActors(); resize(); showHome(); }
+  else if (wasLive) { level = loadProgress().level; applyLevelMap(level); resetMaze(); resetActors(); resize(); }
+  if (!keepMsg) lobbyRender();
+}
+
+// ----- the match -----
+function livePub(p) { return { name: p.name, look: p.look, score: p.score || 0, out: !!p.out, left: !!p.left }; }
+function liveStart(role, cfg) {
+  const home = player;
+  const startXs = [0, -2, 2, -1, 1];
+  live = { role, mode: cfg.mode, cfg, home, teamLives: 3 + cfg.players.length - 1, snapT: 0, eaten: [], fx: [], done: false,
+    players: cfg.players.map((p, i) => ({ name: p.name, look: Math.min(+p.look || 0, SKINS.length - 1), color: LIVE_COLORS[i % 4], score: 0, lives: 3,
+      tx: 0, ty: 0, dir: DIRS.none, want: DIRS.left, progress: 0, facing: -1, walk: 0, trail: [], ox: 0, oy: 0, dead: 0, safe: 0, out: false, slot: startXs[i] })) };
+  live.me = live.players.find(p => p.name === account.name) || live.players[0];
+  player = live.me;
+  level = cfg.level;
+  applyLevelMap(level, cfg.seed);
+  resetMaze(); resetActors();
+  player = live.me;
+  for (const p of live.players) liveSpawn(p);
+  resize();
+  homeEl.classList.add('hidden'); closeSheet(); hideCards();
+  levelIntro = true; popups = []; paused = false;
+  setState('ready', 3); sfx.start(); updateHud();
+}
+function liveSpawn(p) {
+  let x = START.x + p.slot;
+  if (!canEnter(x, START.y, false)) x = START.x;
+  Object.assign(p, { tx: x, ty: START.y, dir: DIRS.none, progress: 0, ox: 0, oy: 0, trail: [] });
+}
+function liveNearest(b) {
+  let best = null, bd = Infinity;
+  for (const p of live.players) {
+    if (p.out || p.dead > 0) continue;
+    const d = Math.abs(p.tx - b.tx) + Math.abs(p.ty - b.ty);
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best;
+}
+function liveCaught(p, pp) {
+  burst(pp.x, pp.y, p.color, 18, 3.5, 0.9, 0.11); live.fx.push('die');
+  p.dead = 2; p.dir = DIRS.none;
+  if (live.mode === 'coop') { live.teamLives--; if (live.teamLives <= 0) { liveEnd('lost'); return; } }
+  else { p.lives--; if (p.lives <= 0) p.out = true; }
+  liveCheckEnd();
+}
+function liveCheckEnd() {
+  if (!live || live.done || live.role !== 'host') return;
+  const inGame = live.players.filter(p => !p.left);
+  if (inGame.length <= 1 && live.players.length > 1 && state !== 'ready') { liveEnd('alone'); return; }
+  if (live.mode === 'race' && inGame.every(p => p.out)) liveEnd('allOut');
+}
+function liveHostUpdate(dt) {
+  time += dt;
+  updateModes(dt);
+  const me = player;
+  for (const p of live.players) {
+    if (p.out) continue;
+    if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) { p.dead = 0; liveSpawn(p); p.safe = 2.5; } continue; }
+    if (p.safe > 0) p.safe -= dt;
+    player = p;
+    updatePlayer(dt);
+    if (live.done || state !== 'play') { player = me; return; }
+  }
+  player = me;
+  updateBeetles(dt);
+  for (const p of live.players) {
+    if (p.out || p.dead > 0) continue;
+    player = p; checkCollisions();
+    if (live.done) { player = me; return; }
+  }
+  player = me;
+  if (bonus) { bonus.timer -= dt; if (bonus.timer <= 0) bonus = null; }
+  if (freezeTimer > 0) freezeTimer = Math.max(0, freezeTimer - dt);
+  live.hudT = (live.hudT || 0) - dt; if (live.hudT <= 0) { live.hudT = 0.25; updateHud(); }   // keep the rank fresh
+  liveSend(dt);
+}
+// The host sends the state ~20 times a second; eaten seeds are sent as they happen.
+function liveSend(dt) {
+  if (!live || live.role !== 'host') return;
+  live.snapT -= dt || 0.016;
+  if (live.snapT > 0 && !live.eaten.length) return;
+  live.snapT = 0.05;
+  const r2 = v => Math.round(v * 100) / 100;
+  const msg = { t: 's', st: state, sT: r2(stateTimer), ft: r2(frightTimer), fz: r2(freezeTimer), tl: live.teamLives,
+    p: live.players.map(p => [p.tx, p.ty, p.dir.x, p.dir.y, r2(p.progress), p.facing, p.score || 0, p.lives, p.dead > 0 ? 1 : 0, p.out ? 1 : 0, p.safe > 0 ? 1 : 0]),
+    b: beetles.map(b => [b.tx, b.ty, b.dir.x, b.dir.y, r2(b.progress), b.mode, b.frightened ? 1 : 0]),
+    e: live.eaten.map(t => t.y * COLS + t.x), bn: bonus ? [bonus.x, bonus.y, r2(bonus.timer)] : 0, fx: live.fx };
+  live.eaten = []; live.fx = [];
+  lobbyBroadcast(msg);
+}
+function liveApply(m) {
+  if (state !== m.st && m.st === 'play') levelIntro = false;
+  live.heard = Date.now();
+  const ft0 = frightTimer;
+  state = m.st; stateTimer = m.sT; frightTimer = m.ft; freezeTimer = m.fz; live.teamLives = m.tl;
+  m.p.forEach((a, i) => {
+    const p = live.players[i]; if (!p) return;
+    const [tx, ty, dx, dy, pr, f, sc, lv, dead, out, safe] = a;
+    p.tx = tx; p.ty = ty; p.dir = { x: dx, y: dy }; p.progress = pr; p.facing = f; p.score = sc; p.lives = lv; p.dead = dead; p.out = !!out; p.safe = safe;
+    if (dx || dy) p.walk += 0.6;
+  });
+  m.b.forEach((a, i) => {
+    const b = beetles[i]; if (!b) return;
+    [b.tx, b.ty] = a; b.dir = { x: a[2], y: a[3] }; b.progress = a[4]; b.mode = a[5]; b.frightened = !!a[6];
+  });
+  const wasFright = ft0;
+  for (const k of m.e) {
+    const x = k % COLS, y = Math.floor(k / COLS), c = grid[y] && grid[y][x];
+    if (c === '.' || c === 'o') {
+      grid[y][x] = ' '; eraseSeed(x, y); seedsLeft--; seedsEaten++;
+      if (Math.abs(x - live.me.tx) + Math.abs(y - live.me.ty) <= 1) { burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); sfx.seed(); }
+    }
+  }
+  if (m.ft > wasFright + 1) sfx.lantern();
+  bonus = m.bn ? { x: m.bn[0], y: m.bn[1], timer: m.bn[2], value: 0 } : null;
+  for (const n of m.fx) if (sfx[n]) sfx[n]();
+  updateHud();
+}
+// Between messages the guest keeps everyone sliding along their direction so it looks smooth.
+function liveGuestUpdate(dt) {
+  if (state !== 'over' && live.heard && Date.now() - live.heard > 8000) { liveShowResult({ reason: 'hostLeft', mode: live.mode, players: live.players.map(livePub) }); return; }
+  if (state !== 'play') { if (state === 'ready') stateTimer -= dt; return; }
+  const sp = speeds();
+  for (const p of live.players) if (!p.out && !p.dead && (p.dir.x || p.dir.y)) p.progress = Math.min(0.95, p.progress + sp.player * dt);
+  for (const b of beetles) {
+    if (b.mode === 'den' || freezeTimer > 0) continue;
+    const v = b.mode === 'eaten' ? sp.eaten : b.frightened ? sp.fright : b.mode === 'leaving' ? sp.beetle * 0.6 : sp.beetle;
+    if (b.dir.x || b.dir.y) b.progress = Math.min(0.95, b.progress + v * dt);
+    b.bob += dt * 6;
+  }
+  if (frightTimer > 0) frightTimer = Math.max(0, frightTimer - dt);
+}
+let liveLastSent = '';
+function liveInput(name) {
+  if (!lobby || !lobby.host || name === liveLastSent) return;
+  liveLastSent = name; lobbySend(lobby.host, { t: 'i', w: name });
+  setTimeout(() => { liveLastSent = ''; }, 300);
+}
+function liveRankText() {
+  if (!live) return '';
+  if (live.mode === 'coop') return 'TEAM';
+  const order = live.players.slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+  return `${order.indexOf(live.me) + 1}/${order.length}`;
+}
+function liveDrawPlayers(now) {
+  const me = player, mySkin = skinIndex;
+  const list = live.players.filter(p => p !== live.me).concat(live.me);   // draw yourself on top
+  for (const p of list) {
+    if (p.out || p.dead) continue;
+    if (p.safe && Math.floor(now / 120) % 2) continue;   // blinking after coming back
+    player = p; skinIndex = p.look;
+    drawPlayer(now);
+    const q = pos(p);
+    ctx.font = `900 ${Math.round(T * 0.38)}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 3; ctx.strokeStyle = '#000a'; ctx.strokeText(p.name, q.x * T + T / 2, q.y * T - T * 0.05);
+    ctx.fillStyle = p.color; ctx.fillText(p.name, q.x * T + T / 2, q.y * T - T * 0.05);
+  }
+  player = me; skinIndex = mySkin;
+}
+function liveEnd(reason) {
+  if (!live || live.done) return;
+  live.done = true;
+  const r = { reason, mode: live.mode, players: live.players.map(livePub) };
+  liveSend(); lobbyBroadcast({ t: 'end', r });
+  liveShowResult(r);
+}
+function liveShowResult(r) {
+  if (!live || live.shown) return;
+  live.shown = true; live.done = true; setState('over'); sfx.clear();
+  const order = r.players.slice().sort((a, b) => b.score - a.score);
+  const me = account.name, team = r.mode === 'coop';
+  let reward = 0, title = '';
+  if (r.reason === 'hostLeft') { title = 'Connection to the host lost'; reward = 0; }
+  else if (team) { const won = r.reason === 'cleared'; title = won ? 'Maze cleared together!' : 'Out of lives'; reward = won ? LIVE_REWARD.team : LIVE_REWARD.teamLost; }
+  else { const win = order[0] && order[0].name === me && (order.length < 2 || order[0].score > order[1].score); title = win ? 'You win!' : `${esc(order[0].name)} wins!`; reward = win ? LIVE_REWARD.win : LIVE_REWARD.play; }
+  if (reward) { credits += reward; saveMeta(); updateHud(); }
+  $('liveTitle').innerHTML = title;
+  $('liveText').innerHTML = '<div class="live-res">' + order.map((p, i) => `<div class="${p.name === me ? 'me' : ''}"><span>${team ? '' : i + 1}</span><span>${esc(p.name)}${p.left ? ' <small>(left)</small>' : ''}</span><b>${p.score.toLocaleString()}</b></div>`).join('') + '</div>' +
+    (reward ? `<p>+${reward} credit${reward > 1 ? 's' : ''}</p>` : '');
+  showCard($('liveCard'));
+}
+$('liveBackBtn').addEventListener('click', () => { liveLeave(true); showHome(); });
+
+function liveSheetHtml() {
+  const L = lobby;
+  if (!account.token) return '<p>Log in to play live with friends.</p>';
+  if (!L) {
+    const m = liveSheetHtml.mode || 'race';
+    return `<p>Play in the same maze at the same time with up to 3 friends.</p>
+      <div class="live-modes"><button data-lmode="race" class="${m === 'race' ? 'on' : ''}">Race<small>Most points wins</small></button><button data-lmode="coop" class="${m === 'coop' ? 'on' : ''}">Team<small>Clear it together</small></button></div>
+      <button class="gold-btn" id="liveCreate">Create a room</button>
+      <div class="live-or">or join a friend's room</div>
+      <div class="friend-add"><input id="liveCode" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ROOM CODE"><button class="claim-btn" id="liveJoin">Join</button></div>
+      <div class="live-msg" id="liveMsg">${esc(liveSheetHtml.msg || '')}</div>`;
+  }
+  const face = p => `<canvas class="lb-face" data-look="${p.look}"></canvas>`;
+  const people = lobbyPeers();
+  let h = '';
+  if (L.role === 'host') {
+    h += L.code ? `<p style="text-align:center;margin:0">Room code</p><div class="live-code">${L.code}</div>` : '';
+    h += `<div class="live-modes"><button data-lmode="race" class="${L.mode === 'race' ? 'on' : ''}">Race<small>Most points wins</small></button><button data-lmode="coop" class="${L.mode === 'coop' ? 'on' : ''}">Team<small>Clear it together</small></button></div>`;
+  } else h += `<p style="text-align:center">Room <b style="color:#ffd75a">${L.code}</b>${L.host && L.host.name ? ` · host ${esc(L.host.name)}` : ''} · ${L.mode === 'coop' ? 'Team' : 'Race'}</p>`;
+  h += '<div class="live-players">' + people.map(p => `<div class="live-p">${face(p)}<span>${esc(p.name)}${p.name === account.name ? ' <small class="you">YOU</small>' : ''}</span><small class="${p.ok ? 'ok' : ''}">${p.ok ? 'Ready' : 'Connecting…'}</small></div>`).join('') + '</div>';
+  if (L.role === 'host') {
+    const n = Object.values(L.peers).filter(p => p.open).length;
+    h += `<button class="gold-btn" id="liveStart" ${n ? '' : 'disabled'}>${n ? `Start (${n + 1} players)` : 'Waiting for friends…'}</button>`;
+  }
+  h += `<div class="live-msg ${L.ok ? 'ok' : ''}" id="liveMsg">${esc(L.msg || '')}</div><button class="plink" id="liveCancel">${L.role === 'host' ? 'Close the room' : 'Leave'}</button>`;
+  return h;
+}
+function wireLiveSheet(body) {
+  body.querySelectorAll('[data-lmode]').forEach(b => b.addEventListener('click', () => { if (lobby) liveSetMode(b.dataset.lmode); else { liveSheetHtml.mode = b.dataset.lmode; openSheet('live', true); } }));
+  if ($('liveCreate')) $('liveCreate').addEventListener('click', () => { liveSheetHtml.msg = ''; liveCreate(liveSheetHtml.mode || 'race'); });
+  if ($('liveCode')) {
+    const inp = $('liveCode');
+    inp.addEventListener('input', () => { const v = inp.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); if (v !== inp.value) inp.value = v; });
+    const go = () => { liveSheetHtml.msg = ''; liveJoin(inp.value); };
+    $('liveJoin').addEventListener('click', go); inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  }
+  if ($('liveStart')) $('liveStart').addEventListener('click', liveHostStart);
+  if ($('liveCancel')) $('liveCancel').addEventListener('click', () => { liveLeave(true); liveSheetHtml.msg = ''; openSheet('live', true); });
+  body.querySelectorAll('.lb-face').forEach(cv => paintAvatar(cv, 30, 'look:' + Math.min(+cv.dataset.look || 0, SKINS.length - 1)));
+}
+
 // ---------- home UI ----------
 const homeEl = $('home');
 let sheetOpen = null;
@@ -2876,6 +3286,7 @@ function refreshHome() {
   paintAvatar($('avatar'), 48);
 }
 function showHome() {
+  if (live) liveLeave(true);
   if (duel) finishDuel(false, true);   // leaving a challenge run ends it with the score so far
   updateDuelChip();
   flushStats();
@@ -2966,6 +3377,10 @@ function openSheet(which, fromRefresh = false) {
       $('friendAddBtn').addEventListener('click', add);
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
     }
+  } else if (which === 'live') {
+    title = 'Play live';
+    body.innerHTML = liveSheetHtml();
+    wireLiveSheet(body);
   } else if (which === 'shop') {
     title = 'Shop · Skins';
     body.innerHTML = `<p>You have <b style="color:#ffd75a">${credits}</b> credits. Clear a look's level to get it free, or buy it now.</p><div class="skins"></div><div class="shop-msg"></div>`;
@@ -3231,7 +3646,7 @@ window.__backman = { get state() { return state; }, get score() { return score; 
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
-  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
+  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, get live() { return live; }, eatAll() { for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] === '.' || grid[y][x] === 'o') eatAt(x, y); }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
 })();
 </script>
 </body>
