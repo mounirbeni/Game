@@ -45,6 +45,7 @@
   .hud-pill { display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 14px; border-radius: 16px;
     background: linear-gradient(#1d2f8a, #0c1652); border: 2px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff26, 0 3px 0 #060b2e, 0 5px 10px #0008; }
   .hud-lives { min-width: 76px; }
+  #hud #lives { gap: 3px; } #hud #lives .life { display: block; width: auto !important; height: auto !important; margin: 0 !important; flex: none; }
   .hud-score { flex: 1; max-width: 230px; flex-direction: column; line-height: 1; }
   .hud-score #score { font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #060b2e; font-variant-numeric: tabular-nums; }
   .hud-score small { margin-top: 3px; font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #ffd75a; }
@@ -77,18 +78,40 @@
   .card { pointer-events: auto; position: relative; text-align: center; width: min(88vw, 330px); background: none;
     border: 1px solid transparent; border-image: url(assets/card-frame.webp) 165 190 185 150 fill / 89px 103px 100px 81px stretch;
     padding: 56px 50px 60px 40px; filter: drop-shadow(0 14px 24px #000c); }
-  .card h2 { color: #ffd75a; font-weight: 900; letter-spacing: .02em; text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00; }
-  .card p { color: #cfd8ff !important; }
-  .card button.big { width: 100%; white-space: nowrap; padding-left: 12px; padding-right: 12px; background: linear-gradient(#ffe58a, #ffb81f); color: #3a2400; box-shadow: 0 4px 0 #a06d12, 0 6px 12px #0008; }
-  .card button.install { background: linear-gradient(#2a44c8, #14268a); color: #fff; border: 2px solid #ffcf3a; }
-  .pause-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 6px; }
-  .pause-info span { display: flex; flex-direction: column; gap: 3px; padding: 8px 4px; border-radius: 14px; background: #0a1240aa; border: 1px solid #ffcf3a55; }
-  .pause-info small { font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: #9fb4ff; }
-  .pause-info b { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 17px; color: #fff; font-variant-numeric: tabular-nums; }
-  .pause-info b i { font-style: normal; } .pause-info .coin { width: 18px; height: 18px; }
-  .pause-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
-  .pause-row button.install { margin-top: 8px; white-space: nowrap; padding: 8px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-  .pause-row button svg { width: 18px; height: 18px; }
+  /* ---- inside the cards: one family with the frame (navy stone, gold rims, the game's icons) ---- */
+  .card-title { margin: 0 0 10px; font: 900 32px/1.05 ui-rounded, system-ui, sans-serif; letter-spacing: .01em; color: #ffd75a;
+    text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00, 2px 2px 0 #6a3b00, -2px 2px 0 #6a3b00, 0 6px 10px #0009; }
+  .card-title.red { color: #ff8a6a; text-shadow: 0 3px 0 #5a1208, 2px 0 0 #5a1208, -2px 0 0 #5a1208, 0 -2px 0 #5a1208, 2px 2px 0 #5a1208, -2px 2px 0 #5a1208, 0 6px 10px #0009; }
+  .card-text { margin: 0 0 10px; font-size: 14px; font-weight: 700; line-height: 1.4; color: #e6ecff !important; }
+  .card-note { margin: 8px 0 0; font-size: 12px; font-weight: 700; line-height: 1.35; color: #9fb4ff !important; }
+  .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 12px; }
+  .cstat { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 2px 7px; border-radius: 16px;
+    background: radial-gradient(circle at 50% 20%, #23399e, #0b1550 75%); border: 2px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff22, inset 0 -3px 6px #0006, 0 3px 6px #0007; }
+  .cstat img { width: 30px; height: 30px; filter: drop-shadow(0 2px 2px #0008); }
+  .cstat b { font: 900 18px/1.1 ui-rounded, system-ui, sans-serif; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 #060b2e, 1px 0 0 #060b2e, -1px 0 0 #060b2e; }
+  .cstat small { font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #ffd75a; }
+  /* main action: the same stone plaque as the home Level button */
+  .plaque-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; aspect-ratio: 2139 / 665; margin: 4px 0 0; padding: 0 0 2px; border: 0; cursor: pointer;
+    background: url(assets/level-btn.webp) center / contain no-repeat; font: 900 22px/1 ui-rounded, system-ui, sans-serif; color: #fff;
+    text-shadow: 0 3px 0 #0b2a7a, 2px 0 0 #0b2a7a, -2px 0 0 #0b2a7a, 0 -2px 0 #0b2a7a, 0 4px 8px #000a; filter: drop-shadow(0 5px 6px #0009); -webkit-tap-highlight-color: transparent; }
+  .plaque-btn:active { transform: translateY(2px) scale(.98); filter: drop-shadow(0 2px 3px #0009) brightness(1.08); }
+  .plaque-btn .pb-cost { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px 3px 5px; border-radius: 99px; background: #0a1240cc; border: 2px solid #ffcf3a; font-size: 17px; }
+  .plaque-btn .pb-cost img { width: 20px; height: 20px; }
+  /* second choice: a navy pill with a gold rim, like the bottom bar */
+  .pill-btn { display: block; width: 78%; margin: 8px auto 0; padding: 10px 12px; border-radius: 16px; cursor: pointer; font: 900 16px/1 ui-rounded, system-ui, sans-serif; color: #fff;
+    background: linear-gradient(#2a44c8, #14268a); border: 2px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff33, 0 3px 0 #060b2e, 0 5px 10px #0008; text-shadow: 0 2px 0 #060b2e; }
+  .pill-btn:active { transform: translateY(2px); }
+  /* small round buttons with the game's icons */
+  .round-row { display: flex; justify-content: center; gap: 22px; margin-top: 10px; }
+  .round-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .round-btn .rb-ico { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; color: #fff;
+    background: radial-gradient(circle at 35% 30%, #3a64ff, #14268a); border: 3px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff33, 0 3px 0 #060b2e, 0 5px 10px #0008; }
+  .round-btn .rb-ico img { width: 34px; height: 34px; } .round-btn .rb-ico svg { width: 24px; height: 24px; }
+  .round-btn small { font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: #ffd75a; text-shadow: 0 1px 0 #000; }
+  .round-btn:active .rb-ico { transform: translateY(2px); }
+  /* live match results in the same family */
+  .live-res div { background: radial-gradient(circle at 50% 0, #23399e, #0b1550 80%) !important; border: 2px solid #ffcf3a !important; }
+  .live-res div.me { border-color: #7dff6a !important; }
   .card h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: .04em; color: var(--accent);
     text-shadow: 0 3px 0 #8a5a14; }
   .card h2 { margin: 0 0 8px; font-size: 28px; }
@@ -408,8 +431,9 @@
     .icon-btn { width: 34px; height: 34px; }
     .icon-btn svg { width: 18px; height: 18px; }
     #controls { gap: 4px; }
-    #lives span { width: 12px !important; height: 12px !important; }
-    .card { padding: 16px 14px; }
+    .card { padding: 50px 46px 54px 36px; }
+    .card-title { font-size: 27px; } .card-text { font-size: 13px; } .cstat b { font-size: 16px; } .plaque-btn { font-size: 19px; }
+    .round-btn .rb-ico { width: 46px; height: 46px; } .round-btn .rb-ico img { width: 30px; height: 30px; }
     .card h1 { font-size: 32px; }
   }
   @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
@@ -530,35 +554,35 @@
         <button class="big" id="startBtn">Play</button><br>
       </div>
       <div class="card hidden" id="pauseCard">
-        <h2>Paused</h2>
-        <div class="pause-info">
-          <span><small>Level</small><b id="pauseLevel">1</b></span>
-          <span><small>Score</small><b id="pauseScore">0</b></span>
-          <span><small>Credits</small><b><img class="coin uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><i id="pauseCredits">0</i></b></span>
+        <h2 class="card-title">Paused</h2>
+        <div class="card-stats">
+          <div class="cstat"><img class="uiicon" src="icons/ui/map.webp" alt="" draggable="false"><b id="pauseLevel">1</b><small>Level</small></div>
+          <div class="cstat"><img class="uiicon" src="icons/ui/star.webp" alt="" draggable="false"><b id="pauseScore">0</b><small>Score</small></div>
+          <div class="cstat"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b id="pauseCredits">0</b><small>Credits</small></div>
         </div>
-        <button class="big" id="resumeBtn">Resume</button>
-        <div class="pause-row">
-          <button class="install" id="muteBtn" aria-label="Sound"></button>
-          <button class="install" id="pauseHomeBtn">Home</button>
+        <button class="plaque-btn" id="resumeBtn">Resume</button>
+        <div class="round-row">
+          <button class="round-btn" id="muteBtn" aria-label="Sound"></button>
+          <button class="round-btn" id="pauseHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button>
         </div>
       </div>
       <div class="card hidden" id="overCard">
-        <h2 style="color:var(--danger)">Game Over</h2>
-        <p id="overText"></p>
-        <button class="big" id="continueBtn">Continue</button><br>
-        <button class="big" id="againBtn">Retry level</button>
-        <p class="hint" id="creditHint"></p>
-        <button class="install" id="overHomeBtn">Home</button>
+        <h2 class="card-title red">Game Over</h2>
+        <p class="card-text" id="overText"></p>
+        <button class="plaque-btn" id="continueBtn">Continue</button>
+        <button class="plaque-btn" id="againBtn">Retry level</button>
+        <p class="card-note" id="creditHint"></p>
+        <div class="round-row"><button class="round-btn" id="overHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button></div>
       </div>
       <div class="card hidden" id="liveCard">
-        <h2 id="liveTitle">Match over</h2>
-        <div id="liveText"></div>
-        <button class="big" id="liveBackBtn">Back home</button>
+        <h2 class="card-title" id="liveTitle">Match over</h2>
+        <div class="card-text" id="liveText"></div>
+        <button class="plaque-btn" id="liveBackBtn">Back home</button>
       </div>
       <div class="card hidden" id="duelCard">
-        <h2 id="duelTitle">Challenge</h2>
-        <p id="duelText"></p>
-        <button class="big" id="duelBackBtn">Back to challenges</button>
+        <h2 class="card-title" id="duelTitle">Challenge</h2>
+        <p class="card-text" id="duelText"></p>
+        <button class="plaque-btn" id="duelBackBtn">Back to challenges</button>
       </div>
     </div>
   </div>
@@ -1680,8 +1704,8 @@ function gameOver() {
   $('againBtn').textContent = `Retry level ${level}`;
   const canContinue = credits > 0;
   $('continueBtn').classList.toggle('hidden', !canContinue);
-  $('continueBtn').innerHTML = `Continue · 1 credit`;
-  $('againBtn').className = canContinue ? 'install' : 'big';
+  $('continueBtn').innerHTML = `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
+  $('againBtn').className = canContinue ? 'pill-btn' : 'plaque-btn';
   $('creditHint').innerHTML = canContinue
     ? `You have ${credits} credit${credits > 1 ? 's' : ''}. Continuing gives you 1 extra life and keeps the seeds you've eaten.`
     : 'Win levels to earn credits (2 for a flawless level). Spend them here to keep playing.';
@@ -2565,7 +2589,7 @@ function togglePause() {
 }
 function fillPauseCard() {
   $('pauseLevel').textContent = level; $('pauseScore').textContent = (score || 0).toLocaleString(); $('pauseCredits').textContent = credits;
-  ui.muteBtn.innerHTML = (muted ? ICONS.muted : ICONS.sound) + (muted ? 'Muted' : 'Sound');
+  ui.muteBtn.innerHTML = `<span class="rb-ico">${muted ? ICONS.muted : ICONS.sound}</span><small>${muted ? 'Muted' : 'Sound'}</small>`;
 }
 function toggleMute() {
   muted = !muted;
