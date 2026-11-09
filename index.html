@@ -98,18 +98,18 @@
   #mapScreen.hidden { display: none; }
   .map-art { position: relative; height: 100%; aspect-ratio: 941 / 1672; max-width: 100%; background: url(assets/level-map.webp) center / cover no-repeat; container-type: inline-size; }
   @supports not (aspect-ratio: 1) { .map-art { width: 100%; } }
-  .map-lvl { position: absolute; transform: translate(-50%, -50%); width: 25cqw; height: 13cqw; border: 0; padding: 0; background: none; cursor: pointer;
-    font: 900 10cqw/1 ui-rounded, system-ui, sans-serif; color: #fff; -webkit-tap-highlight-color: transparent;
-    text-shadow: 0 0.5cqw 0 #12305a, 0.4cqw 0 0 #12305a, -0.4cqw 0 0 #12305a, 0 -0.4cqw 0 #12305a, 0 1cqw 2cqw #000a; }
+  .map-lvl { position: absolute; transform: translate(-50%, -50%); width: 22cqw; height: 12cqw; border: 0; padding: 0; background: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
   .map-lvl:active { transform: translate(-50%, -46%); }
-  .map-lvl.locked { color: #9fb3c8; cursor: default; text-shadow: 0 0.5cqw 0 #233; opacity: .8; }
-  .map-lvl.locked::after { content: ''; position: absolute; left: 50%; top: 46%; width: 5cqw; height: 4cqw; transform: translateX(-50%); border-radius: .8cqw; background: #4b5d70; box-shadow: 0 -2.4cqw 0 -0.6cqw transparent; }
-  .map-lvl.locked::before { content: ''; position: absolute; left: 50%; top: 24%; width: 3cqw; height: 3cqw; transform: translateX(-50%); border: .8cqw solid #4b5d70; border-bottom: 0; border-radius: 2cqw 2cqw 0 0; }
-  .map-lvl.done small { position: absolute; left: 50%; top: 86%; transform: translateX(-50%); font-size: 3.2cqw; color: #ffd75a; text-shadow: 0 .3cqw 0 #5a3a00; letter-spacing: .5cqw; }
-  .map-lvl.cur { color: #fff6b0; }
-  .map-lvl.cur::before { content: ''; position: absolute; inset: -6% -4%; border-radius: 50%; box-shadow: 0 0 4cqw 1.5cqw #ffe36a; opacity: .55; animation: mapglow 1.4s ease-in-out infinite; pointer-events: none; }
-  .map-lvl.star { color: #ffcf7a; }
-  @keyframes mapglow { 50% { opacity: .15; } }
+  .map-lvl b { font: 900 9cqw/1 ui-rounded, 'Arial Rounded MT Bold', system-ui, sans-serif; color: #fff; letter-spacing: -.2cqw;
+    -webkit-text-stroke: .9cqw #0e2c55; paint-order: stroke fill; filter: drop-shadow(0 .8cqw 0 #0e2c55) drop-shadow(0 1.2cqw 1.2cqw #0008); }
+  .map-lvl.cur b { color: #ffe066; -webkit-text-stroke-color: #6a3b00; filter: drop-shadow(0 .8cqw 0 #6a3b00) drop-shadow(0 0 2.5cqw #ffd84acc); animation: mapnum 1.2s ease-in-out infinite; }
+  @keyframes mapnum { 50% { transform: scale(1.08); } }
+  .map-lvl.star b { color: #ffb36b; }
+  .map-lvl.locked { cursor: default; }
+  .map-lvl.locked svg { width: 9cqw; height: 10.5cqw; filter: drop-shadow(0 .8cqw .6cqw #000a); }
+  .map-lvl.cur::before { content: ''; position: absolute; inset: -6% -4%; border-radius: 50%; box-shadow: 0 0 4cqw 1.5cqw #ffe36a; opacity: .5; animation: mapglow 1.4s ease-in-out infinite; pointer-events: none; }
+  @keyframes mapglow { 50% { opacity: .12; } }
   .map-me { position: absolute; width: 15cqw; height: 15cqw; object-fit: contain; transform: translate(-50%, -100%); pointer-events: none; animation: maphop 1s ease-in-out infinite; filter: drop-shadow(0 1.5cqw 1cqw #000a); }
   @keyframes maphop { 50% { margin-top: -2.5cqw; } }
   .map-gate { position: absolute; left: 68%; top: 12.8%; width: 26cqw; height: 18cqw; transform: translate(-50%, -50%); border: 0; background: none; cursor: pointer; }
@@ -3433,6 +3433,7 @@ function wireLiveSheet(body) {
 // the top opens the next 8 levels; the button at the bottom goes back.
 const MAP_SPOTS = [[36.3, 81.3], [71.7, 68.8], [32.7, 59.4], [66.2, 50.5], [32.4, 41.6], [66.7, 33.1], [36.1, 26.2], [62.2, 20.2]];
 let mapPage = 0;
+const MAP_LOCK = '<svg viewBox="0 0 36 42" aria-hidden="true"><defs><linearGradient id="lkB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset=".55" stop-color="#f0a92e"/><stop offset="1" stop-color="#b8701a"/></linearGradient><linearGradient id="lkS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa6b8"/><stop offset=".5" stop-color="#eef3fa"/><stop offset="1" stop-color="#8592a6"/></linearGradient></defs><path d="M9 19v-6a9 9 0 0 1 18 0v6" fill="none" stroke="#3a2a10" stroke-width="7" stroke-linecap="round"/><path d="M9 19v-6a9 9 0 0 1 18 0v6" fill="none" stroke="url(#lkS)" stroke-width="4.4" stroke-linecap="round"/><rect x="3" y="17" width="30" height="23" rx="6" fill="url(#lkB)" stroke="#5a3608" stroke-width="2"/><rect x="6" y="19.5" width="24" height="4" rx="2" fill="#fff" opacity=".35"/><circle cx="18" cy="27.5" r="3.4" fill="#5a3608"/><rect x="16.4" y="28" width="3.2" height="7" rx="1.6" fill="#5a3608"/></svg>';
 function openMap(page) {
   const reached = loadProgress().level;
   mapPage = page != null ? Math.max(0, page) : Math.floor((reached - 1) / 8);
@@ -3440,7 +3441,7 @@ function openMap(page) {
   let h = `<div class="map-top"><h3>Levels ${first}–${first + 7}</h3><button id="mapClose" aria-label="Close">&times;</button></div>`;
   MAP_SPOTS.forEach(([x, y], i) => {
     const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : 'locked';
-    h += `<button class="map-lvl ${cls} ${isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? '' : n}${cls === 'done' ? '<small>★★★</small>' : ''}</button>`;
+    h += `<button class="map-lvl ${cls} ${isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? MAP_LOCK : `<b>${n}</b>`}</button>`;
     if (n === reached) { const sk = SKINS[skinIndex] || SKINS[0]; h += `<img class="map-me" alt="" src="assets/${sk.img ? 'skins/' + sk.img : 'backman'}.webp" style="left:${x}%;top:${y - 3}%">`; }
   });
   h += `<button class="map-gate" id="mapNext" aria-label="Next levels"><span>Levels ${first + 8}–${first + 15} &#9650;</span></button>`;
@@ -3464,7 +3465,7 @@ function refreshHome() {
   $('xpFill').style.width = `${Math.round(100 * pl.xp / pl.need)}%`;
   $('xpText').textContent = `${pl.xp} / ${pl.need}`;
   $('homeCredits').textContent = credits;
-  $('playLevel').textContent = isChallenge(prog.level) ? `Level ${prog.level} ★` : `Level ${prog.level}`;
+  $('playLevel').textContent = `Level ${prog.level}`;
   const dailyReady = !dailyState().claimedToday;
   $('dailyBadge').classList.toggle('hidden', !dailyReady);
   $('dailyLabel').textContent = dailyReady ? 'Claim!' : 'Tomorrow';
