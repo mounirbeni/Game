@@ -78,6 +78,23 @@
   .card { pointer-events: auto; position: relative; text-align: center; width: min(88vw, 330px); background: none;
     border: 1px solid transparent; border-image: url(assets/card-frame.webp) 165 190 185 150 fill / 89px 103px 100px 81px stretch;
     padding: 56px 50px 60px 40px; filter: drop-shadow(0 14px 24px #000c); }
+  /* win / lose cards: the character frames, shown whole at their own proportions. Content sits inside the
+     gold ring and keeps clear of the characters (bottom-right ladybug on a win, bottom-left Backman on a loss). */
+  .card.fate-card { border: 0; border-image: none; padding: 0; width: min(94vw, 380px, calc(var(--app-h, 100vh) * .62)); aspect-ratio: 1122 / 1402;
+    background: url(assets/frame-win.webp) center / 100% 100% no-repeat; max-height: none; overflow: visible; container-type: inline-size; }
+  .card.fate-card.lose { background-image: url(assets/frame-lose.webp); }
+  .fate-top { position: absolute; left: 14%; right: 14%; top: 30%; height: 34%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.2cqw; }
+  .fate-top .card-title { margin: 0; font-size: 7.2cqw; white-space: nowrap; }
+  .fate-top .card-text { margin: 0; font-size: 3.9cqw; }
+  .fate-top .plaque-btn { width: 86%; margin: 0; font-size: 6.2cqw; }
+  .fate-top .plaque-btn .pb-cost { font-size: 4.8cqw; } .fate-top .plaque-btn .pb-cost img { width: 5.6cqw; height: 5.6cqw; }
+  .fate-actions { position: absolute; top: 65%; height: 18%; display: flex; align-items: center; gap: 5cqw; }
+  .fate-card.win .fate-actions { left: 15%; }          /* the ladybug sulks on the right */
+  .fate-card.lose .fate-actions { right: 15%; }        /* Backman sulks on the left */
+  .fate-actions .round-btn .rb-ico { width: 15cqw; height: 15.4cqw; } .fate-actions .round-btn .rb-ico img { width: 8.5cqw; height: 8.5cqw; }
+  .fate-actions .round-btn .rb-ico svg { width: 6.4cqw; height: 6.4cqw; } .fate-actions .round-btn small { font-size: 3cqw; }
+  .win-stats { display: flex; gap: 3cqw; }
+  .win-stats .cstat { width: 20cqw; } .win-stats .cstat b { font-size: 4.2cqw; } .win-stats .cstat small { font-size: 2.3cqw; }
   /* ---- inside the cards: one family with the frame (navy stone, gold rims, the game's icons) ---- */
   .card-title { margin: 0 0 10px; font: 900 32px/1.05 ui-rounded, system-ui, sans-serif; letter-spacing: .01em; color: #ffd75a;
     text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00, 2px 2px 0 #6a3b00, -2px 2px 0 #6a3b00, 0 6px 10px #0009; }
@@ -567,13 +584,32 @@
           <button class="round-btn" id="pauseHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button>
         </div>
       </div>
-      <div class="card hidden" id="overCard">
-        <h2 class="card-title red">Game Over</h2>
-        <p class="card-text" id="overText"></p>
-        <button class="plaque-btn" id="continueBtn">Continue</button>
-        <button class="plaque-btn" id="againBtn">Retry level</button>
-        <p class="card-note" id="creditHint"></p>
-        <div class="round-row"><button class="round-btn" id="overHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button></div>
+      <div class="card fate-card lose hidden" id="overCard">
+        <div class="fate-top">
+          <h2 class="card-title red">Game Over</h2>
+          <p class="card-text" id="overText"></p>
+          <button class="plaque-btn" id="continueBtn">Continue</button>
+          <button class="plaque-btn" id="againPlaque">Retry</button>
+        </div>
+        <div class="fate-actions">
+          <button class="round-btn" id="againBtn" aria-label="Retry"><span class="rb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg></span><small>Retry</small></button>
+          <button class="round-btn" id="overHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button>
+        </div>
+        <p class="hidden" id="creditHint"></p>
+      </div>
+      <div class="card fate-card win hidden" id="winCard">
+        <div class="fate-top">
+          <h2 class="card-title" id="winTitle">Level cleared!</h2>
+          <div class="win-stats">
+            <div class="cstat"><img class="uiicon" src="icons/ui/star.webp" alt="" draggable="false"><b id="winScore">0</b><small>Score</small></div>
+            <div class="cstat"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b id="winCredits">+0</b><small>Credits</small></div>
+          </div>
+          <button class="plaque-btn" id="nextBtn">Next level</button>
+        </div>
+        <div class="fate-actions">
+          <button class="round-btn" id="replayBtn" aria-label="Replay"><span class="rb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/></svg></span><small>Replay</small></button>
+          <button class="round-btn" id="winHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button>
+        </div>
       </div>
       <div class="card hidden" id="liveCard">
         <h2 class="card-title" id="liveTitle">Match over</h2>
@@ -1199,7 +1235,7 @@ function levelCleared() {
   if (level > highestCleared) highestCleared = level;
   saveMeta();
   clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${isChallenge(level) ? ' · CHALLENGE BEATEN!' : flawless ? ' · FLAWLESS!' : ''}`;
-  setState('clear', unlockedSkin ? 4 : 2.8);
+  setState('clear', 1.6);
   submitScore();
   sfx.clear();
   updateHud();
@@ -1692,24 +1728,35 @@ function update(dt) {
   }
   if (state === 'clear') {
     stateTimer -= dt;
-    if (stateTimer <= 0) nextLevel();
+    if (stateTimer <= 0) showWin();
   }
 }
 
+// Level cleared: the winner's card. Progress is saved right away, so going Home keeps the next level.
+function showWin() {
+  setState('won');
+  const saved = loadProgress();
+  if (level + 1 > saved.level) { try { localStorage.setItem('backman.level', String(level + 1)); localStorage.setItem('backman.levelScore', String(score)); } catch (e) { /* ignore */ } backupSoon(); submitScore(); }
+  $('winTitle').textContent = `Level ${level} cleared!`;
+  $('winScore').textContent = (score || 0).toLocaleString();
+  $('winCredits').textContent = `+${creditsThisLevel}`;
+  $('nextBtn').textContent = `Next: level ${level + 1}`;
+  showCard($('winCard'));
+}
+$('nextBtn').addEventListener('click', () => { unlockAudio(); hideCards(); nextLevel(); });
+$('replayBtn').addEventListener('click', () => { unlockAudio(); newGame(level); });
+$('winHomeBtn').addEventListener('click', () => { hideCards(); showHome(); });
 function gameOver() {
   if (duel) { finishDuel(false); return; }
   setState('over');
   stats.games++; statsDirty = true; recordRun();
-  ui.overText.innerHTML = `Level ${level} got you this time. You keep your place: try level ${level} again.` +
-    (score >= best && score > 0 ? '<br>New best score!' : `<br>Best: ${best.toLocaleString()}`);
-  $('againBtn').textContent = `Retry level ${level}`;
+  ui.overText.innerHTML = score >= best && score > 0 ? `New best score: <b style="color:#ffd75a">${score.toLocaleString()}</b>` : `Level ${level} got you!`;
   const canContinue = credits > 0;
   $('continueBtn').classList.toggle('hidden', !canContinue);
   $('continueBtn').innerHTML = `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
-  $('againBtn').className = canContinue ? 'pill-btn' : 'plaque-btn';
-  $('creditHint').innerHTML = canContinue
-    ? `You have ${credits} credit${credits > 1 ? 's' : ''}. Continuing gives you 1 extra life and keeps the seeds you've eaten.`
-    : 'Win levels to earn credits (2 for a flawless level). Spend them here to keep playing.';
+  $('againPlaque').classList.toggle('hidden', canContinue);   // no credits: Retry is the main button
+  $('againPlaque').textContent = `Retry level ${level}`;
+  $('againBtn').classList.toggle('hidden', !canContinue);
   showCard(ui.over);
 }
 
@@ -2520,7 +2567,7 @@ function updateHud() {
     ui.lives.appendChild(s);
   }
 }
-function hideCards() { [ui.start, ui.pause, ui.over, $('duelCard'), $('liveCard')].forEach(c => c.classList.add('hidden')); }
+function hideCards() { [ui.start, ui.pause, ui.over, $('duelCard'), $('liveCard'), $('winCard')].forEach(c => c.classList.add('hidden')); }
 function showCard(c) { hideCards(); c.classList.remove('hidden'); }
 
 // ---------- Input ----------
@@ -2581,6 +2628,7 @@ const ICONS = {
   muted: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>',
 };
 function togglePause() {
+  if (state === 'won') return;
   if (live) { if (state !== 'over' && confirm('Leave this live match?')) liveLeave(); return; }
   if (state === 'title' || state === 'over') return;
   paused = !paused;
@@ -2601,6 +2649,7 @@ function toggleMute() {
 $('startBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
 { const saved = loadProgress(); if (saved.level > 1) $('startBtn').textContent = `Continue: level ${saved.level}`; }
 $('againBtn').addEventListener('click', () => { unlockAudio(); newGame(level); });
+$('againPlaque').addEventListener('click', () => { unlockAudio(); newGame(level); });
 $('resumeBtn').addEventListener('click', togglePause);
 ui.pauseBtn.addEventListener('click', togglePause);
 ui.muteBtn.addEventListener('click', toggleMute);
