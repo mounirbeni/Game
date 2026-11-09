@@ -1328,6 +1328,7 @@ function spawnBonus() {
 
 function startFright() {
   if (hasPerk('ES')) pulsePerk();
+  if (hasPerk('MBN')) { freezeTimer = Math.max(freezeTimer, 1.5); pulsePerk(); }   // royal command: lanterns also freeze the beetles
   const sp = speeds();
   frightTimer = sp.frightTime;
   frightChain = 0;
@@ -1439,6 +1440,8 @@ function updateBeetles(dt) {
     else speed = sp.beetle;
     const inTunnel = (b.ty === TUNNEL_ROW && (b.tx < 4 || b.tx > COLS - 5)) || (b.tx === DOOR_COL && (b.ty < 2 || b.ty > ROWS - 3));
     if (inTunnel && b.mode === 'active') speed = Math.min(speed, sp.tunnel);
+    // MBN's royal aura: beetles that come close to the king slow right down
+    if (hasPerk('MBN') && b.mode === 'active' && !b.frightened && Math.abs(b.tx - player.tx) + Math.abs(b.ty - player.ty) <= 3) speed *= 0.75;
     // Bramble speeds up when few seeds remain
     if (b.i === 0 && b.mode === 'active' && !b.frightened && seedsLeft < TOTAL_SEEDS * 0.12) speed *= 1.08;
 
@@ -2109,7 +2112,7 @@ const PERKS = {
   FOX:      { title: 'Quick feet', desc: 'Runs 10% faster than everyone else and never slows down in the gates.' },
   Minty:    { title: 'Lucky leaf', desc: 'Gold coins appear twice as often and stay twice as long.' },
   Midnight: { title: 'Magic shield', desc: 'Survives the first two beetle hits in every level.' },
-  MBN:      { title: 'Royal treasury', desc: 'Clearing a level pays double credits, and every beetle eaten gives 2 credits.' },
+  MBN:      { title: 'The King', desc: 'Royal aura: beetles near you slow down by 25%. Royal command: every lantern also freezes the beetles for 1.5 seconds. Royal treasury: double credits for clearing a level and 2 credits per beetle.' },
   Shadow:   { title: 'Stealth', desc: 'Beetles notice you later, give you a longer head start, and move 5% slower.' },
   Ranger:   { title: 'Survivor', desc: 'Starts every level with 4 lives, and the extra life comes at 3,000 points instead of 5,000.' },
 };

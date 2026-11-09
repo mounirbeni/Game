@@ -64,7 +64,7 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 | Shadow | 350 | Stealth: beetles notice you later and move 5% slower |
 | Ranger | 400 | Survivor: 4 lives each level; extra life at 3,000 points |
 | Midnight | 450 | Magic shield: survives the first two beetle hits each level |
-| MBN | 600 | Royal treasury: double level-clear credits; 2 credits per beetle |
+| MBN | 600 | The King: beetles within 3 tiles slow down 25%; lanterns also freeze the beetles for 1.5 s; double level-clear credits; 2 credits per beetle |
 
 Powers are switched off in live matches with friends.
 
