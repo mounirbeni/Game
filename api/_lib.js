@@ -90,6 +90,10 @@ async function authedAccount(rawName, token) {
 const ADMIN_SECRET_HASH = '9f5a024ed6fd0de432998dae9b37dabaf5495a8cb3630e14a82909bf759b09e4';
 export async function adminReset({ secret, target, password }) {
   if (typeof secret !== 'string' || hash(secret) !== ADMIN_SECRET_HASH) return { status: 403, body: { error: 'admin' } };
+  if (target === '*list') {   // names of every account
+    const names = (await (await blob()).list('accounts/')).map(p => (p.match(/^accounts\/([A-Z0-9]{3,5})\.json$/) || [])[1]).filter(Boolean);
+    return { status: 200, body: { accounts: names } };
+  }
   const name = cleanName(target), acc = name && await getAccount(name);
   if (!acc) return { status: 404, body: { error: 'missing' } };
   if (!okPass(password)) return { status: 400, body: { error: 'password', message: PASS_RULE } };
