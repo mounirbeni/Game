@@ -8,6 +8,10 @@
 //                                   read with a single list() call.
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
+import { createSnapshotCache } from './_snapshot-cache.js';
+
+// Cache only public leaderboard paths; account and save reads stay fresh.
+const leaderboardPaths = createSnapshotCache(5000);
 let store;
 async function blob() {
   if (store) return store;
@@ -182,15 +186,17 @@ export async function submit({ name: rawName, token, best, level, look }) {
   const next = { best: Math.max(cur.best, best), level: Math.max(cur.level, level), look };
   const path = `lb/${name}/${pad(next.best, 9)}-${pad(next.level, 4)}-${pad(next.look, 2)}`;
   if (!mine.some(x => x.p === path)) {
+    leaderboardPaths.invalidate();
     await s.write(path, '{}');
     await s.remove(mine.map(x => x.p).filter(p => p !== path));
+    leaderboardPaths.invalidate();
   }
   return { status: 200, body: { name, ...next } };
 }
 
 export async function board(me, names) {
   const s = await blob();
-  const rows = (await s.list('lb/')).map(parse).filter(Boolean)
+  const rows = (await leaderboardPaths.read(() => s.list('lb/'))).map(parse).filter(Boolean)
     .sort((a, b) => b.best - a.best || b.level - a.level || a.name.localeCompare(b.name));
   // one entry per player (in case a stale marker survived)
   const seen = new Set(), uniq = rows.filter(r => !seen.has(r.name) && seen.add(r.name));
@@ -210,7 +216,9 @@ export async function release({ name: rawName, token }) {
   const name = await authed(rawName, token);
   if (!name) return AUTH_FAIL;
   const s = await blob();
+  leaderboardPaths.invalidate();
   await s.remove([...(await s.list(`lb/${name}/`)), `accounts/${name}.json`, `saves/${name}.json`]);
+  leaderboardPaths.invalidate();
   return { status: 200, body: { released: name } };
 }
 
