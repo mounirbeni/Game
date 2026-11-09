@@ -2152,8 +2152,7 @@ function resize() {
 let seedLayer = null, seedCtx = null;
 function buildSeeds() {
   if (!grid) return;
-  seedLayer = document.createElement('canvas');
-  seedLayer.width = Math.round(COLS * T * dpr); seedLayer.height = Math.round(ROWS * T * dpr);
+  seedLayer = poolCanvas('seeds', Math.round(COLS * T * dpr), Math.round(ROWS * T * dpr));
   seedCtx = seedLayer.getContext('2d');
   seedCtx.scale(dpr, dpr);
   const sprite = document.createElement('canvas');
@@ -2261,10 +2260,19 @@ function texPattern(g, img, size) {
 
 // The maze is drawn once per level onto its own canvas: textured ground, then raised hedges
 // with a ground shadow, a darker side, a lit top face and some leaves.
+// iPhone Safari has a hard limit on total canvas memory and frees old canvases late; making a
+// new full-maze canvas each time (the moving gates redraw every 15 s) used it up and the maze went
+// black. So the big layers are made once and reused.
+const layerPool = {};
+function poolCanvas(key, w, h) {
+  const c = layerPool[key] || (layerPool[key] = document.createElement('canvas'));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h);
+  return c;
+}
 function buildMaze(flash) {
   const W = COLS * T, H = ROWS * T;
-  const c = document.createElement('canvas');
-  c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+  const c = poolCanvas(flash ? 'mazeFlash' : 'maze', Math.round(W * dpr), Math.round(H * dpr));
   const g = c.getContext('2d');
   g.scale(dpr, dpr);
   const r = rng(42);
@@ -4249,8 +4257,8 @@ function openSheet(which, fromRefresh = false) {
         <div class="pinfo">
           ${account.name
             ? `<div class="pname"><span class="pname-fixed">${esc(account.name)}</span><span class="online-tag">ONLINE</span></div>
-               ${account.hasPassword
-                 ? `<div class="pname-hint">&#9729; Progress saved online. Log in with your name and password on any device.</div>`
+               ${account.hasPassword && !openSheet.changePass
+                 ? `<div class="pname-hint">&#9729; Progress saved online. Log in with your name and password on any device.</div><button class="plink" id="pChangePass">Change password</button>`
                  : `<div class="ppass"><input id="pPass" type="password" maxlength="64" autocomplete="new-password" placeholder="Set a password" aria-label="Password"><button class="claim-btn" id="pSetPass">Save</button></div>
                     <div class="pname-hint" id="pHint">&#9729; Progress saved online. Set a password to log in on other devices.</div>`}`
             : `<div class="pname"><input id="pName" maxlength="5" autocapitalize="characters" autocomplete="username" spellcheck="false" value="${esc((profile.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}" placeholder="NAME" aria-label="Player name"></div>
@@ -4296,12 +4304,15 @@ function openSheet(which, fromRefresh = false) {
           bad(e.code === 'login' ? 'Wrong name or password.' : e.code === 'taken' ? `${v} is already taken. Try another name, or log in.` : e.code === 'invalid' ? 'That name is not allowed. Try another.' : e.code === 'password' ? 'The password needs 6 to 64 characters.' : 'No connection. Try again when you are online.');
         }
       });
-    } else if (!account.hasPassword) {
+    } else if (account.hasPassword && !openSheet.changePass) {
+      $('pChangePass').addEventListener('click', () => { openSheet.changePass = true; openSheet('profile', true); });
+    } else {
       const pass = $('pPass'), hint = $('pHint');
+      if (openSheet.changePass) { pass.placeholder = 'New password'; hint.textContent = 'Type a new password (6+ characters) and tap Save.'; pass.focus(); }
       $('pSetPass').addEventListener('click', async () => {
         if (pass.value.length < 6) { hint.className = 'pname-hint bad'; hint.textContent = 'The password needs at least 6 characters.'; return; }
         $('pSetPass').disabled = true; hint.className = 'pname-hint'; hint.textContent = 'Saving…';
-        try { await setAccountPassword(pass.value); openSheet('profile'); }
+        try { await setAccountPassword(pass.value); openSheet.changePass = false; openSheet('profile'); const h2 = $('pHint') || document.querySelector('#sheetBody .pname-hint'); if (h2) h2.innerHTML = '&#9729; Password changed. Use it to log in on any device.'; }
         catch (e) { $('pSetPass').disabled = false; hint.className = 'pname-hint bad'; hint.textContent = e.code === 'auth' ? 'This device\'s key is no longer valid.' : 'No connection. Try again when you are online.'; }
       });
     }
