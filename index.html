@@ -667,6 +667,37 @@
   .gate-card { max-width: 330px; }
   .gate-card h3 { font-size: 22px; }
   .gate-card input { font-size: 15px; padding: 8px 10px !important; }
+
+  /* ===================== Daily Reward ===================== */
+  .dr-top { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+  .dr-hero { flex: none; width: 58px; height: 58px; filter: drop-shadow(0 4px 4px #000a); animation: drBounce 1.8s ease-in-out infinite; }
+  @keyframes drBounce { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-5px) rotate(4deg); } }
+  .dr-top b { display: block; font: 400 19px/1.1 'Lilita One', ui-rounded, system-ui, sans-serif; color: #ffd75a; letter-spacing: .02em; text-shadow: 0 2px 0 #6a3b00; }
+  .dr-top span { display: block; margin-top: 3px; font-size: 12px; font-weight: 700; color: #c9d4ff; line-height: 1.35; }
+  .dr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .dr-day { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 2px 7px; border-radius: 12px;
+    background: linear-gradient(#13237a, #071040); border: 2px solid #ffcf3a55; box-shadow: inset 0 1px 0 #ffffff1a; }
+  .dr-day.big { grid-column: span 2; flex-direction: row; gap: 8px; background: linear-gradient(135deg, #3a2a7a, #0b1450 70%); border-color: #c9a6ff99; }
+  .dr-day.big small { position: absolute; top: 5px; left: 0; right: 0; text-align: center; }
+  .dr-day.big b { font-size: 22px; margin-top: 10px; }
+  .dr-day small { font-size: 9.5px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: #9fb4ff; }
+  .dr-day img { width: 26px; height: 26px; filter: drop-shadow(0 2px 2px #0008); }
+  .dr-day .dr-gift { width: 38px; height: 38px; margin-top: 10px; }
+  .dr-day b { font: 400 17px/1 'Lilita One', ui-rounded, system-ui, sans-serif; color: #fff; letter-spacing: .02em; text-shadow: 0 2px 0 #060b2e; }
+  .dr-day.done { background: linear-gradient(#1c5a2a, #0a2a14); border-color: #7dff6a99; }
+  .dr-day.done img, .dr-day.done b { opacity: .55; }
+  .dr-day.done small { color: #9dff7a; }
+  .dr-check { position: absolute; right: -5px; top: -5px; width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #9dff7a, #1f9a2a); border: 2px solid #fff;
+    box-shadow: 0 2px 4px #0009; }
+  .dr-check::after { content: ''; position: absolute; left: 5px; top: 2px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+  .dr-day.now { border-color: #ffcf3a; background: linear-gradient(#5a4508, #1a1040); animation: drNow 1.3s ease-in-out infinite; }
+  .dr-day.now small { color: #ffd75a; }
+  @keyframes drNow { 50% { box-shadow: 0 0 14px #ffcf3a, inset 0 1px 0 #ffffff33; transform: scale(1.05); } }
+  .dr-day.next { border-color: #ffcf3a99; border-style: dashed; }
+  .dr-day.next small { color: #ffd75a; }
+  .dr-btn { display: flex !important; align-items: center; justify-content: center; gap: 6px; margin-top: 12px !important; }
+  .dr-btn img { width: 22px; height: 22px; }
+  .dr-btn:disabled { font-size: 15px !important; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -3919,10 +3950,26 @@ function openSheet(which, fromRefresh = false) {
   if (which === 'daily') {
     title = 'Daily Reward';
     const st = dailyState();
-    body.innerHTML = `<p>Come back every day: the reward grows for each day in a row.</p><div class="days">` +
-      DAILY.map((r, i) => `<div class="day ${i < st.streak ? 'done' : ''} ${!st.claimedToday && i === st.nextDay - 1 ? 'today' : ''}">Day ${i + 1}<b>+${r}</b></div>`).join('') +
-      `</div><button class="gold-btn" id="claimDaily" ${st.claimedToday ? 'disabled' : ''}>${st.claimedToday ? 'Come back tomorrow' : `Claim +${DAILY[st.nextDay - 1]} credit${DAILY[st.nextDay - 1] > 1 ? 's' : ''}`}</button>`;
+    const COIN = '<img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">';
+    const tile = (r, i) => {
+      const done = i < st.streak, now = !st.claimedToday && i === st.nextDay - 1, next = st.claimedToday && i === st.streak % 7;
+      return `<div class="dr-day ${done ? 'done' : ''} ${now ? 'now' : ''} ${next ? 'next' : ''} ${i === 6 ? 'big' : ''}">` +
+        `<small>${now ? 'Today' : next ? 'Tomorrow' : 'Day ' + (i + 1)}</small>` +
+        (i === 6 ? '<img class="uiicon dr-gift" src="icons/ui/gift.webp" alt="" draggable="false">' : COIN) +
+        `<b>+${r}</b>${done ? '<i class="dr-check"></i>' : ''}</div>`;
+    };
+    body.innerHTML = `<div class="dr-top"><img class="uiicon dr-hero" src="icons/ui/gift.webp" alt="" draggable="false">` +
+      `<div><b>${st.streak ? `${st.streak}-day streak!` : 'Start your streak!'}</b><span>Come back every day: the reward grows. Day 7 is the big one.</span></div></div>` +
+      `<div class="dr-grid">${DAILY.map(tile).join('')}</div>` +
+      (st.claimedToday ? `<button class="gold-btn dr-btn" id="claimDaily" disabled><span id="drTimer">Next reward soon</span></button>`
+                       : `<button class="gold-btn dr-btn" id="claimDaily">Claim ${COIN}+${DAILY[st.nextDay - 1]}</button>`);
     if (!st.claimedToday) $('claimDaily').addEventListener('click', claimDaily);
+    else {   // live countdown to midnight
+      const tick = () => { const el = $('drTimer'); if (!el || sheetOpen !== 'daily') return clearInterval(openSheet.drT);
+        const d = new Date(), m = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) - d, h = Math.floor(m / 36e5), mi = Math.floor(m % 36e5 / 6e4), se = Math.floor(m % 6e4 / 1e3);
+        el.textContent = `Next reward in ${h}:${String(mi).padStart(2, '0')}:${String(se).padStart(2, '0')}`; };
+      clearInterval(openSheet.drT); tick(); openSheet.drT = setInterval(tick, 1000);
+    }
   } else if (which === 'missions') {
     title = 'Daily Missions';
     const ms = todaysMissions();
