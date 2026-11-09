@@ -533,6 +533,73 @@
     width: 42px; height: 42px; padding: 0; cursor: pointer; border-radius: 13px; border: 2px solid #9fb4ff;
     background: linear-gradient(#6d80f2, #3343b8); box-shadow: inset 0 2px 0 #ffffff55, inset 0 -4px 0 #24318a, 0 3px 8px #0008; }
   .icon-btn:active { transform: translateY(2px); }
+
+  /* ===================== ONE KIT FOR EVERY SCREEN =====================
+     Panels: the plain stone-and-gold frame. Main buttons: the green art. Other buttons: the blue art.
+     Rows and tiles: deep navy with a thin gold rim. Headings and buttons: Lilita One. */
+  :root { --navy: #0a1450; --navy-2: #071040; --rim: #ffcf3a77; --rim-strong: #ffcf3a; }
+  .kit-font, .sheet-head h3, .gate-card h3, .gold-btn, .claim-btn, .tabs button, .mission button, .shop-msg button, .toggle, .danger-btn,
+  .lb-rank, .lb-score, .pname-fixed, .pstat b, .day b, .live-code, .phead, .lvl { font-family: 'Lilita One', ui-rounded, system-ui, sans-serif !important; font-weight: 400 !important; letter-spacing: .02em; }
+  /* the sheet becomes a framed card in the middle of the screen */
+  .sheet { align-items: center; padding: 14px; background: radial-gradient(ellipse at center, #0a1240aa, #02051aee); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .sheet:not(.hidden) .sheet-card { animation: cardPop .38s cubic-bezier(.2, 1.5, .4, 1) both; }
+  .sheet-card { width: min(94vw, 460px); max-height: min(86%, 760px); border-radius: 0; background: none; box-shadow: none; padding: 16px 16px 20px;
+    border: 26px solid transparent; border-image: url(assets/frame-plain.webp) 70 52 70 52 fill / 34px 26px 34px 26px stretch; filter: drop-shadow(0 14px 24px #000c); }
+  .sheet-head { position: relative; justify-content: center; margin: 0 0 12px; }
+  .sheet-head h3 { font-size: 26px; color: #ffd75a; text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00, 0 5px 8px #0009; }
+  .sheet-x { position: absolute; right: -6px; top: -4px; width: 38px; height: 39px; border: 0; border-radius: 0; color: #fff; font-size: 22px; padding: 0 0 2px;
+    background: url(assets/frame-square.webp) center / 100% 100% no-repeat; text-shadow: 0 2px 0 #060b2e; filter: drop-shadow(0 3px 4px #0009); }
+  .sheet-card p, .gate-card p { color: #d6defc; }
+  /* buttons: green art for the main action, blue art for the rest (9-slice, so any width keeps its gold rim) */
+  .gold-btn, .claim-btn, .mission button, .shop-msg .buy, .tabs button.on, .toggle.on {
+    border: 14px solid transparent !important; border-image: url(assets/btn-green.webp) 70 80 70 80 fill / 14px 16px 14px 16px stretch !important; background: none !important;
+    color: #fff !important; text-shadow: 0 2px 0 #135a0d, 1px 0 0 #135a0d, -1px 0 0 #135a0d !important; box-shadow: none !important; filter: drop-shadow(0 3px 3px #0008); border-radius: 0 !important; }
+  .tabs button, .toggle, .shop-msg .cancel, .danger-btn, .lb-x, .gate-card .plink, button.install {
+    border: 14px solid transparent !important; border-image: url(assets/btn-blue.webp) 90 80 90 80 fill / 14px 16px 14px 16px stretch !important; background: none !important;
+    color: #fff !important; text-shadow: 0 2px 0 #0a1a6e, 1px 0 0 #0a1a6e, -1px 0 0 #0a1a6e !important; box-shadow: none !important; filter: drop-shadow(0 3px 3px #0008); border-radius: 0 !important; text-decoration: none !important; }
+  .gold-btn { width: 88%; margin: 10px auto 0; padding: 4px 8px 6px; font-size: 20px !important; }
+  .claim-btn, .mission button, .shop-msg button { padding: 0 6px 2px !important; font-size: 15px !important; }
+  .tabs button { padding: 0 4px 2px !important; font-size: 16px !important; }
+  .tabs button:not(.on) { color: #cfe0ff !important; filter: drop-shadow(0 3px 3px #0008) saturate(.75) brightness(.85); }
+  .toggle, .danger-btn { padding: 0 6px 2px !important; font-size: 14px !important; }
+  .danger-btn { color: #ffb4b4 !important; }
+  .lb-x { width: 34px; height: 30px; padding: 0 !important; font-size: 16px; border-width: 10px !important; border-image-width: 10px !important; }
+  .gold-btn:disabled, .claim-btn:disabled, .mission button:disabled { filter: grayscale(1) brightness(.75) !important; }
+  .gold-btn:active, .claim-btn:active, .tabs button:active, .mission button:active, .toggle:active { transform: translateY(2px) scale(.98); }
+  .gate-card .plink, button.install { padding: 0 8px 2px !important; font-size: 14px !important; }
+  /* rows, tiles and panels inside: deep navy with a thin gold rim */
+  .lb-row, .mission, .day, .live-p, .duel, .pstat, .rows td, .set-row, .live-res div, .kit-panel {
+    background: linear-gradient(#0f1d66, var(--navy-2)) !important; border: 2px solid var(--rim) !important; border-radius: 14px; box-shadow: inset 0 1px 0 #ffffff1a; }
+  .rows td, .set-row { background: none !important; border: 0 !important; border-bottom: 1px solid #ffcf3a33 !important; border-radius: 0; box-shadow: none; }
+  .lb-row.me { border-color: #7dff6a !important; box-shadow: 0 0 10px #7dff6a44; }
+  .lb-row.top1 { border-color: var(--rim-strong) !important; background: linear-gradient(90deg, #5a4508, var(--navy-2) 65%) !important; }
+  .lb-row.top2 { border-color: #c9d6e8 !important; } .lb-row.top3 { border-color: #d98a4a !important; }
+  .duel { border-color: #ff8a7a !important; } .duel.done { border-color: var(--rim) !important; } .duel.win { border-color: #7dff6a !important; }
+  .day.done { background: linear-gradient(#1c5a2a, #0c3018) !important; border-color: #7dff6a !important; }
+  .day.today { border-color: var(--rim-strong) !important; box-shadow: 0 0 12px #ffcf3a88; }
+  .pcard { background: linear-gradient(#18307e, var(--navy-2)) !important; border: 2px solid var(--rim-strong) !important; }
+  .pavatar { background: url(assets/frame-square.webp) center / 100% 100% no-repeat !important; border: 0 !important; box-shadow: none !important; padding: 12px; }
+  .pavatar canvas { width: 80px; height: 80px; }
+  .pstat img { filter: drop-shadow(0 3px 3px #0009); }
+  .lb-rank { font-size: 18px; } .lb-score { color: #ffd75a; }
+  .pbar { background: var(--navy-2); border-color: var(--rim-strong); } .pbar i { background: linear-gradient(#9dff7a, #2fbf3a); }
+  /* inputs: navy wells with a gold rim */
+  .gate-card input, .friend-add input, .set-row input, .live-code-in, #liveCode, .ppass input, .pname input {
+    background: #050c33 !important; border: 2px solid var(--rim) !important; border-radius: 12px !important; color: #fff !important; padding: 10px 12px !important; }
+  .gate-card input:focus, .friend-add input:focus, #liveCode:focus, .ppass input:focus, .pname input:focus { outline: none; border-color: var(--rim-strong) !important; box-shadow: 0 0 0 3px #ffcf3a33; }
+  /* shop looks: navy tiles, gold when chosen */
+  .skin { background: linear-gradient(#13237a, var(--navy-2)); border: 2px solid var(--rim); border-radius: 14px; }
+  .skin.sel { border-color: var(--rim-strong); background: linear-gradient(#5a4508, var(--navy-2)); box-shadow: 0 0 10px #ffcf3a66; }
+  .skin.pending { border-color: #7dff6a; }
+  .skin .lock { color: #ffd75a; }
+  .skin span { font-family: 'Lilita One', ui-rounded, system-ui, sans-serif; font-weight: 400; font-size: 12px; letter-spacing: .02em; }
+  /* the account window: same frame and buttons */
+  #gate { background: radial-gradient(ellipse at center, #0a1240dd, #02051af5); }
+  .gate-card { background: none; box-shadow: none; border-radius: 0; padding: 30px 20px 22px; gap: 12px;
+    border: 26px solid transparent; border-image: url(assets/frame-plain.webp) 70 52 70 52 fill / 34px 26px 34px 26px stretch; filter: drop-shadow(0 14px 24px #000c); animation: cardPop .38s cubic-bezier(.2, 1.5, .4, 1) both; }
+  .gate-card h3 { font-size: 26px; text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00; }
+  .gate-logo { border: 3px solid var(--rim-strong); margin-top: -70px; }
+  .gate-card .gold-btn { width: 100%; }
 </style>
 </head>
 <body>
@@ -4062,7 +4129,7 @@ window.__backman = { get state() { return state; }, get score() { return score; 
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
-  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, get live() { return live; }, eatAll() { for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] === '.' || grid[y][x] === 'o') eatAt(x, y); }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
+  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, openSheet: (w) => openSheet(w), closeSheet: () => closeSheet(), get live() { return live; }, eatAll() { for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] === '.' || grid[y][x] === 'o') eatAt(x, y); }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
 })();
 </script>
 </body>
