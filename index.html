@@ -3447,6 +3447,44 @@ $('gGo').addEventListener('click', async () => {
     if (e.code === 'auth') { account = { name: '', token: '', hasPassword: false }; saveJSON('bma.account', account); gateMode = 'login'; setTimeout(updateGate, 1200); }
   }
 });
+// ---------- Push notifications ----------
+// A phone allows notifications from Settings; the server then sends: a friend's challenge (and its
+// result), a live room opened, a player passing your best score, and a daily reward reminder.
+// (On iPhone this only works once the game is added to the Home Screen.) Kept on this phone only.
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const pushOn = () => { try { return localStorage.getItem('bmapush') === 'on' && Notification.permission === 'granted'; } catch (e) { return false; } };
+function pushHint() {
+  if (!pushSupported()) return /iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? 'To get notifications on iPhone, add the game to your Home Screen first (Share, then Add to Home Screen), then turn them on here.' : 'This browser cannot show notifications.';
+  if (Notification.permission === 'denied') return 'Notifications are blocked for this game in your phone settings.';
+  return pushOn() ? 'You get a notification for challenges, live rooms, when someone passes your score and for your daily reward.' : 'Turn on to hear about challenges, live rooms, your rank and your daily reward.';
+}
+const b64key = k => { const s = atob(k.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - k.length % 4) % 4)); return Uint8Array.from(s, c => c.charCodeAt(0)); };
+async function pushSubscribe() {
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) { const { key } = await api('/api/push', { action: 'key' }); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64key(key) }); }
+  await api('/api/push', { action: 'subscribe', name: account.name, token: account.token, sub: sub.toJSON() });
+}
+async function pushEnable() {
+  if (!pushSupported()) return pushHint();
+  if (!account.token) return 'Log in first to get notifications.';
+  try {
+    if ((await Notification.requestPermission()) !== 'granted') return 'Notifications were not allowed.';
+    await pushSubscribe();
+    try { localStorage.setItem('bmapush', 'on'); } catch (e) { /* ignore */ }
+    return '';
+  } catch (e) { return 'Could not turn on notifications. Check your connection and try again.'; }
+}
+async function pushDisable() {
+  try { localStorage.setItem('bmapush', 'off'); } catch (e) { /* ignore */ }
+  try {
+    const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+    if (sub) { api('/api/push', { action: 'unsubscribe', name: account.name, token: account.token, endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
+  } catch (e) { /* ignore */ }
+  return '';
+}
+// keep the server's copy of this phone's subscription up to date (new account, new key...)
+function pushResync() { if (pushSupported() && pushOn() && account.token) pushSubscribe().catch(() => {}); }
 async function setAccountPassword(password) {
   await api('/api/account', { action: 'password', name: account.name, token: account.token, password });
   account.hasPassword = true; saveJSON('bma.account', account);
@@ -4496,6 +4534,8 @@ function openSheet(which, fromRefresh = false) {
     title = 'Settings';
     body.innerHTML = `<div class="set-row"><span>Profile</span><button class="toggle on" id="openProfile">Edit</button></div>
       <div class="set-row"><span>Sound</span><button class="toggle ${muted ? '' : 'on'}" id="soundToggle">${muted ? 'Off' : 'On'}</button></div>
+      <div class="set-row"><span>Notifications</span><button class="toggle ${pushOn() ? 'on' : ''}" id="pushToggle">${pushOn() ? 'On' : 'Off'}</button></div>
+      <p id="pushMsg" style="font-size:12px">${pushHint()}</p>
       ${/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? '<div class="set-row"><span>Install</span></div><p>Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>' : ''}
       <div class="set-row"><span>How to play</span><button class="toggle on" id="showTut">Show</button></div>
       <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins for credits. Mushrooms freeze every beetle for 3 seconds. Each level the garden grows and one more beetle joins in.</p>
@@ -4509,6 +4549,11 @@ function openSheet(which, fromRefresh = false) {
       <p style="font-size:12px">Bug Maze Adventure · ${account.token ? 'progress is saved on this device and online.' : 'progress is saved on this device.'}</p>`;
     $('openProfile').addEventListener('click', () => openSheet('profile'));
     $('soundToggle').addEventListener('click', () => { toggleMute(); openSheet('settings'); });
+    $('pushToggle').addEventListener('click', async () => {
+      const msg = $('pushMsg'); $('pushToggle').disabled = true;
+      const r = pushOn() ? await pushDisable() : await pushEnable();
+      openSheet('settings'); if (r && $('pushMsg')) $('pushMsg').textContent = r;
+    });
     $('showTut').addEventListener('click', () => { closeSheet(); showTutorial(); });
     $('copySave').addEventListener('click', async e => {
       flushStats();
@@ -4595,7 +4640,9 @@ $('installBtn').addEventListener('click', async () => {
 window.addEventListener('appinstalled', () => $('installBtn').classList.add('hidden'));
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone()) $('iosHint').classList.remove('hidden');
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(() => pushResync()).catch(() => {}));
+  // a tapped notification asks an open game to show something (e.g. the live rooms)
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'open' && /#live$/.test(e.data.url)) { try { openSheet('live'); } catch (err) { /* ignore */ } } });
 }
 
 // ---------- Loop ----------
@@ -4642,6 +4689,10 @@ restoreFromBackup().then(async local => {
     location.reload();   // start again with the restored progress
   } else backupNow();
   submitScore(true); refreshRank(); refreshDuels(); claimGifts(); cloudPush();
+  if (location.hash === '#live' && account.token && !gateNeeded()) {   // opened from a live-room notification
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
+    openSheet('live');
+  }
 });
 
 // Coming back to an app that was left open: pick up progress or credits saved online meanwhile

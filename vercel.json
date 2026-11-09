@@ -27,5 +27,11 @@
     "deploymentEnabled": {
       "*": false
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/push?cron=daily",
+      "schedule": "7 17 * * *"
+    }
+  ]
 }

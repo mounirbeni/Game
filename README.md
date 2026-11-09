@@ -114,6 +114,8 @@ All home-screen and score-bar icons are custom artwork made for this game.
   - `POST /api/account` `{action: 'load', name, token}`: returns the saved progress.
   - `POST /api/account` `{action: 'login', name, password}`: logs in on a new device and returns a new key plus the saved progress.
   - `POST /api/account` `{action: 'password', name, token, password}`: sets or changes the password.
+  - `POST /api/push` `{action: 'key' | 'subscribe' | 'unsubscribe'}`: push notifications for this phone (turned on in Settings).
+- **Notifications:** a friend's challenge and its result, a live room opened, someone passing your best score, and a daily reward reminder (Vercel cron, 17:07 UTC). The server makes its own VAPID keys on first use (`config/vapid.json` in Neon). On iPhone, notifications need the game added to the Home Screen.
 - **Cloud save:** with an account, progress is sent to the server a few seconds after every change and when the app closes, and merged back in (never lowering anything) when the game opens or after logging in.
 - **Secret key:** the key is saved on the device in `bma.account`. It is also included in the save code, so a player's name moves to a new phone with their progress.
 

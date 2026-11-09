@@ -200,6 +200,10 @@ export async function submit({ name: rawName, token, best, level, look }) {
   const next = { best: Math.max(cur.best, best), level: Math.max(cur.level, level), look };
   const path = `lb/${name}/${pad(next.best, 9)}-${pad(next.level, 4)}-${pad(next.look, 2)}`;
   if (!mine.some(x => x.p === path)) {
+    if (next.best > cur.best) {   // tell the players this new best score has just passed
+      const passed = [...new Set((await s.list('lb/')).map(parse).filter(r => r && r.name !== name && r.best > cur.best && r.best < next.best).map(r => r.name))];
+      if (passed.length) await notify(passed, { title: 'You were passed! 🏆', body: `${name} just beat your score with ${next.best.toLocaleString('en')} points. Take your place back!`, tag: 'rank', url: '/' });
+    }
     leaderboardPaths.invalidate();
     await s.write(path, '{}');
     await s.remove(mine.map(x => x.p).filter(p => p !== path));
@@ -234,6 +238,63 @@ export async function release({ name: rawName, token }) {
   await s.remove([...(await s.list(`lb/${name}/`)), ...(await s.list(`keys/${name}/`)), `accounts/${name}.json`, `saves/${name}.json`]);   // keys too, so an old phone can't get into a new owner's account
   leaderboardPaths.invalidate();
   return { status: 200, body: { released: name } };
+}
+
+// ---------- Push notifications ----------
+//   push/<NAME>/<hash>.json   { sub, t }   one per phone that allowed notifications
+//   config/vapid.json         { publicKey, privateKey }   made by the server itself on first use
+//   pushdaily/<YYYY-MM-DD>    created once a day, so the daily reminder is sent only once
+let webpush, vapid;
+async function pusher() {
+  if (!webpush) webpush = (await import('web-push')).default;
+  if (!vapid) {
+    const s = await blob();
+    vapid = await readJSON(s, 'config/vapid.json');
+    if (!vapid) {
+      const k = webpush.generateVAPIDKeys();
+      await s.create('config/vapid.json', JSON.stringify({ publicKey: k.publicKey, privateKey: k.privateKey }));
+      vapid = await readJSON(s, 'config/vapid.json');   // the copy that won, if two servers raced
+    }
+    webpush.setVapidDetails('https://backman-nu.vercel.app', vapid.publicKey, vapid.privateKey);
+  }
+  return webpush;
+}
+const okSub = sub => sub && typeof sub.endpoint === 'string' && /^https:\/\//.test(sub.endpoint) && sub.endpoint.length < 1000 && sub.keys && typeof sub.keys.p256dh === 'string' && typeof sub.keys.auth === 'string';
+export async function pushApi(body) {
+  if (body.action === 'key') { await pusher(); return { status: 200, body: { key: vapid.publicKey } }; }
+  const acc = await authedAccount(body.name, body.token);
+  if (!acc) return AUTH_FAIL;
+  const s = await blob();
+  if (body.action === 'subscribe') {
+    if (!okSub(body.sub)) return { status: 400, body: { error: 'invalid' } };
+    await s.write(`push/${acc.name}/${hash(body.sub.endpoint)}.json`, JSON.stringify({ sub: { endpoint: body.sub.endpoint, keys: { p256dh: body.sub.keys.p256dh, auth: body.sub.keys.auth } }, t: Date.now() }));
+    return { status: 200, body: { ok: true } };
+  }
+  if (body.action === 'unsubscribe') {
+    if (body.endpoint) await s.remove([`push/${acc.name}/${hash(String(body.endpoint))}.json`]);
+    return { status: 200, body: { ok: true } };
+  }
+  return { status: 400, body: { error: 'action' } };
+}
+// Send a notification to every phone of these players. Never throws: a failed push must not break the game.
+export async function notify(names, payload) {
+  try {
+    const s = await blob(), wp = await pusher();
+    const paths = (await Promise.all([...new Set(names)].map(n => s.list(`push/${n}/`)))).flat();
+    await Promise.all(paths.map(async p => {
+      const rec = await readJSON(s, p); if (!rec) return;
+      try { await wp.sendNotification(rec.sub, JSON.stringify(payload), { TTL: 6 * 3600 }); }
+      catch (e) { if (e && (e.statusCode === 404 || e.statusCode === 410)) await s.remove([p]); }   // phone unsubscribed
+    }));
+  } catch (e) { console.error('push', e); }
+}
+const pushNames = async s => [...new Set((await s.list('push/')).map(p => p.split('/')[1]))];
+// Once a day (Vercel cron): remind everyone who allowed notifications about the daily reward.
+export async function dailyReminder() {
+  const s = await blob(), day = new Date().toISOString().slice(0, 10);
+  if (!(await s.create(`pushdaily/${day}`, '{}'))) return { status: 200, body: { sent: false } };
+  await notify(await pushNames(s), { title: 'Your daily reward is waiting! 🎁', body: 'Open Bug Maze Adventure to claim it and finish today\'s missions.', tag: 'daily', url: '/' });
+  return { status: 200, body: { sent: true } };
 }
 
 // ---------- Friend challenges ----------
@@ -293,6 +354,7 @@ export async function challenge(body) {
     const ch = { id: newId(), from: me, to, level, seed: 100000 + Math.floor(Math.random() * 900000000), created: now, expires: now + CH_LIFE };
     await s.write(`challenges/${ch.id}.json`, JSON.stringify(ch));
     await Promise.all([s.write(`ch/${me}/${ch.id}`, '{}'), s.write(`ch/${to}/${ch.id}`, '{}')]);
+    await notify([to], { title: 'New challenge! ⚔️', body: `${me} challenged you on level ${ch.level}. Beat their score!`, tag: `ch-${ch.id}`, url: '/' });
     return { status: 200, body: { challenge: await view(s, ch, me, now) } };
   }
   if (body.action === 'start') {
@@ -311,7 +373,9 @@ export async function challenge(body) {
     const score = Math.floor(+body.score || 0);
     if (score < 0 || score > 60000 * ch.level + 20000) return { status: 400, body: { error: 'invalid', message: 'That score does not look right.' } };
     await s.write(path, JSON.stringify({ score, cleared: !!body.cleared, done: true, t: now }));
-    return { status: 200, body: { challenge: await view(s, ch, me, now) } };
+    const v = await view(s, ch, me, now), other = ch.from === me ? ch.to : ch.from;
+    if (v.result) await notify([other], { title: 'Challenge over!', body: `${me} finished your challenge. See who won and collect your credits.`, tag: `ch-${ch.id}`, url: '/' });
+    return { status: 200, body: { challenge: v } };
   }
   if (body.action === 'claim') {
     const ch = await load(body.id);
@@ -370,6 +434,7 @@ export async function room(body) {
       const old = await readJSON(s, `rooms/${c}.json`);
       if (old && now - old.created < ROOM_LIFE) continue;
       await s.write(`rooms/${c}.json`, JSON.stringify(r));
+      await notify((await pushNames(s)).filter(n => n !== me), { title: 'Live room open! 🎮', body: `${me} opened a ${mode === 'coop' ? 'Team' : 'Race'} room. Join now: code ${c}`, tag: `room-${c}`, url: '/#live' });
       return { status: 200, body: { room: r } };
     }
     return { status: 503, body: { error: 'busy', message: 'Could not make a room. Try again.' } };

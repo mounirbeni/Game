@@ -1,7 +1,7 @@
 // Backman service worker: makes the game installable and playable offline.
 // The page itself is fetched network-first so updates show up as soon as you're online;
 // everything else is served from the cache first.
-const CACHE = 'bugmaze-v68';
+const CACHE = 'bugmaze-v69';
 const ASSETS = [
   './',
   './index.html',
@@ -49,4 +49,22 @@ self.addEventListener('fetch', event => {
       return res;
     }))
   );
+});
+
+// Push notifications from the game server (challenges, live rooms, leaderboard, daily reward).
+self.addEventListener('push', event => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { d = { title: 'Bug Maze Adventure', body: event.data ? event.data.text() : '' }; }
+  event.waitUntil(self.registration.showNotification(d.title || 'Bug Maze Adventure', {
+    body: d.body || '', tag: d.tag || undefined, renotify: !!d.tag,
+    icon: './icons/icon-192.png', badge: './icons/favicon-32.png', data: { url: d.url || '/' },
+  }));
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) if (new URL(c.url).origin === self.location.origin) { c.focus(); c.postMessage({ type: 'open', url }); return; }
+    return self.clients.openWindow(url);
+  }));
 });
