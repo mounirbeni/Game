@@ -925,7 +925,7 @@ const CANONICAL_HOST = 'backman-nu.vercel.app';
 const DEV_CREDITS = 999999999, DEV_ITEMS = 999;
 // Show ∞ instead of the huge developer numbers.
 const inf = v => devMode ? '∞' : v;
-let devMode = (() => { try { const a = JSON.parse(localStorage.getItem('bma.account') || '{}'); return !!(a.token && a.dev); } catch (e) { return false; } })();
+let devMode = false;   // only the server turns it on (when it confirms the developer account)
 const isSaveKey = k => typeof k === 'string' && (k.startsWith('backman.') || k.startsWith('bma.'));
 function readSave() {
   const d = {};
@@ -3412,8 +3412,8 @@ function updateGate() {
   const g = $('gate');
   if (!gateNeeded()) { g.classList.add('hidden'); return; }
   const setPass = !!account.token, login = !setPass && gateMode === 'login';
-  $('gateTitle').textContent = setPass ? 'Protect your account' : login ? 'Welcome back!' : 'Create your account';
-  $('gateText').textContent = setPass ? `Set a password for ${account.name} to keep playing. Your progress is saved online and you can log in on any device.`
+  $('gateTitle').textContent = setPass ? 'Your account is back!' : login ? 'Welcome back!' : 'Create your account';
+  $('gateText').textContent = setPass ? `Welcome back, ${account.name}: your account and progress are back. Choose a new password (you don't need the old one), keep it somewhere safe, and use it to log in on any device.`
     : login ? 'Log in with your name and password to load your saved progress.'
     : 'Choose a name and a password to play. Your levels, score, credits and looks are saved online automatically.';
   $('gName').classList.toggle('hidden', setPass);
@@ -3441,7 +3441,7 @@ $('gGo').addEventListener('click', async () => {
     else await claimName(v, pw);
     $('gPass').value = ''; updateGate(); refreshHome();
   } catch (e) {
-    bad(e.code === 'login' ? 'Wrong name or password.' : e.code === 'taken' ? `${v} is already taken. Try another name, or log in.`
+    bad(e.code === 'wait' ? e.message : e.code === 'login' ? 'Wrong name or password.' : e.code === 'taken' ? `${v} is already taken. Try another name, or log in.`
       : e.code === 'invalid' ? 'That name is not allowed. Try another.' : e.code === 'password' ? 'The password needs 6 to 64 characters.'
       : e.code === 'auth' ? 'This device\'s key is no longer valid. Log in again.' : 'No connection. Connect to the internet to continue.');
     if (e.code === 'auth') { account = { name: '', token: '', hasPassword: false }; saveJSON('bma.account', account); gateMode = 'login'; setTimeout(updateGate, 1200); }
@@ -4453,7 +4453,7 @@ function openSheet(which, fromRefresh = false) {
           await claimName(v, pw); refreshHome(); openSheet('profile');
         } catch (e) {
           $('pClaim').disabled = false;
-          bad(e.code === 'login' ? 'Wrong name or password.' : e.code === 'taken' ? `${v} is already taken. Try another name, or log in.` : e.code === 'invalid' ? 'That name is not allowed. Try another.' : e.code === 'password' ? 'The password needs 6 to 64 characters.' : 'No connection. Try again when you are online.');
+          bad(e.code === 'wait' ? e.message : e.code === 'login' ? 'Wrong name or password.' : e.code === 'taken' ? `${v} is already taken. Try another name, or log in.` : e.code === 'invalid' ? 'That name is not allowed. Try another.' : e.code === 'password' ? 'The password needs 6 to 64 characters.' : 'No connection. Try again when you are online.');
         }
       });
     } else if (account.hasPassword && !openSheet.changePass) {

@@ -25,7 +25,6 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "claude/nice-cori-qn1bhe": true,
       "*": false
     }
   }

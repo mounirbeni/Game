@@ -86,7 +86,7 @@ async function authedAccount(rawName, token) {
   if (!name || !token) return null;
   let acc = await getAccount(name);
   if (!acc && Date.now() < RESTORE_UNTIL && /^[0-9a-f]{48}$/.test(token)) {
-    await (await blob()).create(`accounts/${name}.json`, JSON.stringify({ name, tokenHash: hash(token), created: Date.now(), restored: true }));
+    await (await blob()).create(`accounts/${name}.json`, JSON.stringify({ name, tokenHash: hash(token), created: 0, restored: true }));
     acc = await getAccount(name);
   }
   if (!acc) return null;
@@ -140,9 +140,19 @@ export async function loadCloud({ name, token }) {
   return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? rec.save : null } };
 }
 // Log in on a new device with name + password: hands out a new key for that device.
+// At most 10 wrong passwords per name every 15 minutes, so nobody can try password after password.
+const LOGIN_TRIES = 10, LOGIN_WINDOW = 15 * 60000;
 export async function login({ name: rawName, password }) {
   const name = cleanName(rawName), acc = name && await getAccount(name);
-  if (!acc || !passOk(password, acc.passHash)) return { status: 401, body: { error: 'login', message: 'Wrong name or password.' } };
+  const s = await blob(), now = Date.now(), failPath = `loginfail/${name}.json`;
+  const fails = name ? await readJSON(s, failPath) : null;
+  const recent = fails && now - fails.t < LOGIN_WINDOW ? fails.n : 0;
+  if (recent >= LOGIN_TRIES) return { status: 429, body: { error: 'wait', message: 'Too many wrong passwords. Try again in 15 minutes.' } };
+  if (!acc || !passOk(password, acc.passHash)) {
+    if (name) await s.write(failPath, JSON.stringify({ n: recent + 1, t: recent ? fails.t : now }));
+    return { status: 401, body: { error: 'login', message: 'Wrong name or password.' } };
+  }
+  if (fails) await s.remove([failPath]);
   const token = randomBytes(24).toString('hex');
   await (await blob()).write(`keys/${name}/${hash(token)}.json`, JSON.stringify({ t: Date.now() }));
   const text = await (await blob()).read(`saves/${name}.json`);
@@ -221,7 +231,7 @@ export async function release({ name: rawName, token }) {
   if (!name) return AUTH_FAIL;
   const s = await blob();
   leaderboardPaths.invalidate();
-  await s.remove([...(await s.list(`lb/${name}/`)), `accounts/${name}.json`, `saves/${name}.json`]);
+  await s.remove([...(await s.list(`lb/${name}/`)), ...(await s.list(`keys/${name}/`)), `accounts/${name}.json`, `saves/${name}.json`]);   // keys too, so an old phone can't get into a new owner's account
   leaderboardPaths.invalidate();
   return { status: 200, body: { released: name } };
 }
@@ -400,5 +410,5 @@ export function send(res, { status, body }, cache) {
 }
 export async function handle(res, fn, cache) {
   try { send(res, await fn(), cache); }
-  catch (e) { console.error(e); send(res, { status: 500, body: { error: 'server', message: 'The leaderboard is having trouble. Try again soon.' } }); }
+  catch (e) { console.error(e); send(res, { status: 500, body: { error: 'server', message: 'The game server is having trouble. Try again soon.' } }); }
 }
