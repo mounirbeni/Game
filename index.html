@@ -40,19 +40,19 @@
   .stat span { font-size: 20px; font-variant-numeric: tabular-nums; }
   #lives { display: flex; gap: 2px; min-height: 22px; align-items: center; }
   #lives .life img { width: 24px; height: 24px; display: block; filter: drop-shadow(0 2px 1px #0008); }
-  #hud .stat { align-items: center !important; padding: 4px 10px 5px; border-radius: 14px; min-width: 62px;
-    background: linear-gradient(#173a6e, #0b1f45); border: 2px solid #3d6fd6; box-shadow: inset 0 2px 0 #ffffff22, 0 3px 0 #06112b, 0 5px 10px #0008; }
-  #hud .stat small { color: #9fc0ff; font-weight: 900; }
-  #hud .stat span { color: #fff; font-weight: 900; text-shadow: 0 2px 0 #06112b; }
-  #hud .coin { width: 20px; height: 20px; }
+  /* bottom bar: lives | score and level | pause. Nothing else during play. */
+  #hud { gap: 10px; }
+  .hud-pill { display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 14px; border-radius: 16px;
+    background: linear-gradient(#1d2f8a, #0c1652); border: 2px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff26, 0 3px 0 #060b2e, 0 5px 10px #0008; }
+  .hud-lives { min-width: 76px; }
+  .hud-score { flex: 1; max-width: 230px; flex-direction: column; line-height: 1; }
+  .hud-score #score { font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #060b2e; font-variant-numeric: tabular-nums; }
+  .hud-score small { margin-top: 3px; font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #ffd75a; }
+  .hud-score small span { font-size: inherit; }
+  #hud .icon-btn { width: 46px; height: 46px; border-radius: 16px; border: 2px solid #ffcf3a; background: linear-gradient(#2a44c8, #14268a); box-shadow: inset 0 2px 0 #ffffff33, 0 3px 0 #060b2e, 0 5px 10px #0008; }
   @media (max-width: 400px) {
-    #hud .stat { min-width: 0; padding: 3px 6px 4px; border-radius: 11px; }
-    #hud .stat small { font-size: 8px; letter-spacing: .04em; }
-    #hud .stat span { font-size: 15px; }
-    #hud .coin { width: 15px; height: 15px; }
-    #lives .life img { width: 15px; height: 15px; }
-    #hud .icon-btn { width: 34px; height: 34px; border-radius: 11px; }
-    #hud .icon-btn svg { width: 17px; height: 17px; }
+    .hud-pill, #hud .icon-btn { height: 40px; } #hud .icon-btn { width: 40px; }
+    .hud-score #score { font-size: 19px; } #lives .life img { width: 22px; height: 22px; }
   }
   #wrap { position: relative; flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
   /* night vignette as a GPU-composited overlay (free compared to painting it on the canvas) */
@@ -73,8 +73,20 @@
     background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.42) 100%); }
   canvas { display: block; border-radius: 10px; box-shadow: 0 0 0 2px #163323, 0 10px 40px #000a; }
   #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-  .card { pointer-events: auto; background: #0b1a12ee; border: 2px solid #2b6a40; border-radius: 16px;
-    padding: 22px 26px; text-align: center; max-width: 340px; box-shadow: 0 10px 40px #000c; }
+  .card { pointer-events: auto; position: relative; background: linear-gradient(#22379a, #0e1a5e 60%, #0a1347); border: 3px solid #ffcf3a; border-radius: 24px;
+    padding: 24px 24px 20px; text-align: center; width: min(86vw, 320px); box-shadow: inset 0 0 0 3px #0a1240, inset 0 3px 0 5px #ffffff14, 0 0 24px #ffcf3a44, 0 14px 40px #000d; }
+  .card h2 { color: #ffd75a; font-weight: 900; letter-spacing: .02em; text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00; }
+  .card p { color: #cfd8ff !important; }
+  .card button.big { width: 100%; background: linear-gradient(#ffe58a, #ffb81f); color: #3a2400; box-shadow: 0 4px 0 #a06d12, 0 6px 12px #0008; }
+  .card button.install { background: linear-gradient(#2a44c8, #14268a); color: #fff; border: 2px solid #ffcf3a; }
+  .pause-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 6px; }
+  .pause-info span { display: flex; flex-direction: column; gap: 3px; padding: 8px 4px; border-radius: 14px; background: #0a1240aa; border: 1px solid #ffcf3a55; }
+  .pause-info small { font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: #9fb4ff; }
+  .pause-info b { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 17px; color: #fff; font-variant-numeric: tabular-nums; }
+  .pause-info b i { font-style: normal; } .pause-info .coin { width: 18px; height: 18px; }
+  .pause-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+  .pause-row button.install { margin-top: 8px; white-space: nowrap; padding: 8px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .pause-row button svg { width: 18px; height: 18px; }
   .card h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: .04em; color: var(--accent);
     text-shadow: 0 3px 0 #8a5a14; }
   .card h2 { margin: 0 0 8px; font-size: 28px; }
@@ -492,14 +504,10 @@
 </div>
 <div id="app">
   <div id="hud">
-    <div class="stat"><small>Score</small><span id="score">0</span></div>
-    <div class="stat" style="align-items:center"><small id="levelLbl">Level</small><span id="level">1</span></div>
-    <div class="stat" style="align-items:center"><small>Credits</small><span class="credit-val"><img class="coin uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><span id="credits">0</span></span></div>
-    <div class="stat" style="align-items:center"><small>Lives</small><div id="lives"></div></div>
-    <div id="controls">
-      <button class="icon-btn" id="pauseBtn" aria-label="Pause"></button>
-      <button class="icon-btn" id="muteBtn" aria-label="Sound"></button>
-    </div>
+    <div class="hud-pill hud-lives" aria-label="Lives"><div id="lives"></div></div>
+    <div class="hud-pill hud-score"><span id="score">0</span><small><span id="levelLbl">Level</span> <span id="level">1</span></small></div>
+    <div id="controls"><button class="icon-btn" id="pauseBtn" aria-label="Pause"></button></div>
+    <span class="hud-credits" hidden><span id="credits">0</span></span>
   </div>
   <div id="wrap">
     <div id="stage"><canvas id="game"></canvas><div id="duelChip" class="hidden"></div><div id="perkChip" aria-live="polite"><canvas id="perkFace"></canvas><span class="pk-text"><b id="perkName"></b><small id="perkState"></small></span></div></div>
@@ -521,12 +529,16 @@
       </div>
       <div class="card hidden" id="pauseCard">
         <h2>Paused</h2>
-        <p>Press P or tap Resume to continue</p>
-        <div class="picker-head"><span>Your look</span></div>
-        <div class="skins" id="skinPicker2"></div>
-        <div class="shop-msg" id="shopMsg2"></div>
-        <button class="big" id="resumeBtn">Resume</button><br>
-        <button class="install" id="pauseHomeBtn">Home</button>
+        <div class="pause-info">
+          <span><small>Level</small><b id="pauseLevel">1</b></span>
+          <span><small>Score</small><b id="pauseScore">0</b></span>
+          <span><small>Credits</small><b><img class="coin uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><i id="pauseCredits">0</i></b></span>
+        </div>
+        <button class="big" id="resumeBtn">Resume</button>
+        <div class="pause-row">
+          <button class="install" id="muteBtn" aria-label="Sound"></button>
+          <button class="install" id="pauseHomeBtn">Home</button>
+        </div>
       </div>
       <div class="card hidden" id="overCard">
         <h2 style="color:var(--danger)">Game Over</h2>
@@ -2547,12 +2559,16 @@ function togglePause() {
   paused = !paused;
   ui.pauseBtn.innerHTML = paused ? ICONS.play : ICONS.pause;
   ui.pauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
-  if (paused) { pendingBuy = -1; shopNote = ''; renderPicker(); showCard(ui.pause); } else hideCards();
+  if (paused) { fillPauseCard(); showCard(ui.pause); } else hideCards();
+}
+function fillPauseCard() {
+  $('pauseLevel').textContent = level; $('pauseScore').textContent = (score || 0).toLocaleString(); $('pauseCredits').textContent = credits;
+  ui.muteBtn.innerHTML = (muted ? ICONS.muted : ICONS.sound) + (muted ? 'Muted' : 'Sound');
 }
 function toggleMute() {
   muted = !muted;
   try { localStorage.setItem('backman.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
-  ui.muteBtn.innerHTML = muted ? ICONS.muted : ICONS.sound;
+  fillPauseCard();
   if (muted) { if (actx) actx.suspend().catch(() => {}); } else unlockAudio();
 }
 $('startBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
@@ -2561,7 +2577,6 @@ $('againBtn').addEventListener('click', () => { unlockAudio(); newGame(level); }
 $('resumeBtn').addEventListener('click', togglePause);
 ui.pauseBtn.addEventListener('click', togglePause);
 ui.muteBtn.addEventListener('click', toggleMute);
-ui.muteBtn.innerHTML = muted ? ICONS.muted : ICONS.sound;
 ui.pauseBtn.innerHTML = ICONS.pause;
 document.addEventListener('visibilitychange', () => { if (document.hidden && !live && !paused && (state === 'play' || state === 'ready')) togglePause(); });
 window.addEventListener('resize', resize);
