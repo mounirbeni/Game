@@ -112,12 +112,16 @@
   @keyframes mapglow { 50% { opacity: .35; } }
   .map-me { position: absolute; width: 15cqw; height: 15cqw; object-fit: contain; transform: translate(-50%, -100%); pointer-events: none; animation: maphop 1s ease-in-out infinite; filter: drop-shadow(0 1.5cqw 1cqw #000a); }
   @keyframes maphop { 50% { margin-top: -2.5cqw; } }
-  .map-gate { position: absolute; left: 40%; top: 9.5%; width: 34cqw; height: 9cqw; transform: translate(-50%, -50%); border: 0; background: none; cursor: pointer; }
-  .map-gate span, .map-down span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; padding: 1cqw 3cqw; border-radius: 99px;
-    font: 900 4cqw/1.1 ui-rounded, system-ui, sans-serif; color: #fff; background: #0b3a24cc; border: .6cqw solid #9dff7a; }
-  .map-down { position: absolute; left: 50%; bottom: 1.5%; width: 40cqw; height: 9cqw; transform: translateX(-50%); border: 0; background: none; cursor: pointer; }
+  .map-arrow { position: absolute; left: 50%; width: 13cqw; height: 13cqw; transform: translateX(-50%); border-radius: 50%; cursor: pointer; padding: 2.4cqw;
+    border: .7cqw solid #ffcf3a; background: radial-gradient(circle at 35% 30%, #3a64ff, #14268a); box-shadow: 0 1cqw 0 #0a1450, 0 1.5cqw 3cqw #000a; animation: mapbob 1.6s ease-in-out infinite; }
+  .map-arrow svg { width: 100%; height: 100%; fill: none; stroke: #fff; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+  .map-arrow.up { top: 2.2%; } .map-arrow.down { bottom: 1.5%; animation-direction: reverse; }
+  .map-arrow:active { transform: translateX(-50%) scale(.92); }
+  @keyframes mapbob { 50% { margin-top: -1cqw; } }
+  .map-art.slide-up { animation: mapin-up .35s ease-out; } .map-art.slide-down { animation: mapin-down .35s ease-out; }
+  @keyframes mapin-up { from { transform: translateY(-12%); opacity: 0; } }
+  @keyframes mapin-down { from { transform: translateY(12%); opacity: 0; } }
   .map-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; padding: calc(env(safe-area-inset-top) + 2cqw) 3cqw 0; pointer-events: none; }
-  .map-top h3 { margin: 0; padding: 1.5cqw 4cqw; border-radius: 99px; font: 900 5cqw/1.1 ui-rounded, system-ui, sans-serif; color: #ffd75a; background: #08142acc; border: .6cqw solid #ffcf3a; }
   .map-top button { pointer-events: auto; width: 11cqw; height: 11cqw; border-radius: 50%; border: .7cqw solid #8fa4ff; background: #23338e; color: #fff; font: 900 6cqw/1 system-ui; cursor: pointer; }
   /* the home Level button: stone plaque with a ladybug */
   #home .play-btn { min-width: 0; width: min(78vw, 300px); aspect-ratio: 2139 / 665; padding: 0 0 1% 0; border: 0; border-radius: 0; box-shadow: none;
@@ -3440,21 +3444,35 @@ function openMap(page) {
   const reached = loadProgress().level;
   mapPage = page != null ? Math.max(0, page) : Math.floor((reached - 1) / MAP_PER);
   const art = $('mapArt'), first = mapPage * MAP_PER + 1;
-  let h = `<div class="map-top"><h3>Levels ${first}–${first + MAP_PER - 1}</h3><button id="mapClose" aria-label="Close">&times;</button></div>`;
+  let h = `<div class="map-top"><span></span><button id="mapClose" aria-label="Close">&times;</button></div>`;
   MAP_SPOTS.forEach(([x, y], i) => {
     const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : 'locked';
     h += `<button class="map-lvl ${cls} ${isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? MAP_LOCK : `<b>${n}</b>`}</button>`;
     if (n === reached) { const sk = SKINS[skinIndex] || SKINS[0]; h += `<img class="map-me" alt="" src="assets/${sk.img ? 'skins/' + sk.img : 'backman'}.webp" style="left:${x}%;top:${y - 5.2}%">`; }
   });
-  h += `<button class="map-gate" id="mapNext" aria-label="Next levels"><span>Levels ${first + MAP_PER}–${first + 2 * MAP_PER - 1} &#9650;</span></button>`;
-  if (mapPage > 0) h += `<button class="map-down" id="mapPrev" aria-label="Previous levels"><span>&#9660; Levels ${first - MAP_PER}–${first - 1}</span></button>`;
+  h += `<button class="map-arrow up" id="mapNext" aria-label="Next levels"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button>`;
+  if (mapPage > 0) h += `<button class="map-arrow down" id="mapPrev" aria-label="Previous levels"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button>`;
   art.innerHTML = h;
   art.querySelectorAll('.map-lvl:not([disabled])').forEach(b => b.addEventListener('click', () => { closeMap(); startPlay(+b.dataset.l); }));
-  $('mapNext').addEventListener('click', () => openMap(mapPage + 1));
-  if ($('mapPrev')) $('mapPrev').addEventListener('click', () => openMap(mapPage - 1));
+  $('mapNext').addEventListener('click', () => { openMap.slide = 'slide-up'; openMap(mapPage + 1); });
+  if ($('mapPrev')) $('mapPrev').addEventListener('click', () => { openMap.slide = 'slide-down'; openMap(mapPage - 1); });
   $('mapClose').addEventListener('click', closeMap);
   $('mapScreen').classList.remove('hidden');
+  if (openMap.slide) { art.classList.remove('slide-up', 'slide-down'); void art.offsetWidth; art.classList.add(openMap.slide); openMap.slide = ''; }
 }
+// Swipe up for the next levels, down for the previous ones.
+(() => {
+  let y0 = null, x0 = 0;
+  const el = $('mapScreen');
+  el.addEventListener('touchstart', e => { const t = e.touches[0]; y0 = t.clientY; x0 = t.clientX; }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (y0 == null) return;
+    const t = e.changedTouches[0], dy = t.clientY - y0, dx = t.clientX - x0; y0 = null;
+    if (Math.abs(dy) < 50 || Math.abs(dy) < Math.abs(dx)) return;
+    if (dy < 0) { openMap.slide = 'slide-up'; openMap(mapPage + 1); }
+    else if (mapPage > 0) { openMap.slide = 'slide-down'; openMap(mapPage - 1); }
+  }, { passive: true });
+})();
 function closeMap() { $('mapScreen').classList.add('hidden'); }
 
 // ---------- home UI ----------
