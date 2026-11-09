@@ -120,6 +120,25 @@ export async function login({ name: rawName, password }) {
   const rec = text ? JSON.parse(text) : null;
   return { status: 200, body: { name, token, hasPassword: true, t: rec ? rec.t : 0, save: rec ? rec.save : null } };
 }
+// ---------- Gifts ----------
+// Credits handed out to players. Each gift goes to every account that existed when it was made
+// (accounts created later don't get it). A player collects each gift once:
+//   giftclaim/<gift id>/<NAME>.json   created when collected, so it can never be collected twice
+export const GIFTS = [
+  { id: 'welcome500', credits: 500, made: 1794189600000, until: 1794189600000 + 30 * 86400000, note: 'A gift from Bug Maze Adventure!' },
+];
+export async function claimGifts({ name, token }) {
+  const acc = await authedAccount(name, token);
+  if (!acc) return AUTH_FAIL;
+  const s = await blob(), now = Date.now();
+  const got = [];
+  for (const g of GIFTS) {
+    if (now > g.until || !(acc.created < g.made)) continue;
+    if (await s.create(`giftclaim/${g.id}/${acc.name}.json`, JSON.stringify({ t: now }))) got.push({ id: g.id, credits: g.credits, note: g.note });
+  }
+  return { status: 200, body: { gifts: got, credits: got.reduce((a, g) => a + g.credits, 0) } };
+}
+
 // Set or change the password (needs this device's key).
 export async function setPassword({ name, token, password }) {
   const acc = await authedAccount(name, token);

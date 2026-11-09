@@ -2688,6 +2688,16 @@ function mergeCloud(save) {
   writeSave(merged); backupNow();
   return gained;
 }
+// Gifts from the game (e.g. bonus credits for every player): collected once per account.
+async function claimGifts() {
+  if (!account.token) return;
+  try {
+    const r = await api('/api/account', { action: 'gifts', name: account.name, token: account.token });
+    if (!r.credits) return;
+    credits += r.credits; saveMeta(); updateHud(); refreshHome(); sfx.coin();
+    openSheet.gift = r; if (state === 'title') openSheet('gift');
+  } catch (e) { /* offline: try again next time */ }
+}
 async function cloudPull() {
   if (!account.token) return false;
   try {
@@ -3377,6 +3387,12 @@ function openSheet(which, fromRefresh = false) {
       $('friendAddBtn').addEventListener('click', add);
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
     }
+  } else if (which === 'gift') {
+    title = 'A gift for you!';
+    const g = openSheet.gift || { credits: 0, gifts: [] };
+    body.innerHTML = `<div style="text-align:center"><img class="uiicon" src="icons/ui/gift.webp" alt="" style="width:110px;height:110px"><p style="font-size:30px;font-weight:900;color:#ffd75a;margin:6px 0">+${g.credits} credits</p>` +
+      `<p>${esc((g.gifts[0] || {}).note || 'Enjoy!')}</p><button class="gold-btn" id="giftOk">Thanks!</button></div>`;
+    $('giftOk').addEventListener('click', closeSheet);
   } else if (which === 'live') {
     title = 'Play live';
     body.innerHTML = liveSheetHtml();
@@ -3627,7 +3643,7 @@ restoreFromBackup().then(async local => {
     try { sessionStorage.setItem('bma.restored', '1'); } catch (e) { /* ignore */ }
     location.reload();   // start again with the restored progress
   } else backupNow();
-  submitScore(true); refreshRank(); refreshDuels(); cloudPush();
+  submitScore(true); refreshRank(); refreshDuels(); claimGifts(); cloudPush();
 });
 
 // Coming back to an app that was left open: pick up progress or credits saved online meanwhile
