@@ -246,14 +246,14 @@ export async function release({ name: rawName, token }) {
 // keeps it in config/turn.json.
 const RELAY = 'global.relay.metered.ca';
 async function turnServers(s) {
-  const app = process.env.METERED_APP, key = process.env.METERED_API_KEY, secret = process.env.METERED_SECRET_KEY;
+  const app = process.env.METERED_APP, key = process.env.METERED_API_KEY, secret = process.env.METERED_SECRET_KEY || key;   // a secret pasted as the API key also works
   if (!app) return [];
   const base = `https://${encodeURIComponent(app)}.metered.live/api/v1/turn`;
   try {
     if (key) {
       const r = await fetch(`${base}/credentials?apiKey=${encodeURIComponent(key)}`);
-      const turn = r.ok ? await r.json() : null;
-      return Array.isArray(turn) ? turn.filter(x => x && x.urls) : [];
+      const turn = r.ok ? await r.json().catch(() => null) : null;
+      if (Array.isArray(turn) && turn.length) return turn.filter(x => x && x.urls);
     }
     if (secret) {
       let cred = await readJSON(s, 'config/turn.json');
