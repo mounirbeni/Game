@@ -741,6 +741,18 @@ let T = 24;          // tile size in CSS px
 let dpr = 1;
 let mazeLayer = null; // pre-rendered hedges
 let mazeLayerFlash = null;
+// The full-maze layers are big. iPhones cap the total memory of all canvases and are slow to
+// free old ones, so after many levels new layers came out blank (no maze, no seeds). The layers
+// are now reused instead of recreated, the flash layer is emptied after use, and their
+// resolution (ldpr) is capped so each stays under about 4.5 million pixels.
+let ldpr = 1;
+const layerCanvases = {};
+function layerCanvas(key, w, h) {
+  const c = layerCanvases[key] || (layerCanvases[key] = document.createElement('canvas'));
+  c.width = w; c.height = h;   // resizing also clears it
+  return c;
+}
+function freeFlashLayer() { mazeLayerFlash = null; if (layerCanvases.flash) layerCanvases.flash.width = layerCanvases.flash.height = 0; }
 
 // ---------- Storage (best score) ----------
 function loadBest() { try { return parseInt(localStorage.getItem('backman.best') || '0', 10) || 0; } catch (e) { return 0; } }
@@ -1025,7 +1037,7 @@ function newGame(startLevel) {
 }
 
 function nextLevel() {
-  mazeLayerFlash = null;
+  freeFlashLayer();
   level++;
   deathsThisLevel = 0; creditsThisLevel = 0; shieldUsed = false;
   if (hasPerk('Ranger') && lives < 4) lives = 4;
@@ -1473,8 +1485,9 @@ function resize() {
   canvas.style.height = viewH + 'px';
   canvas.width = Math.round(viewW * dpr);
   canvas.height = Math.round(viewH * dpr);
+  ldpr = Math.min(dpr, Math.sqrt(4.5e6 / (COLS * T * ROWS * T)));
+  freeFlashLayer();
   mazeLayer = buildMaze(false);
-  mazeLayerFlash = null;
   buildSeeds();
   updateCamera(0, true);
 }
@@ -1483,13 +1496,12 @@ function resize() {
 let seedLayer = null, seedCtx = null;
 function buildSeeds() {
   if (!grid) return;
-  seedLayer = document.createElement('canvas');
-  seedLayer.width = Math.round(COLS * T * dpr); seedLayer.height = Math.round(ROWS * T * dpr);
+  seedLayer = layerCanvas('seeds', Math.round(COLS * T * ldpr), Math.round(ROWS * T * ldpr));
   seedCtx = seedLayer.getContext('2d');
-  seedCtx.scale(dpr, dpr);
+  seedCtx.setTransform(ldpr, 0, 0, ldpr, 0, 0);
   const sprite = document.createElement('canvas');
-  sprite.width = sprite.height = Math.ceil(T * dpr);
-  const sg = sprite.getContext('2d'); sg.scale(dpr, dpr); sg.translate(T / 2, T / 2);
+  sprite.width = sprite.height = Math.ceil(T * ldpr);
+  const sg = sprite.getContext('2d'); sg.scale(ldpr, ldpr); sg.translate(T / 2, T / 2);
   if (mapArt.seed) {
     const glow = sg.createRadialGradient(0, 0, 0, 0, 0, T * 0.34);
     glow.addColorStop(0, 'rgba(255,200,60,0.35)'); glow.addColorStop(1, 'rgba(255,200,60,0)');
@@ -1583,10 +1595,10 @@ function wallTexture(n) {
 
 // A repeating pattern from a texture, sized so one copy of the texture spans `size` CSS pixels.
 function texPattern(g, img, size) {
-  const c = document.createElement('canvas'), px = Math.max(8, Math.round(size * dpr));
+  const c = document.createElement('canvas'), px = Math.max(8, Math.round(size * ldpr));
   c.width = c.height = px; c.getContext('2d').drawImage(img, 0, 0, px, px);
   const pat = g.createPattern(c, 'repeat');
-  try { pat.setTransform(new DOMMatrix().scale(1 / dpr)); } catch (e) { /* older browsers: slightly larger texture */ }
+  try { pat.setTransform(new DOMMatrix().scale(1 / ldpr)); } catch (e) { /* older browsers: slightly larger texture */ }
   return pat;
 }
 
@@ -1594,10 +1606,9 @@ function texPattern(g, img, size) {
 // with a ground shadow, a darker side, a lit top face and some leaves.
 function buildMaze(flash) {
   const W = COLS * T, H = ROWS * T;
-  const c = document.createElement('canvas');
-  c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+  const c = layerCanvas(flash ? 'flash' : 'maze', Math.round(W * ldpr), Math.round(H * ldpr));
   const g = c.getContext('2d');
-  g.scale(dpr, dpr);
+  g.setTransform(ldpr, 0, 0, ldpr, 0, 0);
   const r = rng(42);
   const isWall = (x, y) => {
     if (y === TUNNEL_ROW && (x < 0 || x >= COLS)) return false;
