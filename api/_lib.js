@@ -119,10 +119,19 @@ async function getAccount(name) {
 }
 // Each device key also lives in its own file, created once and never rewritten, so logging in on
 // one device can never drop another device's key (overlapping rewrites of the account file did).
+// The old Blob store was suspended and could not be copied, so accounts came back this way: a
+// phone that still holds a name and its key, for a name nobody has in the new database, gets that
+// account back (key included, no password yet: the game then asks the player to set a new one).
+// Only for a limited time after the move.
+const RESTORE_UNTIL = Date.UTC(2026, 11, 31);
 async function authedAccount(rawName, token) {
   const name = cleanName(rawName);
   if (!name || !token) return null;
-  const acc = await getAccount(name);
+  let acc = await getAccount(name);
+  if (!acc && Date.now() < RESTORE_UNTIL && /^[0-9a-f]{48}$/.test(token)) {
+    await (await blob()).create(`accounts/${name}.json`, JSON.stringify({ name, tokenHash: hash(token), created: Date.now(), restored: true }));
+    acc = await getAccount(name);
+  }
   if (!acc) return null;
   const h = hash(token);
   if (tokenHashes(acc).includes(h)) return acc;
