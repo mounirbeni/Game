@@ -855,14 +855,15 @@ function saveBest(v) { try { localStorage.setItem('backman.best', String(v)); } 
 // ---------- Audio ----------
 // Sound effects are synthesised on the fly, no files: filtered noise gives crunchy bites and
 // pops, short low "thumps" give them body, and a little random pitch keeps repeats natural.
-// iPhone needs two extra things: the audio must be started from a touch, and a silent looping
-// <audio> element must be playing, otherwise the ring/silent switch mutes Web Audio.
-let actx = null, master = null, noiseBuf = null, muted = false, unlockEl = null;
+// iPhone: the audio must be started from a touch. Game sound follows the ring/silent switch like
+// other games ('ambient' audio session): it mixes with the player's own music and never shows up
+// in the lock-screen / Control Center media player. (Forcing sound through the silent switch made
+// iOS treat the game as a music app.)
+let actx = null, master = null, noiseBuf = null, muted = false;
 try { muted = localStorage.getItem('backman.muted') === '1'; } catch (e) { /* ignore */ }
-const SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 function audio() {
   if (!actx) {
-    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* ignore */ }
+    try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* ignore */ }
     try {
       actx = new (window.AudioContext || window.webkitAudioContext)();
       master = actx.createDynamicsCompressor();
@@ -880,19 +881,11 @@ function unlockAudio() {
   const a = audio(); if (!a) return;
   if (a.state !== 'running') a.resume().catch(() => {});
   try { const s = a.createBufferSource(); s.buffer = a.createBuffer(1, 1, 22050); s.connect(a.destination); s.start(0); } catch (e) { /* ignore */ }
-  // iOS 17+ has the Audio Session API: 'playback' already plays through the silent switch, so the
-  // silent <audio> trick (which made the game show up in the lock-screen media player) isn't needed.
-  if (!document.hidden && !navigator.audioSession) {
-    if (!unlockEl) { unlockEl = new Audio(SILENT_WAV); unlockEl.loop = true; unlockEl.setAttribute('playsinline', ''); }
-    if (unlockEl.paused) unlockEl.play().catch(() => {});
-  }
 }
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    // leaving the game: unload the silent track and suspend the audio so nothing stays in the
-    // lock screen / Control Center media player
-    if (unlockEl) { try { unlockEl.pause(); unlockEl.removeAttribute('src'); unlockEl.load(); } catch (e) { /* ignore */ } unlockEl = null; }
+    // leaving the game: suspend the audio so nothing keeps playing in the background
     if (actx && actx.state === 'running') actx.suspend().catch(() => {});
     try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* ignore */ }
   }
@@ -2468,7 +2461,7 @@ function toggleMute() {
   muted = !muted;
   try { localStorage.setItem('backman.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
   ui.muteBtn.innerHTML = muted ? ICONS.muted : ICONS.sound;
-  if (muted) { if (unlockEl) unlockEl.pause(); } else unlockAudio();
+  if (muted) { if (actx) actx.suspend().catch(() => {}); } else unlockAudio();
 }
 $('startBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
 { const saved = loadProgress(); if (saved.level > 1) $('startBtn').textContent = `Continue: level ${saved.level}`; }
