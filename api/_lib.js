@@ -22,7 +22,7 @@ async function blob() {
       },
       async write(path, text) { await b.put(path, text, { ...opts, addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' }); },
       async read(path) {
-        const r = await b.get(path, opts).catch(() => null);
+        const r = await b.get(path, { ...opts, useCache: false }).catch(() => null);   // always the latest copy, never a cached one
         if (!r || r.statusCode !== 200) return null;
         return await new Response(r.stream).text();
       },
@@ -116,8 +116,29 @@ export async function login({ name: rawName, password }) {
   const token = randomBytes(24).toString('hex');
   acc.tokens = [...(acc.tokens || []), hash(token)].slice(-20);
   await (await blob()).write(`accounts/${name}.json`, JSON.stringify(acc));
-  return loadCloud({ name, token }).then(r => ({ status: 200, body: { ...r.body, token } }));
+  const text = await (await blob()).read(`saves/${name}.json`);
+  const rec = text ? JSON.parse(text) : null;
+  return { status: 200, body: { name, token, hasPassword: true, t: rec ? rec.t : 0, save: rec ? rec.save : null } };
 }
+// ---------- Gifts ----------
+// Credits handed out to players. Each gift goes to every account that existed when it was made
+// (accounts created later don't get it). A player collects each gift once:
+//   giftclaim/<gift id>/<NAME>.json   created when collected, so it can never be collected twice
+export const GIFTS = [
+  { id: 'welcome500', credits: 500, made: 1794189600000, until: 1794189600000 + 30 * 86400000, note: 'A gift from Bug Maze Adventure!' },
+];
+export async function claimGifts({ name, token }) {
+  const acc = await authedAccount(name, token);
+  if (!acc) return AUTH_FAIL;
+  const s = await blob(), now = Date.now();
+  const got = [];
+  for (const g of GIFTS) {
+    if (now > g.until || !(acc.created < g.made)) continue;
+    if (await s.create(`giftclaim/${g.id}/${acc.name}.json`, JSON.stringify({ t: now }))) got.push({ id: g.id, credits: g.credits, note: g.note });
+  }
+  return { status: 200, body: { gifts: got, credits: got.reduce((a, g) => a + g.credits, 0) } };
+}
+
 // Set or change the password (needs this device's key).
 export async function setPassword({ name, token, password }) {
   const acc = await authedAccount(name, token);
@@ -146,7 +167,7 @@ export async function submit({ name: rawName, token, best, level, look }) {
   return { status: 200, body: { name, ...next } };
 }
 
-export async function board(me) {
+export async function board(me, names) {
   const s = await blob();
   const rows = (await s.list('lb/')).map(parse).filter(Boolean)
     .sort((a, b) => b.best - a.best || b.level - a.level || a.name.localeCompare(b.name));
@@ -154,7 +175,14 @@ export async function board(me) {
   const seen = new Set(), uniq = rows.filter(r => !seen.has(r.name) && seen.add(r.name));
   const meName = cleanName(me);
   const myIndex = meName ? uniq.findIndex(r => r.name === meName) : -1;
-  return { status: 200, body: { players: uniq.length, top: uniq.slice(0, 100).map((r, i) => ({ rank: i + 1, ...r })), me: myIndex >= 0 ? { rank: myIndex + 1, ...uniq[myIndex] } : null } };
+  // friends: look up specific players (up to 50) wherever they are on the board
+  const wanted = [...new Set(String(names || '').split(',').map(cleanName).filter(Boolean))].slice(0, 50);
+  const friends = await Promise.all(wanted.map(async n => {
+    const i = uniq.findIndex(r => r.name === n);
+    if (i >= 0) return { rank: i + 1, ...uniq[i] };
+    return (await s.read(`accounts/${n}.json`)) ? { name: n, noScore: true } : { name: n, missing: true };
+  }));
+  return { status: 200, body: { players: uniq.length, top: uniq.slice(0, 100).map((r, i) => ({ rank: i + 1, ...r })), me: myIndex >= 0 ? { rank: myIndex + 1, ...uniq[myIndex] } : null, friends } };
 }
 
 export async function release({ name: rawName, token }) {
@@ -163,6 +191,165 @@ export async function release({ name: rawName, token }) {
   const s = await blob();
   await s.remove([...(await s.list(`lb/${name}/`)), `accounts/${name}.json`, `saves/${name}.json`]);
   return { status: 200, body: { released: name } };
+}
+
+// ---------- Friend challenges ----------
+//   challenges/<id>.json        { id, from, to, level, seed, created, expires }   never changes
+//   ch/<NAME>/<id>              empty marker: lets each player list their challenges
+//   chplay/<id>/<NAME>.json     { score, cleared, done, t }   created when a player starts: one attempt only
+//   chclaim/<id>/<NAME>.json    { reward }   created once when the reward is collected
+const DAY = 86400000, CH_LIFE = 3 * DAY, CH_KEEP = 7 * DAY, MAX_OPEN = 5;
+export const REWARD = { win: 10, draw: 5, lose: 1 };
+const newId = () => Date.now().toString(36) + randomBytes(4).toString('hex');
+const okId = id => typeof id === 'string' && /^[a-z0-9]{8,24}$/.test(id);
+async function topLevel(s, name) {
+  return (await s.list(`lb/${name}/`)).map(parse).filter(Boolean).reduce((m, x) => Math.max(m, x.level), 1);
+}
+async function readJSON(s, path) { const t = await s.read(path); return t ? JSON.parse(t) : null; }
+// Who won, once both have finished (or the challenge ran out of time).
+function outcome(ch, plays, now) {
+  const a = plays[ch.from], b = plays[ch.to], over = now > ch.expires;
+  const fin = p => p && p.done;
+  if (!(fin(a) && fin(b)) && !over) return null;
+  const sa = a ? a.score : -1, sb = b ? b.score : -1;   // never played = lost
+  if (sa === sb) return { winner: null };
+  return { winner: sa > sb ? ch.from : ch.to };
+}
+async function view(s, ch, me, now) {
+  const [pf, pt, claim] = await Promise.all([
+    readJSON(s, `chplay/${ch.id}/${ch.from}.json`), readJSON(s, `chplay/${ch.id}/${ch.to}.json`), readJSON(s, `chclaim/${ch.id}/${me}.json`)]);
+  const plays = { [ch.from]: pf, [ch.to]: pt };
+  const res = outcome(ch, plays, now), mine = plays[me], other = me === ch.from ? ch.to : ch.from, theirs = plays[other];
+  // The challenger's score is the number to beat, so it is always shown. The other player's
+  // score stays hidden from the challenger until the challenger has played too.
+  const showTheirs = (mine && mine.done) || other === ch.from || res;
+  return {
+    id: ch.id, from: ch.from, to: ch.to, other, level: ch.level, seed: ch.seed, created: ch.created, expires: ch.expires,
+    me: mine ? { score: mine.score, cleared: !!mine.cleared, done: !!mine.done } : null,
+    them: theirs ? (showTheirs ? { score: theirs.score, cleared: !!theirs.cleared, done: !!theirs.done } : { done: !!theirs.done, hidden: true }) : null,
+    result: res ? (res.winner === null ? 'draw' : res.winner === me ? 'win' : 'lose') : null,
+    claimed: claim ? claim.reward : null,
+  };
+}
+export async function challenge(body) {
+  const acc = await authedAccount(body.name, body.token);
+  if (!acc) return AUTH_FAIL;
+  const me = acc.name, s = await blob(), now = Date.now();
+  const load = async id => okId(id) ? readJSON(s, `challenges/${id}.json`) : null;
+  const part = ch => ch && (ch.from === me || ch.to === me);
+
+  if (body.action === 'create') {
+    const to = cleanName(body.to);
+    if (!to || to === me) return { status: 400, body: { error: 'invalid', message: 'Pick one of your friends to challenge.' } };
+    if (!(await s.read(`accounts/${to}.json`))) return { status: 404, body: { error: 'missing', message: `There is no player called ${to}.` } };
+    const ids = (await s.list(`ch/${me}/`)).map(p => p.split('/')[2]);
+    const mineOpen = (await Promise.all(ids.map(load))).filter(c => c && c.from === me && c.expires > now);
+    if (mineOpen.filter(c => c.to === to).length) return { status: 409, body: { error: 'open', message: `You already have a challenge going with ${to}.` } };
+    if (mineOpen.length >= MAX_OPEN) return { status: 429, body: { error: 'limit', message: `You can have ${MAX_OPEN} challenges going at once.` } };
+    const level = Math.max(2, Math.min(15, await topLevel(s, me), await topLevel(s, to)));
+    const ch = { id: newId(), from: me, to, level, seed: 100000 + Math.floor(Math.random() * 900000000), created: now, expires: now + CH_LIFE };
+    await s.write(`challenges/${ch.id}.json`, JSON.stringify(ch));
+    await Promise.all([s.write(`ch/${me}/${ch.id}`, '{}'), s.write(`ch/${to}/${ch.id}`, '{}')]);
+    return { status: 200, body: { challenge: await view(s, ch, me, now) } };
+  }
+  if (body.action === 'start') {
+    const ch = await load(body.id);
+    if (!part(ch)) return { status: 404, body: { error: 'missing', message: 'That challenge is gone.' } };
+    if (now > ch.expires) return { status: 410, body: { error: 'expired', message: 'This challenge has run out of time.' } };
+    const ok = await s.create(`chplay/${ch.id}/${me}.json`, JSON.stringify({ score: 0, cleared: false, done: false, t: now }));
+    if (!ok) return { status: 409, body: { error: 'played', message: 'You already played this challenge.' } };
+    return { status: 200, body: { challenge: await view(s, ch, me, now) } };
+  }
+  if (body.action === 'finish') {
+    const ch = await load(body.id);
+    if (!part(ch)) return { status: 404, body: { error: 'missing', message: 'That challenge is gone.' } };
+    const path = `chplay/${ch.id}/${me}.json`, cur = await readJSON(s, path);
+    if (!cur || cur.done) return { status: 409, body: { error: 'played', message: 'This attempt is already over.' } };
+    const score = Math.floor(+body.score || 0);
+    if (score < 0 || score > 60000 * ch.level + 20000) return { status: 400, body: { error: 'invalid', message: 'That score does not look right.' } };
+    await s.write(path, JSON.stringify({ score, cleared: !!body.cleared, done: true, t: now }));
+    return { status: 200, body: { challenge: await view(s, ch, me, now) } };
+  }
+  if (body.action === 'claim') {
+    const ch = await load(body.id);
+    if (!part(ch)) return { status: 404, body: { error: 'missing', message: 'That challenge is gone.' } };
+    const v = await view(s, ch, me, now);
+    if (!v.result) return { status: 409, body: { error: 'pending', message: 'The challenge is not over yet.' } };
+    if (v.claimed != null) return { status: 409, body: { error: 'claimed', message: 'Reward already collected.' } };
+    const reward = REWARD[v.result];
+    if (!(await s.create(`chclaim/${ch.id}/${me}.json`, JSON.stringify({ reward, t: now })))) return { status: 409, body: { error: 'claimed', message: 'Reward already collected.' } };
+    return { status: 200, body: { reward, challenge: { ...v, claimed: reward } } };
+  }
+  if (body.action === 'list') {
+    const markers = await s.list(`ch/${me}/`);
+    const all = (await Promise.all(markers.map(async p => ({ p, ch: await load(p.split('/')[2]) }))));
+    const stale = all.filter(x => !x.ch || now > x.ch.created + CH_KEEP).map(x => x.p);
+    if (stale.length) await s.remove(stale);   // tidy up old challenges from my list
+    const live = all.filter(x => x.ch && now <= x.ch.created + CH_KEEP).map(x => x.ch).sort((a, b) => b.created - a.created).slice(0, 20);
+    return { status: 200, body: { challenges: await Promise.all(live.map(ch => view(s, ch, me, now))), reward: REWARD } };
+  }
+  return { status: 400, body: { error: 'action' } };
+}
+
+// ---------- Live rooms (real-time play) ----------
+// The server only introduces the phones to each other (WebRTC offer/answer); the game itself
+// then runs directly between the phones, with the host's phone running the match.
+//   rooms/<CODE>.json            { code, host, mode, created }
+//   rooms/<CODE>/p-<NAME>.json   a player asking to join: { name, look, offer, t }
+//   rooms/<CODE>/a-<NAME>.json   the host's answer for that player: { sdp, t }
+const ROOM_LIFE = 30 * 60000, CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const okCode = c => typeof c === 'string' && /^[A-Z]{4}$/.test(c);
+const okSdp = v => typeof v === 'string' && v.length > 20 && v.length < 20000;
+export async function room(body) {
+  const acc = await authedAccount(body.name, body.token);
+  if (!acc) return AUTH_FAIL;
+  const me = acc.name, s = await blob(), now = Date.now();
+  const code = String(body.code || '').toUpperCase();
+  const load = async () => okCode(code) ? readJSON(s, `rooms/${code}.json`) : null;
+  const gone = { status: 404, body: { error: 'missing', message: 'No room with that code. Check the code with your friend.' } };
+
+  if (body.action === 'create') {
+    const mode = body.mode === 'coop' ? 'coop' : 'race';
+    for (let i = 0; i < 8; i++) {
+      const c = Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+      const r = { code: c, host: me, mode, created: now };
+      const old = await readJSON(s, `rooms/${c}.json`);
+      if (old && now - old.created < ROOM_LIFE) continue;
+      await s.write(`rooms/${c}.json`, JSON.stringify(r));
+      return { status: 200, body: { room: r } };
+    }
+    return { status: 503, body: { error: 'busy', message: 'Could not make a room. Try again.' } };
+  }
+  const r = await load();
+  if (!r || now - r.created > ROOM_LIFE) return gone;
+  if (body.action === 'join') {
+    if (r.host === me) return { status: 400, body: { error: 'self', message: 'That is your own room.' } };
+    if (!okSdp(body.offer)) return { status: 400, body: { error: 'invalid', message: 'Connection data missing.' } };
+    await s.remove([`rooms/${code}/a-${me}.json`]);
+    await s.write(`rooms/${code}/p-${me}.json`, JSON.stringify({ name: me, look: Math.max(0, Math.min(99, Math.floor(+body.look || 0))), offer: body.offer, t: now }));
+    return { status: 200, body: { room: r } };
+  }
+  if (body.action === 'wait') {   // a joining player waits for the host's answer
+    const a = await readJSON(s, `rooms/${code}/a-${me}.json`);
+    return { status: 200, body: { room: r, answer: a ? a.sdp : null } };
+  }
+  if (r.host !== me) return { status: 403, body: { error: 'host', message: 'Only the host can do that.' } };
+  if (body.action === 'poll') {   // the host looks for players asking to join
+    const paths = (await s.list(`rooms/${code}/p-`));
+    const players = (await Promise.all(paths.map(p => readJSON(s, p)))).filter(Boolean);
+    return { status: 200, body: { room: r, players } };
+  }
+  if (body.action === 'answer') {
+    const to = cleanName(body.to);
+    if (!to || !okSdp(body.sdp)) return { status: 400, body: { error: 'invalid', message: 'Connection data missing.' } };
+    await s.write(`rooms/${code}/a-${to}.json`, JSON.stringify({ sdp: body.sdp, t: now }));
+    return { status: 200, body: { ok: true } };
+  }
+  if (body.action === 'close') {
+    await s.remove([...(await s.list(`rooms/${code}/`)), `rooms/${code}.json`]);
+    return { status: 200, body: { closed: code } };
+  }
+  return { status: 400, body: { error: 'action' } };
 }
 
 export function send(res, { status, body }, cache) {
