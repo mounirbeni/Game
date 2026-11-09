@@ -40,21 +40,21 @@
   .stat span { font-size: 20px; font-variant-numeric: tabular-nums; }
   #lives { display: flex; gap: 2px; min-height: 22px; align-items: center; }
   #lives .life img { width: 24px; height: 24px; display: block; filter: drop-shadow(0 2px 1px #0008); }
-  /* bottom bar: lives | score and level | pause. Nothing else during play. */
-  #hud { gap: 10px; }
-  .hud-pill { display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 14px; border-radius: 16px;
-    background: linear-gradient(#1d2f8a, #0c1652); border: 2px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff26, 0 3px 0 #060b2e, 0 5px 10px #0008; }
-  .hud-lives { min-width: 76px; }
-  #hud #lives { gap: 3px; } #hud #lives .life { display: block; width: auto !important; height: auto !important; margin: 0 !important; flex: none; }
-  .hud-score { flex: 1; max-width: 230px; flex-direction: column; line-height: 1; }
-  .hud-score #score { font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #060b2e; font-variant-numeric: tabular-nums; }
-  .hud-score small { margin-top: 3px; font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #ffd75a; }
+  /* bottom bar: lives | score and level | pause, each on its stone-and-gold frame at its true proportions.
+     One height is shared so the three frames always fit the screen width side by side. */
+  #hud { --hh: min(54px, calc((100vw - 34px) / 7.95)); gap: 8px; justify-content: center; }
+  .hud-pill, #hud .icon-btn { height: var(--hh); padding: 0; border: 0; border-radius: 0; box-shadow: none; display: flex; align-items: center; justify-content: center;
+    background: center / 100% 100% no-repeat; filter: drop-shadow(0 4px 5px #0009); }
+  .hud-lives { aspect-ratio: 1617 / 645; min-width: 0; background-image: url(assets/frame-mid.webp); }
+  .hud-score { aspect-ratio: 2101 / 473; flex: none; max-width: none; flex-direction: column; line-height: 1; background-image: url(assets/frame-long.webp); }
+  #hud .icon-btn { width: auto; aspect-ratio: 1096 / 1123; background-image: url(assets/frame-square.webp); color: #fff; }
+  #hud .icon-btn svg { width: 42%; height: 42%; filter: drop-shadow(0 2px 0 #060b2e); }
+  #hud .icon-btn:active { transform: translateY(2px); }
+  .hud-score #score { font-size: calc(var(--hh) * .4); font-weight: 900; color: #fff; text-shadow: 0 2px 0 #060b2e, 1px 0 0 #060b2e, -1px 0 0 #060b2e; font-variant-numeric: tabular-nums; }
+  .hud-score small { margin-top: 1px; font-size: calc(var(--hh) * .19); font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #ffd75a; text-shadow: 0 1px 0 #000; }
   .hud-score small span { font-size: inherit; }
-  #hud .icon-btn { width: 46px; height: 46px; border-radius: 16px; border: 2px solid #ffcf3a; background: linear-gradient(#2a44c8, #14268a); box-shadow: inset 0 2px 0 #ffffff33, 0 3px 0 #060b2e, 0 5px 10px #0008; }
-  @media (max-width: 400px) {
-    .hud-pill, #hud .icon-btn { height: 40px; } #hud .icon-btn { width: 40px; }
-    .hud-score #score { font-size: 19px; } #lives .life img { width: 22px; height: 22px; }
-  }
+  #hud #lives { gap: 2px; } #hud #lives .life { display: block; width: auto !important; height: auto !important; margin: 0 !important; flex: none; }
+  #hud #lives .life img { width: calc(var(--hh) * .44); height: calc(var(--hh) * .44); }
   #wrap { position: relative; flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
   /* night vignette as a GPU-composited overlay (free compared to painting it on the canvas) */
   #stage { position: relative; border-radius: 10px; }
@@ -85,11 +85,11 @@
   .card-text { margin: 0 0 10px; font-size: 14px; font-weight: 700; line-height: 1.4; color: #e6ecff !important; }
   .card-note { margin: 8px 0 0; font-size: 12px; font-weight: 700; line-height: 1.35; color: #9fb4ff !important; }
   .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 12px; }
-  .cstat { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 2px 7px; border-radius: 16px;
-    background: radial-gradient(circle at 50% 20%, #23399e, #0b1550 75%); border: 2px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff22, inset 0 -3px 6px #0006, 0 3px 6px #0007; }
-  .cstat img { width: 30px; height: 30px; filter: drop-shadow(0 2px 2px #0008); }
-  .cstat b { font: 900 18px/1.1 ui-rounded, system-ui, sans-serif; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 #060b2e, 1px 0 0 #060b2e, -1px 0 0 #060b2e; }
-  .cstat small { font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #ffd75a; }
+  .cstat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; aspect-ratio: 1096 / 1123; padding: 0 0 2px;
+    background: url(assets/frame-square.webp) center / 100% 100% no-repeat; filter: drop-shadow(0 3px 4px #0008); }
+  .cstat img { width: 34%; height: auto; aspect-ratio: 1; filter: drop-shadow(0 2px 2px #0008); }
+  .cstat b { font: 900 16px/1.1 ui-rounded, system-ui, sans-serif; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 #060b2e, 1px 0 0 #060b2e, -1px 0 0 #060b2e; }
+  .cstat small { font-size: 8px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #ffd75a; }
   /* main action: the same stone plaque as the home Level button */
   .plaque-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; aspect-ratio: 2139 / 665; margin: 4px 0 0; padding: 0 0 2px; border: 0; cursor: pointer;
     background: url(assets/level-btn.webp) center / contain no-repeat; font: 900 22px/1 ui-rounded, system-ui, sans-serif; color: #fff;
@@ -98,15 +98,16 @@
   .plaque-btn .pb-cost { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px 3px 5px; border-radius: 99px; background: #0a1240cc; border: 2px solid #ffcf3a; font-size: 17px; }
   .plaque-btn .pb-cost img { width: 20px; height: 20px; }
   /* second choice: a navy pill with a gold rim, like the bottom bar */
-  .pill-btn { display: block; width: 78%; margin: 8px auto 0; padding: 10px 12px; border-radius: 16px; cursor: pointer; font: 900 16px/1 ui-rounded, system-ui, sans-serif; color: #fff;
-    background: linear-gradient(#2a44c8, #14268a); border: 2px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff33, 0 3px 0 #060b2e, 0 5px 10px #0008; text-shadow: 0 2px 0 #060b2e; }
+  .pill-btn { display: flex; align-items: center; justify-content: center; width: 72%; aspect-ratio: 1617 / 645; margin: 8px auto 0; padding: 0 0 2px; border: 0; cursor: pointer;
+    font: 900 17px/1 ui-rounded, system-ui, sans-serif; color: #fff; background: url(assets/frame-mid.webp) center / 100% 100% no-repeat;
+    text-shadow: 0 2px 0 #060b2e, 1px 0 0 #060b2e, -1px 0 0 #060b2e; filter: drop-shadow(0 4px 5px #0009); -webkit-tap-highlight-color: transparent; }
   .pill-btn:active { transform: translateY(2px); }
   /* small round buttons with the game's icons */
   .round-row { display: flex; justify-content: center; gap: 22px; margin-top: 10px; }
   .round-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .round-btn .rb-ico { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; color: #fff;
-    background: radial-gradient(circle at 35% 30%, #3a64ff, #14268a); border: 3px solid #ffcf3a; box-shadow: inset 0 2px 0 #ffffff33, 0 3px 0 #060b2e, 0 5px 10px #0008; }
-  .round-btn .rb-ico img { width: 34px; height: 34px; } .round-btn .rb-ico svg { width: 24px; height: 24px; }
+  .round-btn .rb-ico { display: flex; align-items: center; justify-content: center; width: 56px; height: 57px; color: #fff;
+    background: url(assets/frame-square.webp) center / 100% 100% no-repeat; filter: drop-shadow(0 4px 5px #0009); }
+  .round-btn .rb-ico img { width: 30px; height: 30px; } .round-btn .rb-ico svg { width: 22px; height: 22px; filter: drop-shadow(0 2px 0 #060b2e); }
   .round-btn small { font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: #ffd75a; text-shadow: 0 1px 0 #000; }
   .round-btn:active .rb-ico { transform: translateY(2px); }
   /* live match results in the same family */
@@ -433,7 +434,7 @@
     #controls { gap: 4px; }
     .card { padding: 50px 46px 54px 36px; }
     .card-title { font-size: 27px; } .card-text { font-size: 13px; } .cstat b { font-size: 16px; } .plaque-btn { font-size: 19px; }
-    .round-btn .rb-ico { width: 46px; height: 46px; } .round-btn .rb-ico img { width: 30px; height: 30px; }
+    .round-btn .rb-ico { width: 50px; height: 51px; } .round-btn .rb-ico img { width: 27px; height: 27px; }
     .card h1 { font-size: 32px; }
   }
   @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
