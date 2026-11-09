@@ -415,6 +415,19 @@ export async function room(body) {
   const load = async () => okCode(code) ? readJSON(s, `rooms/${code}.json`) : null;
   const gone = { status: 404, body: { error: 'missing', message: 'No room with that code. Check the code with your friend.' } };
 
+  if (body.action === 'ice') {   // connection helpers for the phones: STUN, plus a TURN relay when one is set up
+    const list = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
+    const app = process.env.METERED_APP, key = process.env.METERED_API_KEY;
+    if (app && key) {
+      try {
+        const r = await fetch(`https://${encodeURIComponent(app)}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(key)}`);
+        const turn = r.ok ? await r.json() : null;
+        if (Array.isArray(turn)) list.push(...turn.filter(x => x && x.urls));
+      } catch (e) { console.error('turn', e); }
+    }
+    return { status: 200, body: { iceServers: list, relay: list.length > 1 } };
+  }
+
   if (body.action === 'list') {   // open rooms waiting for players (host seen in the last minute)
     const all = await s.list('rooms/'), paths = all.filter(p => /^rooms\/[A-Z]{4}\.json$/.test(p));
     const found = await Promise.all(paths.map(p => readJSON(s, p)));

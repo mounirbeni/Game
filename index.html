@@ -3690,6 +3690,14 @@ function wireDuels(body) {
 var live = null, lobby = null;
 const LIVE_MAX = 4, LIVE_COLORS = ['#ffd75a', '#7fe8ff', '#ff8ad8', '#9dff7a'];
 const RTC_CFG = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }] };
+// Phones on mobile data often cannot reach each other directly, so the server also hands out a
+// TURN relay (when one is set up) that carries the game between them. Fetched once per 10 minutes.
+let rtcCfg = null, rtcCfgAt = 0;
+async function rtcConfig() {
+  if (rtcCfg && Date.now() - rtcCfgAt < 600000) return rtcCfg;
+  try { const r = await roomApi({ action: 'ice' }); if (r && Array.isArray(r.iceServers)) { rtcCfg = { iceServers: r.iceServers }; rtcCfgAt = Date.now(); return rtcCfg; } } catch (e) { /* offline: plain STUN */ }
+  return RTC_CFG;
+}
 const LIVE_HZ = 1 / 30;   // state updates per second, both ways
 const LIVE_REWARD = { win: 10, play: 2, team: 5, teamLost: 1 };
 const roomApi = body => api('/api/room', { name: account.name, token: account.token, ...body });
@@ -3723,7 +3731,7 @@ async function liveCreate(mode) {
   lobby = { role: 'host', mode, peers: {}, code: '', msg: '' };
   lobbyMsg('Making a room…'); lobbyRender();
   try {
-    const r = await roomApi({ action: 'create', mode });
+    const [r] = await Promise.all([roomApi({ action: 'create', mode }), rtcConfig()]);
     if (!lobby) return;
     lobby.code = r.room.code; lobbyMsg('Share the code. Friends join with it.', true); lobbyRender();
     lobby.timer = setInterval(hostPoll, 1000); hostPoll();
@@ -3737,7 +3745,7 @@ async function hostPoll() {
     if (cur && cur.t === p.t) continue;            // already answered this offer
     if (!cur && Object.keys(lobby.peers).length >= LIVE_MAX - 1) continue;   // room full
     if (cur) try { cur.pc.close(); } catch (e) { /* ignore */ }
-    const peer = { name: p.name, look: p.look, t: p.t, open: false, pc: new RTCPeerConnection(RTC_CFG), dc: null, fdc: null };
+    const peer = { name: p.name, look: p.look, t: p.t, open: false, pc: new RTCPeerConnection(rtcCfg || RTC_CFG), dc: null, fdc: null };
     lobby.peers[p.name] = peer;
     peer.pc.ondatachannel = ev => { if (ev.channel.label === 'fast') { peer.fdc = ev.channel; ev.channel.onmessage = e => hostMessage(peer, e); } else hostChannel(peer, ev.channel); };
     peer.pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(peer.pc.connectionState)) hostLost(peer); };
@@ -3798,7 +3806,7 @@ async function liveJoin(code) {
   if (lobby) return;
   lobby = { role: 'guest', code, peers: {}, list: [], msg: '' };
   lobbyMsg('Connecting…', true); lobbyRender();
-  const pc = new RTCPeerConnection(RTC_CFG), dc = pc.createDataChannel('game', { ordered: true });
+  const pc = new RTCPeerConnection(await rtcConfig()), dc = pc.createDataChannel('game', { ordered: true });
   const fdc = pc.createDataChannel('fast', { ordered: false, maxRetransmits: 0 });
   const host = { name: '', pc, dc, fdc, open: false };
   fdc.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } guestMessage(m); };
