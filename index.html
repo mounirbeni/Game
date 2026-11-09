@@ -219,6 +219,7 @@
   .map-lvl.cur b { color: #ffe066; -webkit-text-stroke-color: #6a3b00; filter: drop-shadow(0 .8cqw 0 #6a3b00) drop-shadow(0 0 2.5cqw #ffd84acc); animation: mapnum 1.2s ease-in-out infinite; }
   @keyframes mapnum { 50% { transform: scale(1.08); } }
   .map-lvl.star b { color: #ffb36b; }
+  .map-lvl.hell b { color: #ff3b2f; text-shadow: 0 0 1.5cqw #ff2a00; }
   .map-lvl.locked { cursor: default; }
   .map-lvl.locked svg { display: block; width: 9.5cqw; height: 11cqw; filter: drop-shadow(0 .8cqw .6cqw #000a); }
   .map-lvl.cur::before { content: ''; position: absolute; left: 50%; top: 50%; width: 18.6cqw; height: 16cqw; transform: translate(-50%, -50%); border-radius: 50%; border: .9cqw solid #ffe066; box-shadow: 0 0 3cqw 1cqw #ffd84a, inset 0 0 3cqw #ffd84a88; animation: mapglow 1.2s ease-in-out infinite; pointer-events: none; }
@@ -1081,7 +1082,7 @@ try { if (navigator.storage && navigator.storage.persist) navigator.storage.pers
 // Each level number always produces the same maze.
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 // W must be 4k+1 (13, 17, 21, 25) and H must be 4k+3 (15, 19, 23, ...) so cells, den and tunnel line up.
-function generateMaze(seed, W = 21, H = 31, loopChance = 0.22) {
+function generateMaze(seed, W = 21, H = 31, loopChance = 0.22, crossChance = 0.3) {
   const MID = (W - 1) / 2, G = (H - 1) / 2 - 1, TR = G + 1, PY = Math.min(G + 9, H - 4);
   const L = MID - 3, R = MID + 3; // den ring road columns
   for (let attempt = 0; attempt < 200; attempt++) {
@@ -1106,7 +1107,7 @@ function generateMaze(seed, W = 21, H = 31, loopChance = 0.22) {
       if (between && g[y][x] === '#' && !prot(x, y) && rnd() < loopChance) set(x, y, '.');
     }
     // 3) a few crossings through the centre column
-    for (let y = 1; y < H - 1; y += 2) if (y < G - 1 || y > G + 3) { if (rnd() < 0.3) set(MID, y, '.'); }
+    for (let y = 1; y < H - 1; y += 2) if (y < G - 1 || y > G + 3) { if (rnd() < crossChance) set(MID, y, '.'); }
     // 4) stamp the beetle den, its ring road, the side tunnel and the start row
     for (let x = L; x <= R; x++) { g[G - 1][x] = '.'; g[G + 3][x] = '.'; }
     for (let y = G - 1; y <= G + 3; y++) { g[y][L] = '.'; g[y][R] = '.'; }
@@ -1180,8 +1181,20 @@ function mapForLevel(n, seed) {
   const key = seed ? `${n}:${seed}` : n;
   if (mapCache[key]) return mapCache[key];
   const [w, h, loops] = LEVEL_SIZES[Math.min(n, LEVEL_SIZES.length) - 1];
+  const hell = !seed && isHell(n);
   let m = null;
+  // hell levels: no extra loops and almost no crossings, so long corridors and few ways out
+  if (hell) {   // try many seeds and keep the maze with the fewest junctions (fewest ways out)
+    let best = Infinity;
+    for (let k = 0; k < 40; k++) {
+      const c = generateMaze(n * 977 + k * 7919, w, h, 0, 0.05); if (!c) continue;
+      const open = (x, y) => y >= 0 && y < c.length && x >= 0 && x < w && !'#-E'.includes(c[y][x]);
+      let j = 0; for (let y = 0; y < c.length; y++) for (let x = 0; x < w; x++) if (open(x, y) && [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx, dy]) => open(x + dx, y + dy)).length >= 3) j++;
+      if (j < best) { best = j; m = c; }
+    }
+  }
   for (let k = 0; !m && k < 20; k++) m = generateMaze((seed || n) + k * 1000, w, h, loops);
+  if (m && hell) m = m.map((r, y) => y < h / 2 ? r.replace(/o/g, '.') : r);   // only the two bottom lanterns
   return (mapCache[key] = m);
 }
 // ---------- Gates ----------
@@ -1426,6 +1439,9 @@ const isChaseMode = () => modeIndex % 2 === 1;
 
 // Every 5th level (5, 10, 15, ...) is a challenge level: harder, worth more, multicoloured walls.
 const isChallenge = n => n % 5 === 0;
+// Hell levels (50, 60, 70...): the tightest mazes, beetles almost as fast as you, short lantern
+// time, only two lanterns, everyone out of the den at once. Triple credits for clearing one.
+function isHell(n) { return n >= 50 && n % 10 === 0; }
 function speeds() {
   // Difficulty curve: level 1 is gentle (beetles ~64% of Backman's speed); each level adds a
   // little, capped at 80% so Backman can always get away by moving.
@@ -1434,11 +1450,11 @@ function speeds() {
   return {
     player,
     // levels without gates have no escape tunnel, so their beetles are a little slower
-    beetle: (isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1) * (hasPerk('Shadow') ? 0.95 : 1),
+    beetle: (isHell(level) ? player * 0.97 : isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1) * (hasPerk('Shadow') ? 0.95 : 1),
     fright: 4.2 * (hasPerk('ES') ? 0.8 : 1),   // ES: scared beetles crawl even slower
     tunnel: 3.6,
     eaten: 15,
-    frightTime: Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1) * (hasPerk('ES') ? 1.5 : 1),
+    frightTime: (isHell(level) ? 2.5 : Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1)) * (hasPerk('ES') ? 1.5 : 1),
   };
 }
 
@@ -1462,7 +1478,7 @@ function resetActors() {
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
     mode: i === 0 ? 'active' : 'den',
-    releaseAt: d.release * Math.max(0.5, 1 - (level - 1) * 0.08) * (isChallenge(level) ? 0.5 : 1),
+    releaseAt: d.release * Math.max(0.5, 1 - (level - 1) * 0.08) * (isHell(level) ? 0.2 : isChallenge(level) ? 0.5 : 1),
     frightened: false, bob: Math.random() * 6,
   }));
   frightTimer = 0; frightChain = 0;
@@ -1533,13 +1549,13 @@ function levelCleared() {
   if (duel) { sfx.clear(); finishDuel(true); return; }
   const flawless = deathsThisLevel === 0;
   track('clears'); if (flawless) track('flawless'); if (isChallenge(level)) track('challenges');
-  const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1) + (hasPerk('Voyager') ? 2 : 0);
+  const earned = (flawless ? 4 : 2) * (isHell(level) ? 3 : isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1) + (hasPerk('Voyager') ? 2 : 0);
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
   try { localStorage.setItem('bma.looksKept', '1'); } catch (e) { /* ignore */ }   // progress from now on never unlocks looks
   if (level > highestCleared) highestCleared = level;
   saveMeta();
-  clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${isChallenge(level) ? ' · CHALLENGE BEATEN!' : flawless ? ' · FLAWLESS!' : ''}`;
+  clearMsg = `+${creditsThisLevel} CREDITS THIS LEVEL${isHell(level) ? ' · HELL BEATEN!' : isChallenge(level) ? ' · CHALLENGE BEATEN!' : flawless ? ' · FLAWLESS!' : ''}`;
   setState('clear', 1.6);
   submitScore();
   sfx.clear();
@@ -2249,7 +2265,7 @@ function wallTexture(n) {
   const g = c.getContext('2d'); g.drawImage(mapArt.wall, 0, 0, S, S);
   let d; try { d = g.getImageData(0, 0, S, S); } catch (e) { return (wallCache[n] = mapArt.wall); }
   const px = d.data;
-  const hues = isChallenge(n) ? [levelHue(n), (levelHue(n) + 120) % 360, (levelHue(n) + 220) % 360].slice(0, 2 + (n / 5) % 2) : [levelHue(n)];
+  const hues = isHell(n) ? [0, 18] : isChallenge(n) ? [levelHue(n), (levelHue(n) + 120) % 360, (levelHue(n) + 220) % 360].slice(0, 2 + (n / 5) % 2) : [levelHue(n)];
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const i = (y * S + x) * 4;
     const [, sat, val] = rgbToHsv(px[i], px[i + 1], px[i + 2]);
@@ -2457,7 +2473,7 @@ function draw(now) {
 
   // banners
   if (live && state === 'ready') banner(live.mode === 'coop' ? 'TEAM PLAY' : 'LIVE RACE', '#7fe8ff', live.mode === 'coop' ? 'Clear the maze together!' : 'Eat the most seeds!');
-  else if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', isChallenge(level) ? '#ff7a5a' : '#ffcf5a', isChallenge(level) ? 'CHALLENGE LEVEL!' : hueName(levelHue(level)));
+  else if (state === 'ready') banner(levelIntro ? `LEVEL ${level}` : 'READY!', isHell(level) ? '#ff3b2f' : isChallenge(level) ? '#ff7a5a' : '#ffcf5a', isHell(level) ? 'HELL LEVEL!' : isChallenge(level) ? 'CHALLENGE LEVEL!' : hueName(levelHue(level)));
   if (state === 'clear' && stateTimer > 1.8) {
     ctx.fillStyle = 'rgba(4,10,7,0.6)'; ctx.fillRect(0, 0, viewW, viewH);
     banner('GARDEN CLEARED!', '#7dffa1', clearMsg);
@@ -3997,7 +4013,7 @@ function openMap(page) {
   let h = '';
   MAP_SPOTS.forEach(([x, y], i) => {
     const n = first + i, cls = n < reached ? 'done' : n === reached ? 'cur' : devMode ? 'done' : 'locked';
-    h += `<button class="map-lvl ${cls} ${isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? MAP_LOCK : `<b>${n}</b>`}</button>`;
+    h += `<button class="map-lvl ${cls} ${isHell(n) ? 'hell' : isChallenge(n) ? 'star' : ''}" data-l="${n}" style="left:${x}%;top:${y}%" ${cls === 'locked' ? 'disabled aria-label="Locked"' : `aria-label="Level ${n}"`}>${cls === 'locked' ? MAP_LOCK : `<b>${n}</b>`}</button>`;
     if (n === reached) { const sk = SKINS[skinIndex] || SKINS[0]; h += `<img class="map-me" alt="" src="assets/${sk.img ? 'skins/' + sk.img : 'backman'}.webp" style="left:${x}%;top:${y - 5.2}%">`; }
   });
   art.innerHTML = h;
