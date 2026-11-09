@@ -1,7 +1,7 @@
 // Backman service worker: makes the game installable and playable offline.
 // The page itself is fetched network-first so updates show up as soon as you're online;
 // everything else is served from the cache first.
-const CACHE = 'bugmaze-v47';
+const CACHE = 'bugmaze-v48';
 const ASSETS = [
   './',
   './index.html',
@@ -12,7 +12,7 @@ const ASSETS = [
   './icons/favicon-32.png',
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
-  './assets/home-bg.jpg', './assets/level-map.webp', './assets/level-btn.webp', './assets/card-frame.webp', './assets/frame-long.webp', './assets/frame-mid.webp', './assets/frame-square.webp', './assets/frame-plain.webp', './assets/btn-green.webp', './assets/btn-blue.webp', './assets/scene-win.webp', './assets/scene-lose.webp', './assets/ladybug.webp', './assets/backman.webp', './assets/skins/zogha.webp', './assets/skins/es.webp', './assets/skins/sprout.webp', './assets/skins/fox.webp', './assets/skins/minty.webp', './assets/skins/mbn.webp', './assets/skins/midnight.webp', './assets/skins/shadow.webp', './assets/skins/ranger.webp', './assets/floor.webp', './assets/wall.webp', './assets/seed.webp', './assets/lantern.webp', './assets/mushroom.webp', './assets/coin-sprite.webp', './assets/ladybug-scared.webp',
+  './assets/home-bg.jpg', './assets/level-map.webp', './assets/level-btn.webp', './assets/card-frame.webp', './assets/frame-long.webp', './assets/frame-mid.webp', './assets/frame-square.webp', './assets/frame-plain.webp', './assets/fonts/lilita-one.woff2', './assets/btn-green.webp', './assets/btn-blue.webp', './assets/scene-win.webp', './assets/scene-lose.webp', './assets/ladybug.webp', './assets/backman.webp', './assets/skins/zogha.webp', './assets/skins/es.webp', './assets/skins/sprout.webp', './assets/skins/fox.webp', './assets/skins/minty.webp', './assets/skins/mbn.webp', './assets/skins/midnight.webp', './assets/skins/shadow.webp', './assets/skins/ranger.webp', './assets/floor.webp', './assets/wall.webp', './assets/seed.webp', './assets/lantern.webp', './assets/mushroom.webp', './assets/coin-sprite.webp', './assets/ladybug-scared.webp',
   './icons/ui/coin.webp', './icons/ui/heart.webp', './icons/ui/gear.webp', './icons/ui/gift.webp', './icons/ui/mission.webp', './icons/ui/trophy.webp', './icons/ui/skins.webp',
   './icons/ui/stats.webp', './icons/ui/shop.webp', './icons/ui/house.webp', './icons/ui/map.webp', './icons/ui/star.webp',
 ];

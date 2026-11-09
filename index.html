@@ -73,7 +73,11 @@
   #stage::after { content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none;
     background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.42) 100%); }
   canvas { display: block; border-radius: 10px; box-shadow: 0 0 0 2px #163323, 0 10px 40px #000a; }
+  @font-face { font-family: 'Lilita One'; font-style: normal; font-weight: 400; font-display: swap; src: url(assets/fonts/lilita-one.woff2) format('woff2'); }
   #overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  /* a card dims the game behind it */
+  #overlay:has(> .card:not(.hidden)) { background: radial-gradient(ellipse at center, #0a1240aa, #02051aee); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: dimIn .25s ease-out; }
+  @keyframes dimIn { from { opacity: 0; } }
   /* cards use the stone-and-gold frame artwork; the corners (leaves, ladybug) never stretch */
   .card { pointer-events: auto; position: relative; text-align: center; width: min(88vw, 330px); background: none;
     border: 1px solid transparent; border-image: url(assets/card-frame.webp) 165 190 185 150 fill / 89px 103px 100px 81px stretch;
@@ -104,6 +108,40 @@
   .btn-green .pb-cost img { width: 5.6cqw; height: 5.6cqw; }
   .fate-row { display: flex; gap: 3cqw; width: 84%; justify-content: center; margin-top: -2cqw; }
   .fate-row .btn-blue { max-width: 48%; }
+  /* ---- pro polish: game typeface, light behind the characters, entrance motion ---- */
+  .card-title, .btn-green, .btn-blue, .fate-sub b, .win-score, .kit-stats b { font-family: 'Lilita One', ui-rounded, system-ui, sans-serif !important; font-weight: 400 !important; letter-spacing: .02em; }
+  .card-title { -webkit-text-stroke: 0; }
+  .fate-card::before { content: ''; position: absolute; left: 50%; top: -14cqw; width: 110cqw; height: 70cqw; transform: translateX(-50%); pointer-events: none; z-index: -1;
+    background: radial-gradient(ellipse at center, #ffd75a66, #ffd75a00 65%); animation: glowPulse 2.4s ease-in-out infinite; }
+  .fate-card.lose::before { background: radial-gradient(ellipse at center, #ff5a4a55, #ff5a4a00 65%); }
+  @keyframes glowPulse { 50% { opacity: .55; transform: translateX(-50%) scale(.94); } }
+  .card:not(.hidden) { animation: cardPop .42s cubic-bezier(.2, 1.5, .4, 1) both; }
+  @keyframes cardPop { from { opacity: 0; transform: scale(.7) translateY(30px); } }
+  .card:not(.hidden) .fate-scene { animation: sceneDrop .55s .12s cubic-bezier(.25, 1.6, .45, 1) both; }
+  @keyframes sceneDrop { from { opacity: 0; transform: translateY(-40%) scale(.85); } }
+  .card:not(.hidden) .fate-title { animation: titleIn .4s .22s cubic-bezier(.2, 1.6, .4, 1) both; }
+  @keyframes titleIn { from { opacity: 0; transform: scale(1.6); } }
+  .card:not(.hidden) .fate-sub, .card:not(.hidden) .kit-stats { animation: rise .35s .32s ease-out both; }
+  .card:not(.hidden) .btn-green { animation: rise .35s .4s cubic-bezier(.2, 1.4, .4, 1) both; }
+  .card:not(.hidden) .fate-row { animation: rise .35s .48s cubic-bezier(.2, 1.4, .4, 1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+  .btn-green:not(:disabled) { position: relative; overflow: hidden; }
+  .btn-green::after { content: ''; position: absolute; top: 12%; bottom: 18%; left: -30%; width: 22%; transform: skewX(-20deg); background: linear-gradient(90deg, #fff0, #fff6, #fff0);
+    animation: shine 2.8s 1s ease-in-out infinite; pointer-events: none; border-radius: 40%; }
+  @keyframes shine { 0%, 60% { left: -30%; } 100% { left: 115%; } }
+  @media (prefers-reduced-motion: reduce) { .card, .card *, .card::before { animation: none !important; } }
+  /* pause card: the same plain frame, sized to its content (corners never stretch) */
+  .card.kit-card { width: min(86vw, 340px); padding: 0; border: 22px solid transparent; border-image: url(assets/frame-plain.webp) 70 52 70 52 fill / 34px 26px 34px 26px stretch;
+    background: none; container-type: inline-size; display: flex; flex-direction: column; align-items: center; gap: 4.5cqw; padding: 7cqw 6cqw 8cqw; max-height: none; overflow: visible; }
+  .kit-card .fate-title { font-size: 11cqw; }
+  .kit-stats { display: flex; align-items: center; justify-content: center; width: 100%; padding: 3cqw 2cqw; border-radius: 4cqw; background: #050c33aa; box-shadow: inset 0 0 0 .5cqw #ffcf3a55; }
+  .kit-stats span { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .6cqw; }
+  .kit-stats img { width: 9cqw; height: 9cqw; filter: drop-shadow(0 .6cqw .6cqw #0008); }
+  .kit-stats b { font-size: 6cqw; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 .5cqw 0 #060b2e; }
+  .kit-stats small { font-size: 2.8cqw; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #ffd75a; }
+  .kit-stats i { width: .4cqw; align-self: stretch; margin: 2cqw 0; background: #ffcf3a44; border-radius: 1cqw; }
+  .kit-card .btn-green { width: 92%; font-size: 7cqw; } .kit-card .fate-row { width: 92%; } .kit-card .btn-blue { font-size: 5.4cqw; }
+  .btn-blue svg { width: 5.6cqw; height: 5.6cqw; filter: drop-shadow(0 .4cqw 0 #0a1a6e); }
   /* ---- inside the cards: one family with the frame (navy stone, gold rims, the game's icons) ---- */
   .card-title { margin: 0 0 10px; font: 900 32px/1.05 ui-rounded, system-ui, sans-serif; letter-spacing: .01em; color: #ffd75a;
     text-shadow: 0 3px 0 #6a3b00, 2px 0 0 #6a3b00, -2px 0 0 #6a3b00, 0 -2px 0 #6a3b00, 2px 2px 0 #6a3b00, -2px 2px 0 #6a3b00, 0 6px 10px #0009; }
@@ -580,17 +618,19 @@
         <div class="shop-msg" id="shopMsg"></div>
         <button class="big" id="startBtn">Play</button><br>
       </div>
-      <div class="card hidden" id="pauseCard">
-        <h2 class="card-title">Paused</h2>
-        <div class="card-stats">
-          <div class="cstat"><img class="uiicon" src="icons/ui/map.webp" alt="" draggable="false"><b id="pauseLevel">1</b><small>Level</small></div>
-          <div class="cstat"><img class="uiicon" src="icons/ui/star.webp" alt="" draggable="false"><b id="pauseScore">0</b><small>Score</small></div>
-          <div class="cstat"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b id="pauseCredits">0</b><small>Credits</small></div>
+      <div class="card kit-card hidden" id="pauseCard">
+        <h2 class="card-title fate-title">Paused</h2>
+        <div class="kit-stats">
+          <span><img class="uiicon" src="icons/ui/map.webp" alt="" draggable="false"><b id="pauseLevel">1</b><small>Level</small></span>
+          <i></i>
+          <span><img class="uiicon" src="icons/ui/star.webp" alt="" draggable="false"><b id="pauseScore">0</b><small>Score</small></span>
+          <i></i>
+          <span><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b id="pauseCredits">0</b><small>Credits</small></span>
         </div>
-        <button class="plaque-btn" id="resumeBtn">Resume</button>
-        <div class="round-row">
-          <button class="round-btn" id="muteBtn" aria-label="Sound"></button>
-          <button class="round-btn" id="pauseHomeBtn" aria-label="Home"><span class="rb-ico"><img class="uiicon" src="icons/ui/house.webp" alt="" draggable="false"></span><small>Home</small></button>
+        <button class="btn-green" id="resumeBtn">Resume</button>
+        <div class="fate-row">
+          <button class="btn-blue" id="muteBtn" aria-label="Sound"></button>
+          <button class="btn-blue" id="pauseHomeBtn">Home</button>
         </div>
       </div>
       <div class="card fate-card lose hidden" id="overCard">
@@ -1742,7 +1782,10 @@ function showWin() {
   const saved = loadProgress();
   if (level + 1 > saved.level) { try { localStorage.setItem('backman.level', String(level + 1)); localStorage.setItem('backman.levelScore', String(score)); } catch (e) { /* ignore */ } backupSoon(); submitScore(); }
   $('winTitle').textContent = `Level ${level} cleared!`;
-  $('winScore').textContent = (score || 0).toLocaleString();
+  // the score counts up while the card pops in
+  { const el = $('winScore'), end = score || 0, t0 = performance.now(), dur = 900;
+    const step = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(end * e).toLocaleString(); if (k < 1 && state === 'won') requestAnimationFrame(step); else el.textContent = end.toLocaleString(); };
+    el.textContent = '0'; setTimeout(() => requestAnimationFrame(step), 350); }
   $('winCredits').textContent = `+${creditsThisLevel}`;
   $('winCredits').title = 'credits this level';
   $('nextBtn').textContent = `Next level`;
@@ -2643,7 +2686,7 @@ function togglePause() {
 }
 function fillPauseCard() {
   $('pauseLevel').textContent = level; $('pauseScore').textContent = (score || 0).toLocaleString(); $('pauseCredits').textContent = credits;
-  ui.muteBtn.innerHTML = `<span class="rb-ico">${muted ? ICONS.muted : ICONS.sound}</span><small>${muted ? 'Muted' : 'Sound'}</small>`;
+  ui.muteBtn.innerHTML = `${muted ? ICONS.muted : ICONS.sound}${muted ? 'Muted' : 'Sound'}`;
 }
 function toggleMute() {
   muted = !muted;
