@@ -32,7 +32,7 @@ async function oldBlobStore() {
   const b = await import('@vercel/blob');
   return {
     async list(prefix, cursor) { const r = await b.list({ prefix, cursor, limit: 500 }); return { paths: r.blobs.map(x => x.pathname), cursor: r.hasMore ? r.cursor : null }; },
-    async read(path) { const r = await b.get(path, { access: 'private', useCache: false }).catch(() => null); return r && r.statusCode === 200 ? await new Response(r.stream).text() : null; },
+    async read(path) { const r = await b.get(path, { access: 'private', useCache: false }); if (!r || r.statusCode !== 200) throw new Error('blob get ' + (r && r.statusCode)); return await new Response(r.stream).text(); },
   };
 }
 // Developer tool: copy one page of the old Blob store into Neon. Call again with the returned
@@ -44,8 +44,8 @@ export async function migrateFromBlob({ secret, cursor }) {
   const page = await src.list('', cursor || undefined);
   let copied = 0, skipped = 0, failed = [];
   await Promise.all(page.paths.map(async p => {
-    try { const t = await src.read(p); if (t == null) { failed.push(p); return; } (await dst.create(p, t)) ? copied++ : skipped++; }
-    catch (e) { failed.push(p); }
+    try { const t = await src.read(p); if (t == null) { failed.push(p + ' (read)'); return; } (await dst.create(p, t)) ? copied++ : skipped++; }
+    catch (e) { failed.push(p + ' (' + String(e && e.message || e).slice(0, 160) + ')'); }
   }));
   return { status: 200, body: { copied, skipped, failed: failed.length, failedPaths: failed.slice(0, 20), cursor: page.cursor, done: !page.cursor } };
 }
