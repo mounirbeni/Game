@@ -75,11 +75,27 @@ async function getAccount(name) {
   const text = await (await blob()).read(`accounts/${name}.json`);
   return text ? JSON.parse(text) : null;
 }
+// Each device key also lives in its own file, created once and never rewritten, so logging in on
+// one device can never drop another device's key (overlapping rewrites of the account file did).
 async function authedAccount(rawName, token) {
   const name = cleanName(rawName);
   if (!name || !token) return null;
   const acc = await getAccount(name);
-  return acc && tokenHashes(acc).includes(hash(token)) ? acc : null;
+  if (!acc) return null;
+  const h = hash(token);
+  if (tokenHashes(acc).includes(h)) return acc;
+  return (await (await blob()).read(`keys/${name}/${h}.json`)) != null ? acc : null;
+}
+// Developer tool: set a new password for an account whose password was forgotten.
+const ADMIN_SECRET_HASH = '9f5a024ed6fd0de432998dae9b37dabaf5495a8cb3630e14a82909bf759b09e4';
+export async function adminReset({ secret, target, password }) {
+  if (typeof secret !== 'string' || hash(secret) !== ADMIN_SECRET_HASH) return { status: 403, body: { error: 'admin' } };
+  const name = cleanName(target), acc = name && await getAccount(name);
+  if (!acc) return { status: 404, body: { error: 'missing' } };
+  if (!okPass(password)) return { status: 400, body: { error: 'password', message: PASS_RULE } };
+  acc.passHash = passHash(password);
+  await (await blob()).write(`accounts/${name}.json`, JSON.stringify(acc));
+  return { status: 200, body: { reset: name } };
 }
 async function authed(rawName, token) { const acc = await authedAccount(rawName, token); return acc ? acc.name : null; }
 const AUTH_FAIL = { status: 401, body: { error: 'auth', message: 'Unknown player or wrong key.' } };
@@ -116,8 +132,7 @@ export async function login({ name: rawName, password }) {
   const name = cleanName(rawName), acc = name && await getAccount(name);
   if (!acc || !passOk(password, acc.passHash)) return { status: 401, body: { error: 'login', message: 'Wrong name or password.' } };
   const token = randomBytes(24).toString('hex');
-  acc.tokens = [...(acc.tokens || []), hash(token)].slice(-20);
-  await (await blob()).write(`accounts/${name}.json`, JSON.stringify(acc));
+  await (await blob()).write(`keys/${name}/${hash(token)}.json`, JSON.stringify({ t: Date.now() }));
   const text = await (await blob()).read(`saves/${name}.json`);
   const rec = text ? JSON.parse(text) : null;
   return { status: 200, body: { name, token, hasPassword: true, dev: DEV_NAMES.includes(name), t: rec ? rec.t : 0, save: rec ? rec.save : null } };
