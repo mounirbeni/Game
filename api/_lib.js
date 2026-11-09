@@ -1,4 +1,4 @@
-// Shared helpers for the online leaderboard (Vercel Functions + Neon Postgres; the old Vercel Blob store is only read to migrate).
+// Shared helpers for the online game (Vercel Functions + Neon Postgres).
 //
 // Storage layout:
 //   accounts/<NAME>.json            { name, tokenHash, tokens[], passHash, created }
@@ -27,55 +27,12 @@ async function neonStore(url) {
     async remove(paths) { if (paths.length) await sql`delete from kv where path = any(${paths})`; },
   };
 }
-// The old Vercel Blob store, read-only, to copy everything into Neon once.
-async function oldBlobStore() {
-  const b = await import('@vercel/blob');
-  return {
-    async list(prefix, cursor) { const r = await b.list({ prefix, cursor, limit: 500 }); return { paths: r.blobs.map(x => x.pathname), cursor: r.hasMore ? r.cursor : null }; },
-    async read(path) { const r = await b.get(path, { access: 'private', useCache: false }); if (!r || r.statusCode !== 200) throw new Error('blob get ' + (r && r.statusCode)); return await new Response(r.stream).text(); },
-  };
-}
-// Developer tool: copy one page of the old Blob store into Neon. Call again with the returned
-// cursor until it says done. Existing Neon rows are never overwritten.
-export async function migrateFromBlob({ secret, cursor }) {
-  if (typeof secret !== 'string' || hash(secret) !== ADMIN_SECRET_HASH) return { status: 403, body: { error: 'admin' } };
-  if (!process.env.DATABASE_URL) return { status: 400, body: { error: 'no-database' } };
-  const src = await oldBlobStore(), dst = await blob();
-  const page = await src.list('', cursor || undefined);
-  let copied = 0, skipped = 0, failed = [];
-  await Promise.all(page.paths.map(async p => {
-    try { const t = await src.read(p); if (t == null) { failed.push(p + ' (read)'); return; } (await dst.create(p, t)) ? copied++ : skipped++; }
-    catch (e) { failed.push(p + ' (' + String(e && e.message || e).slice(0, 160) + ')'); }
-  }));
-  return { status: 200, body: { copied, skipped, failed: failed.length, failedPaths: failed.slice(0, 20), cursor: page.cursor, done: !page.cursor } };
-}
 let store;
 async function blob() {
   if (store) return store;
   if (process.env.MOCK_STORE_DIR) store = await import('./_mockstore.js');   // local tests only
   else if (process.env.DATABASE_URL) store = await neonStore(process.env.DATABASE_URL);   // Neon Postgres
-  else {
-    const b = await import('@vercel/blob');
-    const opts = { access: 'private' };
-    store = {
-      async create(path, text) {
-        try { await b.put(path, text, { ...opts, addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' }); return true; }
-        catch (e) { if (await store.read(path) != null) return false; throw e; }
-      },
-      async write(path, text) { await b.put(path, text, { ...opts, addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' }); },
-      async read(path) {
-        const r = await b.get(path, { ...opts, useCache: false }).catch(() => null);   // always the latest copy, never a cached one
-        if (!r || r.statusCode !== 200) return null;
-        return await new Response(r.stream).text();
-      },
-      async list(prefix) {
-        const out = []; let cursor;
-        do { const r = await b.list({ prefix, cursor, limit: 1000 }); out.push(...r.blobs.map(x => x.pathname)); cursor = r.hasMore ? r.cursor : undefined; } while (cursor);
-        return out;
-      },
-      async remove(paths) { if (paths.length) await b.del(paths); },
-    };
-  }
+  else throw new Error('DATABASE_URL is not set: the game stores everything in Neon Postgres.');
   return store;
 }
 
@@ -119,7 +76,7 @@ async function getAccount(name) {
 }
 // Each device key also lives in its own file, created once and never rewritten, so logging in on
 // one device can never drop another device's key (overlapping rewrites of the account file did).
-// The old Blob store was suspended and could not be copied, so accounts came back this way: a
+// The old storage was suspended and could not be copied, so accounts came back this way: a
 // phone that still holds a name and its key, for a name nobody has in the new database, gets that
 // account back (key included, no password yet: the game then asks the player to set a new one).
 // Only for a limited time after the move.

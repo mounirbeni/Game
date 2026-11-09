@@ -1,4 +1,4 @@
-// File-backed stand-in for Vercel Blob, used only by local tests (MOCK_STORE_DIR).
+// File-backed stand-in for the Neon store, used only by local tests (MOCK_STORE_DIR).
 import fs from 'node:fs'; import path from 'node:path';
 const dir = () => process.env.MOCK_STORE_DIR;
 const f = p => path.join(dir(), encodeURIComponent(p));

@@ -105,7 +105,7 @@ All home-screen and score-bar icons are custom artwork made for this game.
 - **Claiming a name:** in the Profile, players claim a unique name of 3 to 5 letters or numbers. Names are case-insensitive, so `mbn` and `MBN` are the same name.
 - **Score updates:** the game sends each player's best score, highest level and current look to the server.
 - **The board:** the Leaderboard has a **World** tab (top 100, your rank highlighted) and a **Friends** tab (add friends by name to rank against each other, each with their world rank).
-- **Server:** Vercel Functions in `api/`, storing data in a private Vercel Blob store (`BLOB_READ_WRITE_TOKEN`):
+- **Server:** Vercel Functions in `api/`, storing data in Neon Postgres (`DATABASE_URL`), one key/value table `kv`:
   - `POST /api/claim` `{name, password}`: reserves the name and returns a secret key for this player.
   - `POST /api/score` `{name, token, best, level, look}`: keeps the highest values sent.
   - `GET /api/leaderboard?me=NAME&friends=A,B`: returns the ranking plus those players.
