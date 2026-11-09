@@ -1326,6 +1326,32 @@ function spawnBonus() {
   bonus = { x: BONUS_TILE.x, y: BONUS_TILE.y, timer: 9, value: 100 * Math.min(level, 10) + (level > 1 ? 200 : 0) };
 }
 
+// MBN's royal aura works all the time: any beetle within 3 tiles of the king is slowed (and shown).
+const ROYAL_RANGE = 3;
+const inRoyalAura = b => hasPerk('MBN') && b.mode === 'active' && !b.frightened && Math.abs(b.tx - player.tx) + Math.abs(b.ty - player.ty) <= ROYAL_RANGE;
+function drawRoyalAura(now) {
+  if (!hasPerk('MBN') || state !== 'play') return;
+  const slowed = beetles.filter(inRoyalAura);
+  if (!slowed.length) return;
+  const pp = pos(player), cx = (pp.x + player.ox) * T + T / 2, cy = (pp.y + player.oy) * T + T / 2, pulse = 0.5 + 0.5 * Math.sin(now / 160);
+  ctx.save();
+  // the king's aura
+  const g = ctx.createRadialGradient(cx, cy, T * 0.4, cx, cy, T * (ROYAL_RANGE + 0.5));
+  g.addColorStop(0, `rgba(255,215,90,${0.28 + 0.12 * pulse})`); g.addColorStop(0.7, 'rgba(255,200,60,0.10)'); g.addColorStop(1, 'rgba(255,200,60,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, T * (ROYAL_RANGE + 0.5), 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = `rgba(255,224,102,${0.55 + 0.35 * pulse})`; ctx.lineWidth = Math.max(2, T * 0.08);
+  ctx.beginPath(); ctx.arc(cx, cy, T * (0.75 + 0.1 * pulse), 0, Math.PI * 2); ctx.stroke();
+  // a gold glow under every slowed beetle
+  for (const b of slowed) {
+    const q = pos(b), bx = q.x * T + T / 2, by = q.y * T + T / 2;
+    const bg = ctx.createRadialGradient(bx, by, 0, bx, by, T * 0.75);
+    bg.addColorStop(0, `rgba(255,224,102,${0.55 + 0.25 * pulse})`); bg.addColorStop(1, 'rgba(255,224,102,0)');
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bx, by, T * 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = `rgba(255,224,102,${0.7 + 0.3 * pulse})`; ctx.lineWidth = Math.max(2, T * 0.09);
+    ctx.beginPath(); ctx.arc(bx, by, T * (0.62 + 0.06 * pulse), 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+}
 function startFright() {
   if (hasPerk('ES')) pulsePerk();
   if (hasPerk('MBN')) { freezeTimer = Math.max(freezeTimer, 1.5); pulsePerk(); }   // royal command: lanterns also freeze the beetles
@@ -1441,7 +1467,7 @@ function updateBeetles(dt) {
     const inTunnel = (b.ty === TUNNEL_ROW && (b.tx < 4 || b.tx > COLS - 5)) || (b.tx === DOOR_COL && (b.ty < 2 || b.ty > ROWS - 3));
     if (inTunnel && b.mode === 'active') speed = Math.min(speed, sp.tunnel);
     // MBN's royal aura: beetles that come close to the king slow right down
-    if (hasPerk('MBN') && b.mode === 'active' && !b.frightened && Math.abs(b.tx - player.tx) + Math.abs(b.ty - player.ty) <= 3) speed *= 0.75;
+    if (inRoyalAura(b)) speed *= 0.75;
     // Bramble speeds up when few seeds remain
     if (b.i === 0 && b.mode === 'active' && !b.frightened && seedsLeft < TOTAL_SEEDS * 0.12) speed *= 1.08;
 
@@ -1929,6 +1955,7 @@ function draw(now) {
   drawCoin(now);
   if (gatesMove() && state === 'play' && gateTimer < GATE_WARN) drawGateWarning(now);
 
+  drawRoyalAura(now);
   // actors (clip so tunnel travel slides under the edge)
   ctx.save();
   ctx.beginPath(); ctx.rect(0, 0, COLS * T, ROWS * T); ctx.clip();
