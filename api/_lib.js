@@ -310,6 +310,13 @@ export async function room(body) {
   const load = async () => okCode(code) ? readJSON(s, `rooms/${code}.json`) : null;
   const gone = { status: 404, body: { error: 'missing', message: 'No room with that code. Check the code with your friend.' } };
 
+  if (body.action === 'list') {   // open rooms waiting for players (host seen in the last minute)
+    const paths = (await s.list('rooms/')).filter(p => /^rooms\/[A-Z]{4}\.json$/.test(p));
+    const rooms = (await Promise.all(paths.map(p => readJSON(s, p)))).filter(r => r && r.host !== me && now - r.created < ROOM_LIFE && now - (r.seen || r.created) < 60000);
+    const out = await Promise.all(rooms.slice(0, 30).map(async r => ({ code: r.code, host: r.host, mode: r.mode, players: 1 + (await s.list(`rooms/${r.code}/p-`)).length })));
+    return { status: 200, body: { rooms: out.filter(r => r.players < 4).sort((a, b) => a.players - b.players).slice(0, 20) } };
+  }
+
   if (body.action === 'create') {
     const mode = body.mode === 'coop' ? 'coop' : 'race';
     for (let i = 0; i < 8; i++) {
@@ -337,6 +344,7 @@ export async function room(body) {
   }
   if (r.host !== me) return { status: 403, body: { error: 'host', message: 'Only the host can do that.' } };
   if (body.action === 'poll') {   // the host looks for players asking to join
+    if (now - (r.seen || r.created) > 20000) { r.seen = now; await s.write(`rooms/${code}.json`, JSON.stringify(r)); }   // still here: keep the room listed
     const paths = (await s.list(`rooms/${code}/p-`));
     const players = (await Promise.all(paths.map(p => readJSON(s, p)))).filter(Boolean);
     return { status: 200, body: { room: r, players } };
