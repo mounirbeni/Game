@@ -41,13 +41,13 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 
 ## Looks and credits
 
-- **Looks:** ZOGHA, ES, Sprout, FOX, Minty, Midnight, MBN, Shadow and Ranger, each with its own outfit and powers. Looks are bought in the shop; clearing levels does not unlock them (looks a player already earned that way are kept).
+- **Looks:** ZOGHA, ES, Sprout, FOX, Minty, Midnight, MBN, Shadow, Ranger, Seeker and Voyager, each with its own outfit and powers. Looks are bought in the shop; clearing levels does not unlock them (looks a player already earned that way are kept).
 - **Credits:** you earn them while you play:
   - **Gold coins:** pop up in the maze every 12–20 seconds and vanish after 9. Each is worth +1.
   - **Beetles:** +1 for each one you catch after eating a lantern.
   - **Mushrooms:** +1 each, and they freeze every beetle for 3 seconds.
   - **Clearing a level:** +2, or +4 if you didn't lose a life.
-- **Shop:** tap a locked look to buy it with credits. Prices follow the power: ZOGHA 120, Sprout 150, Minty 180, ES 220, FOX 300, Shadow 350, Ranger 400, Midnight 450, MBN 600.
+- **Shop:** tap a locked look to buy it with credits. Prices follow the power: ZOGHA 120, Sprout 150, Minty 180, ES 220, FOX 300, Shadow 350, Ranger 400, Seeker 420, Voyager 430, Midnight 450, MBN 600.
 - **Continue:** when your lives run out, spend 1 credit to keep playing from the same spot with 1 extra life. Or retry the level from the start for free.
 - **Saved:** credits, looks and your level are all kept between visits.
 
@@ -63,6 +63,8 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 | FOX | 300 | Quick feet: 10% faster; no slowdown in the gates |
 | Shadow | 350 | Stealth: beetles notice you later and move 5% slower |
 | Ranger | 400 | Survivor: 4 lives each level; extra life at 3,000 points |
+| Seeker | 420 | Sharp eye: scared beetles worth double points; gold coins give 2 credits |
+| Voyager | 430 | Pathfinder: beetles frozen for the first 3 s of every level; +2 credits per cleared level |
 | Midnight | 450 | Magic shield: survives the first two beetle hits each level |
 | MBN | 600 | The King: beetles within 3 tiles slow down 25%; lanterns also freeze the beetles for 1.5 s; double level-clear credits; 2 credits per beetle |
 

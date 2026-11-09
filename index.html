@@ -1495,7 +1495,7 @@ function loadMeta() {
   if (!isSkinUnlocked(skinIndex)) skinIndex = 0;
 }
 // Looks are bought with credits (Backman is free). Stronger powers cost more.
-const SKIN_PRICES = { ZOGHA: 120, Sprout: 150, Minty: 180, ES: 220, FOX: 300, Shadow: 350, Ranger: 400, Midnight: 450, MBN: 600 };
+const SKIN_PRICES = { ZOGHA: 120, Sprout: 150, Minty: 180, ES: 220, FOX: 300, Shadow: 350, Ranger: 400, Seeker: 420, Voyager: 430, Midnight: 450, MBN: 600 };
 const skinPrice = i => SKIN_PRICES[SKINS[i].name] || 200;
 const isSkinUnlocked = i => i === 0 || (i < SKINS.length && ownedSkins.has(i));
 function saveMeta() {
@@ -1525,7 +1525,7 @@ function levelCleared() {
   if (duel) { sfx.clear(); finishDuel(true); return; }
   const flawless = deathsThisLevel === 0;
   track('clears'); if (flawless) track('flawless'); if (isChallenge(level)) track('challenges');
-  const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1);
+  const earned = (flawless ? 4 : 2) * (isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1) + (hasPerk('Voyager') ? 2 : 0);
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
   try { localStorage.setItem('bma.looksKept', '1'); } catch (e) { /* ignore */ }   // progress from now on never unlocks looks
@@ -1956,7 +1956,7 @@ function checkCollisions() {
     if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.5) {
       if (b.frightened) {
         b.frightened = false; b.mode = 'eaten';
-        const pts = 200 * 2 ** Math.min(frightChain, 3);
+        const pts = 200 * 2 ** Math.min(frightChain, 3) * (hasPerk('Seeker') ? 2 : 1);
         frightChain++;
         addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, '#ff3b3b', 16, 5, 0.55, 0.1); earnCredit(hasPerk('MBN') ? 2 : 1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
@@ -2010,7 +2010,7 @@ function updateCoin(dt) {
     if (coin.timer <= 0) coin = null;
     else {
       const pp = pos(player);
-      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { track('coins'); if (hasPerk('Minty')) pulsePerk(); burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(1, coin.x, coin.y); coin = null; coinTimer = nextCoinDelay(); }
+      if (Math.abs(pp.x - coin.x) + Math.abs(pp.y - coin.y) < 0.7) { track('coins'); if (hasPerk('Minty')) pulsePerk(); burst(coin.x, coin.y, '#ffd23f', 14, 4, 0.5, 0.09); earnCredit(hasPerk('Seeker') ? 2 : 1, coin.x, coin.y); if (hasPerk('Seeker')) pulsePerk(); coin = null; coinTimer = nextCoinDelay(); }
     }
   } else if ((coinTimer -= dt) <= 0) { spawnCoin(); coinTimer = nextCoinDelay(); }
 }
@@ -2065,7 +2065,7 @@ function update(dt) {
 
   if (state === 'ready') {
     stateTimer -= dt;
-    if (stateTimer <= 0) { setState('play'); levelIntro = false; }
+    if (stateTimer <= 0) { if (levelIntro && hasPerk('Voyager')) { freezeTimer = Math.max(freezeTimer, 3); pulsePerk(); } setState('play'); levelIntro = false; }
     return;
   }
   if (live && live.role === 'guest') { liveGuestUpdate(dt); return; }
@@ -2588,6 +2588,8 @@ const SKINS = [
   { name: 'MBN', img: 'mbn',     body: ['#fff4b8', '#e0b000'], hat: null,      band: '#c0392b', pack: '#7a5a10', packDark: '#5a420b', roll: '#8e44ad', acc: 'crown' },
   { name: 'Shadow',   img: 'shadow', body: ['#d4d0ff', '#6c63ff'], hat: '#ffcf5a', band: '#2a2a2a', pack: '#2b2a5a', packDark: '#1d1c40', roll: '#ff7aa8', acc: 'bow' },
   { name: 'Ranger',   img: 'ranger', body: ['#d4d0ff', '#6c63ff'], hat: '#ffcf5a', band: '#2a2a2a', pack: '#2b2a5a', packDark: '#1d1c40', roll: '#ff7aa8', acc: 'bow' },
+  { name: 'Seeker',   img: 'seeker', body: ['#e2c6ff', '#8e2fd6'], hat: '#7a1fb8', band: '#d9a441', pack: '#5a1f85', packDark: '#3f1560', roll: '#c9b8ff', acc: null },
+  { name: 'Voyager',  img: 'voyager', body: ['#bfe9ea', '#1f6f78'], hat: '#1f6f78', band: '#b8893a', pack: '#7a4a24', packDark: '#5a3418', roll: '#d9b25a', acc: null },
 ];
 // Every look has its own power in the game, so each one is worth unlocking for more than looks.
 const PERKS = {
@@ -2601,6 +2603,8 @@ const PERKS = {
   MBN:      { title: 'The King', desc: 'Royal aura: beetles near you slow down by 25%. Royal command: every lantern also freezes the beetles for 1.5 seconds. Royal treasury: double credits for clearing a level and 2 credits per beetle.' },
   Shadow:   { title: 'Stealth', desc: 'Beetles notice you later, give you a longer head start, and move 5% slower.' },
   Ranger:   { title: 'Survivor', desc: 'Starts every level with 4 lives, and the extra life comes at 3,000 points instead of 5,000.' },
+  Seeker:   { title: 'Sharp eye', desc: 'Scared beetles are worth double points, and every gold coin gives 2 credits.' },
+  Voyager:  { title: 'Pathfinder', desc: 'The beetles stay frozen for the first 3 seconds of every level, and each cleared level pays 2 extra credits.' },
 };
 const perk = () => SKINS[skinIndex].name;
 const hasPerk = n => !live && perk() === n;   // perks are off in live matches (fair play)
@@ -2901,6 +2905,8 @@ function drawBeetle(b, now) {
 const PERK_STATE = {
   Midnight: () => shieldUsed >= SHIELDS ? 'Shields used this level' : `${SHIELDS - shieldUsed} shield${SHIELDS - shieldUsed > 1 ? 's' : ''} ready`,
   Ranger: () => '4 lives each level',
+  Seeker: () => 'Double beetle points, 2-credit coins',
+  Voyager: () => 'Beetles frozen at the start',
   ES: () => 'Lanterns last longer',
   FOX: () => '10% faster',
   Sprout: () => 'Seeds worth 15',
