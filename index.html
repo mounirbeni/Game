@@ -344,6 +344,9 @@
   .life-inf { font-weight: 900; font-size: 22px; line-height: 1; color: #ffd75a; text-shadow: 0 2px 0 #3a2208; margin-left: 2px; }
   #gate { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: #020810e6; }
   #gate.hidden { display: none; }
+  #pushAsk { position: fixed; inset: 0; z-index: 950; display: flex; align-items: center; justify-content: center; padding: 16px; background: radial-gradient(ellipse at center, #0a1240dd, #02051af5); }
+  #pushAsk.hidden { display: none; }
+  #pushAsk .install-steps { text-align: left; margin: 0; padding-left: 20px; color: #dce9ff; font-size: 14px; line-height: 1.6; }
   .gate-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 10px; padding: 20px 18px; border-radius: 24px; text-align: center; color: #fff;
     background: linear-gradient(#123456, #0a1e33); border: 2px solid #2d6aa0; box-shadow: 0 10px 40px #000c; }
   .gate-logo { width: 84px; height: 84px; margin: -58px auto 0; border-radius: 22px; border: 3px solid #2d6aa0; box-shadow: 0 6px 16px #000a; }
@@ -827,6 +830,16 @@
     <button class="gold-btn" id="gGo"></button>
     <div class="gate-msg" id="gMsg"></div>
     <button class="plink" id="gSwitch"></button>
+  </div>
+</div>
+<div id="pushAsk" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pushAskTitle">
+  <div class="gate-card">
+    <img class="gate-logo" src="icons/icon-192.png" alt="">
+    <h3 id="pushAskTitle">Turn on notifications? 🔔</h3>
+    <p id="pushAskText"></p>
+    <button class="gold-btn" id="pushAskYes">Turn on</button>
+    <div class="gate-msg" id="pushAskMsg"></div>
+    <button class="plink" id="pushAskNo">Not now</button>
   </div>
 </div>
 <div id="app">
@@ -3079,7 +3092,7 @@ window.addEventListener('keydown', e => {
 let touchStart = null;
 const isButton = el => el && el.closest && el.closest('button');
 document.addEventListener('touchstart', e => {
-  if (isButton(e.target) || (e.target.closest && e.target.closest('.card, #home, #gate'))) return; // let buttons, cards (scrolling) and the account form work
+  if (isButton(e.target) || (e.target.closest && e.target.closest('.card, #home, #gate, #pushAsk'))) return; // let buttons, cards (scrolling) and the account form work
   const t = e.touches[0]; touchStart = { x: t.clientX, y: t.clientY };
   e.preventDefault();
 }, { passive: false });
@@ -3439,7 +3452,7 @@ $('gGo').addEventListener('click', async () => {
     if (setPass) await setAccountPassword(pw);
     else if (login) { await loginAccount(v, pw); msg.textContent = 'Welcome back! Loading your progress…'; setTimeout(() => location.reload(), 400); return; }
     else await claimName(v, pw);
-    $('gPass').value = ''; updateGate(); refreshHome();
+    $('gPass').value = ''; updateGate(); refreshHome(); setTimeout(maybeAskPush, 800);
   } catch (e) {
     bad(e.code === 'wait' ? e.message : e.code === 'login' ? 'Wrong name or password.' : e.code === 'taken' ? `${v} is already taken. Try another name, or log in.`
       : e.code === 'invalid' ? 'That name is not allowed. Try another.' : e.code === 'password' ? 'The password needs 6 to 64 characters.'
@@ -3482,6 +3495,40 @@ async function pushDisable() {
     if (sub) { api('/api/push', { action: 'unsubscribe', name: account.name, token: account.token, endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
   } catch (e) { /* ignore */ }
   return '';
+}
+// Ask each player once on the home screen (again 3 days after "Not now"), so nobody has to find
+// the switch in Settings. On an iPhone that has not added the game to the Home Screen yet, explain
+// how, because iOS only allows notifications for games on the Home Screen.
+let pushAskedThisVisit = false;
+function maybeAskPush() {
+  if (pushAskedThisVisit || !account.token || gateNeeded() || state !== 'title' || live || sheetOpen) return;
+  const tut = $('tutorial'); if (tut && !tut.classList.contains('hidden')) return;
+  let st = {}; try { st = JSON.parse(localStorage.getItem('bmapushask') || '{}') || {}; } catch (e) { /* ignore */ }
+  if (st.until && Date.now() < st.until) return;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  let mode = null;
+  if (pushSupported()) { if (Notification.permission === 'default' && !pushOn()) mode = 'ask'; }
+  else if (ios && !isStandalone()) mode = 'install';
+  if (!mode) return;
+  pushAskedThisVisit = true;
+  const later = days => { try { localStorage.setItem('bmapushask', JSON.stringify({ until: Date.now() + days * 86400000 })); } catch (e) { /* ignore */ } $('pushAsk').classList.add('hidden'); };
+  $('pushAskMsg').textContent = '';
+  if (mode === 'ask') {
+    $('pushAskText').textContent = 'Get a notification when a friend challenges you, opens a live room or passes your score, and when your daily reward is ready.';
+    $('pushAskYes').textContent = 'Turn on'; $('pushAskYes').classList.remove('hidden'); $('pushAskNo').textContent = 'Not now';
+    $('pushAskYes').onclick = async () => {
+      $('pushAskYes').disabled = true;
+      const err = await pushEnable();
+      $('pushAskYes').disabled = false;
+      if (err) { later(3); $('pushAsk').classList.remove('hidden'); $('pushAskMsg').className = 'gate-msg bad'; $('pushAskMsg').textContent = err; $('pushAskYes').classList.add('hidden'); $('pushAskNo').textContent = 'OK'; }
+      else later(3650);
+    };
+  } else {
+    $('pushAskText').innerHTML = 'To get notifications on iPhone, add the game to your Home Screen:<ol class="install-steps"><li>Tap <b>Share</b> (the square with the arrow) at the bottom of Safari.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open the game from its new icon and tap <b>Turn on</b>.</li></ol>';
+    $('pushAskYes').classList.add('hidden'); $('pushAskNo').textContent = 'Got it';
+  }
+  $('pushAskNo').onclick = () => later(3);
+  $('pushAsk').classList.remove('hidden');
 }
 // keep the server's copy of this phone's subscription up to date (new account, new key...)
 function pushResync() { if (pushSupported() && pushOn() && account.token) pushSubscribe().catch(() => {}); }
@@ -4689,6 +4736,7 @@ restoreFromBackup().then(async local => {
     location.reload();   // start again with the restored progress
   } else backupNow();
   submitScore(true); refreshRank(); refreshDuels(); claimGifts(); cloudPush();
+  setTimeout(maybeAskPush, 2500);
   if (location.hash === '#live' && account.token && !gateNeeded()) {   // opened from a live-room notification
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
     openSheet('live');
