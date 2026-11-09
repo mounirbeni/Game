@@ -340,6 +340,7 @@
   /* sheets (Daily reward, Shop, Missions, ...) */
   .sheet { position: absolute; inset: 0; background: #020810aa; display: flex; align-items: flex-end; justify-content: center; z-index: 5; }
   .sheet.hidden { display: none; }
+  .life-inf { font-weight: 900; font-size: 22px; line-height: 1; color: #ffd75a; text-shadow: 0 2px 0 #3a2208; margin-left: 2px; }
   #gate { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: #020810e6; }
   #gate.hidden { display: none; }
   .gate-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 10px; padding: 20px 18px; border-radius: 24px; text-align: center; color: #fff;
@@ -766,7 +767,7 @@
     <div class="home-top">
       <button class="avatar-btn" data-open="profile" aria-label="Profile"><canvas id="avatar" width="48" height="48"></canvas></button>
       <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Shop">+</button></div>
-      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"></span><b>3</b><small class="full">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
+      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"></span><b id="homeLives">3</b><small class="full" id="homeLivesFull">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
       <button class="gear" data-open="settings" aria-label="Settings"><img class="uiicon" src="icons/ui/gear.webp" alt="" draggable="false"></button>
     </div>
     <button class="xp-banner" data-open="stats" aria-label="Player level">
@@ -916,6 +917,8 @@ const CANONICAL_HOST = 'backman-nu.vercel.app';
 // Developer mode: the server marks developer accounts (dev: true). They get unlimited credits,
 // items, hearts and lives, every look and every level.
 const DEV_CREDITS = 999999999, DEV_ITEMS = 999;
+// Show ∞ instead of the huge developer numbers.
+const inf = v => devMode ? '∞' : v;
 let devMode = (() => { try { const a = JSON.parse(localStorage.getItem('bma.account') || '{}'); return !!(a.token && a.dev); } catch (e) { return false; } })();
 const isSaveKey = k => typeof k === 'string' && (k.startsWith('backman.') || k.startsWith('bma.'));
 function readSave() {
@@ -1504,7 +1507,7 @@ const skinPrice = i => SKIN_PRICES[SKINS[i].name] || 200;
 const isSkinUnlocked = i => i === 0 || (i < SKINS.length && (devMode || ownedSkins.has(i)));
 function saveMeta() {
   if (devMode) credits = DEV_CREDITS;   // developer: credits never run out
-  if (typeof refreshHome === 'function' && document.getElementById('homeCredits')) document.getElementById('homeCredits').textContent = credits;
+  if (typeof refreshHome === 'function' && document.getElementById('homeCredits')) document.getElementById('homeCredits').textContent = inf(credits);
   try {
     localStorage.setItem('backman.credits', String(credits));
     localStorage.setItem('backman.cleared', String(highestCleared));
@@ -1785,12 +1788,12 @@ function drawPowers(now) {
 function updateBag() {
   const n = Object.keys(ITEMS).reduce((a, k) => a + (bag[k] || 0), 0), b = $('bagBtn');
   b.classList.toggle('hidden', !n || !powersAllowed() || state === 'title');
-  $('bagCount').textContent = n;
+  $('bagCount').textContent = inf(n);
   const first = Object.keys(ITEMS).find(k => bag[k] > 0); if (first) b.querySelector('img').src = `assets/items/${ITEMS[first].img}.webp`;
 }
 function openBag() {
   const t = $('bagTray');
-  t.innerHTML = Object.keys(ITEMS).filter(k => bag[k] > 0).map(k => `<button class="bag-item" data-use="${k}" aria-label="${ITEMS[k].name}"><img class="uiicon" src="assets/items/${ITEMS[k].img}.webp" alt="" draggable="false"><i>${bag[k]}</i></button>`).join('');
+  t.innerHTML = Object.keys(ITEMS).filter(k => bag[k] > 0).map(k => `<button class="bag-item" data-use="${k}" aria-label="${ITEMS[k].name}"><img class="uiicon" src="assets/items/${ITEMS[k].img}.webp" alt="" draggable="false"><i>${inf(bag[k])}</i></button>`).join('');
   t.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); useItem(b.dataset.use); }));
   t.classList.remove('hidden');
 }
@@ -2131,7 +2134,7 @@ function gameOver() {
   const useHeart = (bag.hearts || 0) > 0, canContinue = useHeart || credits > 0;
   $('continueBtn').classList.toggle('hidden', !canContinue);
   $('continueBtn').innerHTML = useHeart
-    ? `Continue <span class="pb-cost"><img class="uiicon" src="assets/items/heart.webp" alt="" draggable="false">1 of ${bag.hearts}</span>`
+    ? `Continue <span class="pb-cost"><img class="uiicon" src="assets/items/heart.webp" alt="" draggable="false">1 of ${inf(bag.hearts)}</span>`
     : `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
   $('againPlaque').classList.toggle('hidden', canContinue);   // no credits: Retry is the main button
   $('againPlaque').textContent = `Try again`;
@@ -2942,7 +2945,7 @@ function updateHud() {
   ui.score.textContent = ((live ? live.me.score : score) || 0).toLocaleString();
   ui.level.textContent = live ? liveRankText() : level || 1;
   $('levelLbl').textContent = live ? (live.mode === 'coop' ? 'Mode' : 'Rank') : 'Level';
-  ui.credits.textContent = credits;
+  ui.credits.textContent = inf(credits);
   const n = live ? (live.mode === 'coop' ? live.teamLives : live.me.lives || 0) : Math.max(0, (lives || 0) - (state === 'ready' || state === 'play' ? 1 : 0));
   ui.lives.innerHTML = '';
   for (let i = 0; i < Math.min(n, 6); i++) {
@@ -2950,6 +2953,7 @@ function updateHud() {
     s.className = 'life'; s.innerHTML = '<img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false">';
     ui.lives.appendChild(s);
   }
+  if (devMode && !live) { const t = document.createElement('span'); t.className = 'life-inf'; t.textContent = '∞'; ui.lives.appendChild(t); }
 }
 function hideCards() { [ui.start, ui.pause, ui.over, $('duelCard'), $('liveCard'), $('winCard')].forEach(c => c.classList.add('hidden')); }
 function showCard(c) { hideCards(); c.classList.remove('hidden'); }
@@ -3021,7 +3025,7 @@ function togglePause() {
   if (paused) { fillPauseCard(); showCard(ui.pause); } else hideCards();
 }
 function fillPauseCard() {
-  $('pauseLevel').textContent = level; $('pauseScore').textContent = (score || 0).toLocaleString(); $('pauseCredits').textContent = credits;
+  $('pauseLevel').textContent = level; $('pauseScore').textContent = (score || 0).toLocaleString(); $('pauseCredits').textContent = inf(credits);
   ui.muteBtn.innerHTML = `${muted ? ICONS.muted : ICONS.sound}${muted ? 'Muted' : 'Sound'}`;
 }
 function toggleMute() {
@@ -3046,7 +3050,7 @@ const COIN_SVG = '<img class="coin uiicon" src="icons/ui/coin.webp" alt="" dragg
 const LOCK_SVG = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 let pendingBuy = -1, shopNote = '';
 function renderPicker() {
-  $('creditsPill').textContent = credits;
+  $('creditsPill').textContent = inf(credits);
   $('creditsWord').textContent = credits === 1 ? 'credit' : 'credits';
   for (const box of document.querySelectorAll('.skins')) {
     const msg = box.nextElementSibling;
@@ -4031,7 +4035,8 @@ function refreshHome() {
   $('pLevel').textContent = pl.lvl;
   $('xpFill').style.width = `${Math.round(100 * pl.xp / pl.need)}%`;
   $('xpText').textContent = `${pl.xp} / ${pl.need}`;
-  $('homeCredits').textContent = credits;
+  $('homeCredits').textContent = inf(credits);
+  $('homeLives').textContent = inf(3); $('homeLivesFull').classList.toggle('hidden', devMode);
   $('playLevel').textContent = `Level ${prog.level}`;
   const dailyReady = !dailyState().claimedToday;
   $('dailyBadge').classList.toggle('hidden', !dailyReady);
@@ -4228,7 +4233,7 @@ function openSheet(which, fromRefresh = false) {
     title = 'Shop';
     const tab = openSheet.shopTab || 'heroes';
     const TABS = [['heroes', 'Heroes'], ['power', 'Powers'], ['hearts', 'Hearts']];
-    let h = `<div class="shop-wallet"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b>${credits.toLocaleString()}</b><small>credits</small></div>` +
+    let h = `<div class="shop-wallet"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b>${inf(credits.toLocaleString())}</b><small>credits</small></div>` +
       `<div class="tabs shop-tabs">${TABS.map(([k, t]) => `<button data-stab="${k}" class="${tab === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
     if (tab === 'heroes') {
       const forSale = SKINS.map((sk, i) => i).filter(i => !isSkinUnlocked(i)).sort((a, b) => skinPrice(a) - skinPrice(b));
@@ -4238,10 +4243,10 @@ function openSheet(which, fromRefresh = false) {
         : '<p class="hero-all">You own every hero!</p>';
     } else if (tab === 'power') {
       h += '<p class="shop-hint">Use them during a level from the backpack next to the pause button.</p><div class="shop-list">' + Object.entries(ITEMS).map(([k, it]) =>
-        `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${bag[k] || 0}</em><p>${it.desc}</p></div>` +
+        `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${inf(bag[k] || 0)}</em><p>${it.desc}</p></div>` +
         `<button class="claim-btn si-buy" data-item="${k}" ${credits >= it.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${it.price}</button></div>`).join('') + '</div>';
     } else {
-      h += `<p class="shop-hint">Hearts let you <b>Continue</b> after Game Over, before your credits are used. You have <b>${bag.hearts || 0}</b>.</p><div class="shop-list">` + HEART_PACKS.map(pk =>
+      h += `<p class="shop-hint">Hearts let you <b>Continue</b> after Game Over, before your credits are used. You have <b>${inf(bag.hearts || 0)}</b>.</p><div class="shop-list">` + HEART_PACKS.map(pk =>
         `<div class="shop-item"><img class="si-img" src="assets/items/${pk.img}.webp" alt=""><div class="si-info"><b>${pk.name}</b><em>+${pk.n} heart${pk.n > 1 ? 's' : ''}</em><p>${pk.n === 1 ? 'One more chance.' : pk.n === 3 ? 'Best for a tricky level.' : 'Best value: 18 credits a heart.'}</p></div>` +
         `<button class="claim-btn si-buy" data-pack="${pk.id}" ${credits >= pk.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${pk.price}</button></div>`).join('') + '</div>';
     }
@@ -4260,7 +4265,7 @@ function openSheet(which, fromRefresh = false) {
     body.querySelectorAll('[data-item]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.item;
       confirmBuy(b, ITEMS[k].price, () => { bag[k] = (bag[k] || 0) + 1; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `<b>${ITEMS[k].name}</b> added to your backpack.`; }); }));
     body.querySelectorAll('[data-pack]').forEach(b => b.addEventListener('click', () => { const pk = HEART_PACKS.find(x => x.id === b.dataset.pack);
-      confirmBuy(b, pk.price, () => { bag.hearts = (bag.hearts || 0) + pk.n; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} heart${pk.n > 1 ? 's' : ''}! You have <b>${bag.hearts}</b>.`; }); }));
+      confirmBuy(b, pk.price, () => { bag.hearts = (bag.hearts || 0) + pk.n; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} heart${pk.n > 1 ? 's' : ''}! You have <b>${inf(bag.hearts)}</b>.`; }); }));
     body.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.buy;
       if (b.dataset.sure !== '1') {   // tap once to see "Buy?", tap again to buy
