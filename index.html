@@ -1444,10 +1444,10 @@ function decodeMusic() {
   return musicDecoding;
 }
 async function startMusic() {
-  if (!musicWanted() || musicSrc) return;
+  if (!musicWanted() || musicSrc || PLAYING_STATES.includes(state)) return;
   const a = audio(); if (!a) return;
   const buf = await decodeMusic();
-  if (!buf || !musicWanted() || musicSrc) return;
+  if (!buf || !musicWanted() || musicSrc || PLAYING_STATES.includes(state)) return;
   if (a.state !== 'running') { try { await a.resume(); } catch (e) { return; } if (a.state !== 'running') return; }   // iPhone: wait for the next tap
   const at = musicPos % buf.duration;
   musicGain = a.createGain(); musicGain.gain.setValueAtTime(0.0001, a.currentTime); musicGain.gain.exponentialRampToValueAtTime(MUSIC_VOL, a.currentTime + 0.9);
@@ -1465,6 +1465,13 @@ function pauseMusic(fade = 0.08) {
   setTimeout(() => { try { g.disconnect(); } catch (e) { /* ignore */ } }, 200);
 }
 const stopMusic = pauseMusic;
+// The music plays on the home screen, in the menus and on the win / game over cards. While a level
+// is being played it stops (keeping its place) so the sound effects can be heard.
+const PLAYING_STATES = ['ready', 'play', 'dying', 'clear'];
+function musicForState() {
+  if (PLAYING_STATES.includes(state)) pauseMusic(0.25);
+  else if (musicWanted()) startMusic();
+}
 setTimeout(() => { if (musicWanted()) { try { const a = audio(); if (a) a.resume().then(() => a.state === 'running' && startMusic()).catch(() => {}); } catch (e) { /* ignore */ } } }, 300);
 function setMusic(on) {
   musicOn = on;
@@ -1532,6 +1539,7 @@ function munch(t) {
 }
 const sfx = {
   seed() { play(munch); },                                   // crunchy bite
+  danger() { play(t => { thump(t, 95, 55, 0.13, 0.32); thump(t + 0.17, 85, 50, 0.12, 0.24); }); },   // heartbeat: a ladybug is close
   freeze() { play(t => {                                     // icy crackle
     noise(t, 0.5, { type: 'highpass', f: 5000, f2: 9000, vol: 0.12 });
     [0, 0.06, 0.12].forEach((d, i) => thump(t + d, 1500 + i * 400, 2400 + i * 500, 0.12, 0.07));
@@ -1771,7 +1779,7 @@ function nextLevel() {
   pulsePerk();
 }
 
-function setState(s, t = 0) { state = s; stateTimer = t; try { updateBag(); updateSkillBtn(); if (s !== 'play') closeBag(); if (s === 'ready' && levelIntro) flashPerk(3200); } catch (e) { /* not ready yet */ } }
+function setState(s, t = 0) { state = s; stateTimer = t; try { musicForState(); updateBag(); updateSkillBtn(); if (s !== 'play') closeBag(); if (s === 'ready' && levelIntro) flashPerk(3200); } catch (e) { /* not ready yet */ } }
 
 // ---------- Grid helpers ----------
 function tileAt(x, y) {
@@ -2116,6 +2124,14 @@ function updateSkills(dt) {
       }
     }
   }
+}
+// A ladybug within 3 tiles: a soft heartbeat, at most every 0.8 seconds.
+let dangerT = 0;
+function dangerCue(dt) {
+  if ((dangerT -= dt) > 0 || live) return;
+  const pp = pos(player);
+  const close = beetles.some(b => { if (b.mode !== 'active' || b.frightened || b.stun > 0 || freezeTimer > 0) return false; const q = pos(b); return Math.abs(q.x - pp.x) + Math.abs(q.y - pp.y) <= 3; });
+  if (close) { sfx.danger(); dangerT = 0.8; }
 }
 // ZOGHA's sweet streak: seeds eaten one after another raise the points, up to x3.
 function seedMult() {
@@ -2478,6 +2494,7 @@ function update(dt) {
     if (state !== 'play') return;
     updateBeetles(dt);
     updateSkills(dt);
+    dangerCue(dt);
     checkCollisions();
     if (bonus) { bonus.timer -= dt; if (bonus.timer <= 0) bonus = null; }
     updateCoin(dt);
@@ -4592,6 +4609,7 @@ function showHome() {
   state = 'title'; paused = false; hideCards();
   closeSheet(); refreshHome();
   homeEl.classList.remove('hidden');
+  musicForState();
 }
 // ---------- First-time tutorial ----------
 // Three short illustrated steps, shown once before the very first game (and any time from Settings).
