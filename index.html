@@ -1421,7 +1421,7 @@ function audio() {
   return actx;
 }
 function unlockAudio() {
-  if (muted) return;
+  if (muted && !musicOn) return;   // Sound off only silences the effects; the music has its own switch
   const a = audio(); if (!a) return;
   if (a.state !== 'running') a.resume().catch(() => {});
   try { const s = a.createBufferSource(); s.buffer = a.createBuffer(1, 1, 22050); s.connect(a.destination); s.start(0); } catch (e) { /* ignore */ }
@@ -1438,7 +1438,7 @@ const MUSIC_URL = 'assets/music/crowns-and-coins.mp3', MUSIC_VOL = 0.3;
 let musicOn = (() => { try { return localStorage.getItem('bmamusic') !== 'off'; } catch (e) { return true; } })();
 let musicBuf = null, musicSrc = null, musicGain = null, musicDecoding = null, musicPos = 0, musicStartedAt = 0;
 const musicBytes = fetch(MUSIC_URL).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);   // start downloading now
-const musicWanted = () => musicOn && !muted && !document.hidden;
+const musicWanted = () => musicOn && !document.hidden;
 function decodeMusic() {
   if (musicBuf) return Promise.resolve(musicBuf);
   if (!musicDecoding) musicDecoding = musicBytes.then(ab => ab && new Promise((res, rej) => audio().decodeAudioData(ab.slice(0), res, rej)))
@@ -1490,7 +1490,7 @@ document.addEventListener('visibilitychange', () => {
     pauseMusic(0.03);
     try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* ignore */ }
   }
-  else if (actx && !muted) {
+  else if (actx) {
     if (musicWanted()) { actx.resume().then(startMusic).catch(() => {}); }   // continue the song (on iPhone it may wait for a tap)
     audioIdleSoon();
   }
@@ -3490,7 +3490,7 @@ function toggleMute() {
   muted = !muted;
   try { localStorage.setItem('backman.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
   fillPauseCard();
-  if (muted) { stopMusic(); if (actx) actx.suspend().catch(() => {}); } else unlockAudio();
+  if (muted) audioIdleSoon(); else unlockAudio();   // only the effects: the music keeps its own switch
 }
 $('startBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
 { const saved = loadProgress(); if (saved.level > 1) $('startBtn').textContent = `Continue: level ${saved.level}`; }
@@ -5068,7 +5068,7 @@ function frame(now) {
   const raw = (now - last) / 1000;
   const dt = Math.min(0.05, raw);
   last = now;
-  if (musicSrc && PLAYING_STATES.includes(state)) pauseMusic(0.25);   // safety net: never under gameplay
+  if (musicSrc && (PLAYING_STATES.includes(state) || !musicOn)) pauseMusic(0.25);   // safety net: never under gameplay
   if (state === 'play' && !paused && raw < 0.25) {
     frameAvg = frameAvg * 0.95 + raw * 0.05;
     slowFrames = frameAvg > 0.024 ? slowFrames + 1 : 0;
