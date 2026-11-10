@@ -528,3 +528,76 @@ export async function handle(res, fn, cache) {
   try { send(res, await fn(), cache); }
   catch (e) { console.error(e); send(res, { status: 500, body: { error: 'server', message: 'The game server is having trouble. Try again soon.' } }); }
 }
+
+// ---------- Friends (mutual, by request) ----------
+// fr/<A>/<B>.json: A and B are friends (written for both sides).
+// freq/<TO>/<FROM>.json: FROM asked TO to be friends and is waiting for an answer.
+const tail = p => p.split('/').pop().replace(/\.json$/, '');
+async function friendLists(s, me) {
+  const [fr, inc] = await Promise.all([s.list(`fr/${me}/`), s.list(`freq/${me}/`)]);
+  const friends = fr.map(tail), incoming = inc.map(tail);
+  const out = (await s.list('freq/')).filter(p => p.endsWith(`/${me}.json`)).map(p => p.split('/')[1]);
+  return { friends, incoming, outgoing: out.filter(n => !friends.includes(n)) };
+}
+async function makeFriends(s, a, b) {
+  await Promise.all([s.write(`fr/${a}/${b}.json`, '{}'), s.write(`fr/${b}/${a}.json`, '{}')]);
+  await s.remove([`freq/${a}/${b}.json`, `freq/${b}/${a}.json`]);
+}
+export async function friendsApi({ name, token, op, who, legacy }) {
+  const me = await authed(name, token);
+  if (!me) return AUTH_FAIL;
+  const s = await blob(), other = cleanName(who);
+  if (op === 'list') {
+    // the old lists lived only on each phone: turn them into friendships (both added each other)
+    // or into requests, once per player
+    if (Array.isArray(legacy) && legacy.length && !(await s.read(`frmig/${me}.json`))) {
+      for (const n of [...new Set(legacy.map(cleanName).filter(x => x && x !== me))].slice(0, 50)) {
+        if (!(await getAccount(n))) continue;
+        const theirs = await readJSON(s, `saves/${n}.json`).catch(() => null);
+        let list = []; try { list = JSON.parse((theirs && theirs.save && theirs.save['bma.friends']) || '{}').names || []; } catch (e) { /* ignore */ }
+        if (list.includes(me) || await s.read(`freq/${me}/${n}.json`)) await makeFriends(s, me, n);
+        else if (!(await s.read(`fr/${me}/${n}.json`))) await s.write(`freq/${n}/${me}.json`, JSON.stringify({ t: Date.now() }));
+      }
+      await s.write(`frmig/${me}.json`, '{}');
+    }
+    return { status: 200, body: await friendLists(s, me) };
+  }
+  if (!other || other === me) return { status: 400, body: { error: 'invalid', message: 'Pick another player.' } };
+  if (op === 'request') {
+    if (!(await getAccount(other))) return { status: 404, body: { error: 'missing', message: `No player called ${other}.` } };
+    if (await s.read(`fr/${me}/${other}.json`)) return { status: 200, body: { ...(await friendLists(s, me)), result: 'friends' } };
+    if (await s.read(`freq/${me}/${other}.json`)) {   // they already asked: that's a yes from both sides
+      await makeFriends(s, me, other);
+      await notify([other], { title: 'New friend! 🤝', body: `${me} accepted your friend request.`, tag: 'friend', url: '/' });
+      return { status: 200, body: { ...(await friendLists(s, me)), result: 'friends' } };
+    }
+    await s.write(`freq/${other}/${me}.json`, JSON.stringify({ t: Date.now() }));
+    await notify([other], { title: 'Friend request 👋', body: `${me} wants to be your friend. Open the game to answer.`, tag: 'friend', url: '/' });
+    return { status: 200, body: { ...(await friendLists(s, me)), result: 'sent' } };
+  }
+  if (op === 'accept') {
+    if (!(await s.read(`freq/${me}/${other}.json`))) return { status: 404, body: { error: 'missing', message: 'That request is gone.' } };
+    await makeFriends(s, me, other);
+    await notify([other], { title: 'New friend! 🤝', body: `${me} accepted your friend request.`, tag: 'friend', url: '/' });
+    return { status: 200, body: await friendLists(s, me) };
+  }
+  if (op === 'decline' || op === 'cancel' || op === 'remove') {
+    const paths = op === 'decline' ? [`freq/${me}/${other}.json`] : op === 'cancel' ? [`freq/${other}/${me}.json`] : [`fr/${me}/${other}.json`, `fr/${other}/${me}.json`];
+    await s.remove(paths);
+    return { status: 200, body: await friendLists(s, me) };
+  }
+  return { status: 400, body: { error: 'action' } };
+}
+
+// ---------- Player profile (public stats) ----------
+const PUBLIC_STATS = ['seeds', 'beetles', 'coins', 'clears', 'flawless', 'games', 'totalScore', 'playTime', 'challenges'];
+export async function profileApi({ who }) {
+  const n = cleanName(who);
+  if (!n || !(await getAccount(n))) return { status: 404, body: { error: 'missing', message: 'No player with this name.' } };
+  const s = await blob(), rec = await readJSON(s, `saves/${n}.json`).catch(() => null), sv = (rec && rec.save) || {};
+  let st = {}; try { st = JSON.parse(sv['bma.stats'] || '{}') || {}; } catch (e) { /* ignore */ }
+  const stats = {}; for (const k of PUBLIC_STATS) if (typeof st[k] === 'number') stats[k] = Math.round(st[k]);
+  const lb = (await s.list(`lb/${n}/`)).map(parse).filter(Boolean)[0] || null;
+  const num = k => { const v = parseInt(sv[k], 10); return Number.isFinite(v) ? v : 0; };
+  return { status: 200, body: { name: n, best: lb ? lb.best : num('backman.best'), level: lb ? lb.level : Math.max(1, num('backman.level')), look: num('backman.skin'), stats } };
+}

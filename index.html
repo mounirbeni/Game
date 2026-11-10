@@ -801,6 +801,11 @@
   .shop-hint { margin: 0 0 8px !important; text-align: center; font-size: 12px !important; color: #c9d4ff !important; }
   .shop-hint b { color: #ffd75a; }
   .pb-cost img[src*="heart"] { width: 18px; height: 18px; }
+  .lb-sub { margin: 10px 0 4px; font-weight: 900; color: #ffd75a; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+  .lb-row.req .fr-ok { padding: 4px 10px; font-size: 13px; }
+  .tab-badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #ff4d4d; color: #fff; font-style: normal; font-size: 12px; line-height: 18px; }
+  .lb-row.tap { cursor: pointer; }
+  .lb-row.tap:active { filter: brightness(1.25); }
 </style>
 </head>
 <body>
@@ -3681,6 +3686,24 @@ function claimMission(id) {
 let account = loadJSON('bma.account', { name: '', token: '', hasPassword: false });
 let friends = (loadJSON('bma.friends', { names: [] }).names || []).filter(n => /^[A-Z0-9]{3,5}$/.test(n));
 let worldBoard = null, worldBoardAt = 0, myRank = null, submitTimer = 0, lastSent = '';
+// Friends are mutual: adding someone sends a request, and only when they accept are you friends on both sides.
+let friendReq = { incoming: [], outgoing: [] }, friendsSynced = false;
+function setFriendLists(r) {
+  if (!r || !Array.isArray(r.friends)) return;
+  friendsSynced = true;
+  friendReq = { incoming: r.incoming || [], outgoing: r.outgoing || [] };
+  const changed = r.friends.join() !== friends.join();
+  friends = r.friends; saveJSON('bma.friends', { names: friends, t: Date.now() });
+  refreshHome();
+  return changed;
+}
+async function friendsCall(op, who) {
+  const r = await api('/api/account', { action: 'friends', op, who, name: account.name, token: account.token, legacy: op === 'list' && !friendsSynced ? friends : undefined });
+  const changed = setFriendLists(r);
+  if (changed) refreshRank(); else if (sheetOpen === 'board') openSheet('board', true);
+  return r;
+}
+function refreshFriends() { if (account.token && !gateNeeded()) friendsCall('list').catch(() => {}); }
 async function api(path, body) {
   const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' } : { cache: 'no-store' });
   const data = await r.json().catch(() => ({}));
@@ -4732,44 +4755,54 @@ function openSheet(which, fromRefresh = false) {
   } else if (which === 'board') {
     title = 'Leaderboard';
     const tab = openSheet.boardTab || 'world';
-    let html = `<div class="tabs"><button data-tab="world" class="${tab === 'world' ? 'on' : ''}">World</button><button data-tab="friends" class="${tab === 'friends' ? 'on' : ''}">Friends</button></div>`;
+    let html = `<div class="tabs"><button data-tab="world" class="${tab === 'world' ? 'on' : ''}">World</button><button data-tab="friends" class="${tab === 'friends' ? 'on' : ''}">Friends${friendReq.incoming.length ? ` <i class="tab-badge">${friendReq.incoming.length}</i>` : ''}</button></div>`;
     if (tab === 'world') {
       if (!account.name) html += `<div class="claim-cta"><p>Claim your player name to appear on the world leaderboard.</p><button class="gold-btn" id="goClaim">Claim a name</button></div>`;
       if (!fromRefresh) refreshRank();   // fetch fresh data; re-renders this sheet when it arrives
       if (!worldBoard) html += '<p class="lb-wait">Loading the world leaderboard…</p>';
       else if (!worldBoard.top.length) html += '<p>No one is on the board yet. Be the first!</p>';
       else {
-        const row = r => `<div class="lb-row ${account.name === r.name ? 'me' : ''} ${r.rank <= 3 ? 'top' + r.rank : ''}"><span class="lb-rank">${r.rank}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
+        const row = r => `<div class="lb-row tap ${account.name === r.name ? 'me' : ''} ${r.rank <= 3 ? 'top' + r.rank : ''}" data-who="${r.name}"><span class="lb-rank">${r.rank}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
           `<span class="lb-name">${esc(r.name)}</span><span class="lb-lvl">Lv ${r.level}</span><b class="lb-score">${r.best.toLocaleString()}</b></div>`;
         html += `<p class="lb-count">${worldBoard.players} player${worldBoard.players === 1 ? '' : 's'}</p><div class="lb">` + worldBoard.top.map(row).join('') + '</div>';
         if (worldBoard.me && worldBoard.me.rank > 100) html += '<div class="lb">' + row(worldBoard.me) + '</div>';
       }
     } else {
       // Friends: you and the friends you added, ranked against each other
-      html += `<div class="friend-add"><input id="friendName" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="FRIEND'S NAME"><button class="claim-btn" id="friendAddBtn">Add</button></div><div class="pname-hint" id="friendHint">Add friends by their player name to compare your scores.</div>`;
-      if (!fromRefresh) { refreshRank(); refreshDuels(); }
+      if (!fromRefresh) openSheet.friendMsg = null;
+      html += `<div class="friend-add"><input id="friendName" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="FRIEND'S NAME"><button class="claim-btn" id="friendAddBtn">Add</button></div><div class="pname-hint ${openSheet.friendMsg ? openSheet.friendMsg.cls : ''}" id="friendHint">${openSheet.friendMsg ? esc(openSheet.friendMsg.text) : 'Send a friend request by player name. When they accept, you see each other here.'}</div>`;
+      if (friendReq.incoming.length) html += '<p class="lb-sub">Friend requests</p>' + friendReq.incoming.map(n => `<div class="lb-row req"><span class="lb-rank">👋</span><span></span><span class="lb-name">${esc(n)}<small class="wr">wants to be your friend</small></span><span></span><button class="claim-btn fr-ok" data-acc="${n}">Accept</button><button class="lb-x" data-dec="${n}" aria-label="Decline ${n}">&times;</button></div>`).join('');
+      if (!fromRefresh) { refreshFriends(); refreshRank(); refreshDuels(); }
       if (account.token) html = html.replace('<div class="friend-add">', duelsHtml() + '<div class="friend-add">');
       const fb = worldBoard && worldBoard.friends || [];
       const meRow = worldBoard && worldBoard.me ? [{ ...worldBoard.me, you: true }] : account.name ? [{ name: account.name, best, level: loadProgress().level, look: skinIndex, you: true, rank: null }] : [];
       const scored = [...meRow, ...fb.filter(f => !f.missing && !f.noScore)].sort((x, y) => y.best - x.best || y.level - x.level);
       const pending = fb.filter(f => f.noScore || f.missing || (!worldBoard && friends.includes(f.name)));
       if (!friends.length) html += '<p class="lb-empty">No friends yet. Add your friends\' names above.</p>';
-      html += '<div class="lb">' + scored.map((r, i) => `<div class="lb-row ${r.you ? 'me' : ''} ${i < 3 ? 'top' + (i + 1) : ''}"><span class="lb-rank">${i + 1}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
+      html += '<div class="lb">' + scored.map((r, i) => `<div class="lb-row tap ${r.you ? 'me' : ''} ${i < 3 ? 'top' + (i + 1) : ''}" data-who="${r.name}"><span class="lb-rank">${i + 1}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
         `<span class="lb-name">${esc(r.name)}${r.you ? ' <small class="you">YOU</small>' : ''}${r.rank ? `<small class="wr">World #${r.rank}</small>` : ''}</span><span class="lb-lvl">Lv ${r.level}</span><b class="lb-score">${r.best.toLocaleString()}</b>` +
         (r.you ? '<span></span>' : `<button class="lb-x" data-rm="${r.name}" aria-label="Remove ${r.name}">&times;</button>`) + '</div>').join('') + '</div>';
       if (!worldBoard && friends.length) html += '<p class="lb-wait">Loading your friends…</p>';
       html += pending.map(f => `<div class="lb-row muted"><span class="lb-rank">–</span><span></span><span class="lb-name">${esc(f.name)}<small class="wr">${f.missing ? 'No player with this name' : 'Hasn\'t played yet'}</small></span><span></span><span></span><button class="lb-x" data-rm="${f.name}" aria-label="Remove ${f.name}">&times;</button></div>`).join('');
+      html += friendReq.outgoing.map(n => `<div class="lb-row muted"><span class="lb-rank">⏳</span><span></span><span class="lb-name">${esc(n)}<small class="wr">Request sent, waiting for an answer</small></span><span></span><span></span><button class="lb-x" data-cancel="${n}" aria-label="Cancel request to ${n}">&times;</button></div>`).join('');
     }
     body.innerHTML = html;
     body.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { openSheet.boardTab = b.dataset.tab; openSheet('board'); }));
     wireDuels(body);
     body.querySelectorAll('.lb-face').forEach(cv => paintAvatar(cv, 30, 'look:' + Math.min(+cv.dataset.look || 0, SKINS.length - 1)));
+    body.querySelectorAll('.lb-row[data-who]').forEach(r => r.addEventListener('click', e => { if (e.target.closest('button')) return; openSheet.player = r.dataset.who; openSheet('player'); }));
     if ($('goClaim')) $('goClaim').addEventListener('click', () => openSheet('profile'));
+    const frAct = (op, who, msg) => { openSheet.friendMsg = null; friendsCall(op, who).then(() => { if (msg) { openSheet.friendMsg = msg; openSheet('board', true); } }).catch(e => { openSheet.friendMsg = { cls: 'bad', text: e.message || 'No connection. Try again.' }; openSheet('board', true); }); };
     body.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
-      friends = friends.filter(n => n !== b.dataset.rm); saveJSON('bma.friends', { names: friends, t: Date.now() });
-      if (worldBoard && worldBoard.friends) worldBoard.friends = worldBoard.friends.filter(f => f.name !== b.dataset.rm);
+      const n = b.dataset.rm;
+      friends = friends.filter(x => x !== n); saveJSON('bma.friends', { names: friends, t: Date.now() });
+      if (worldBoard && worldBoard.friends) worldBoard.friends = worldBoard.friends.filter(f => f.name !== n);
       openSheet('board', true);
+      frAct('remove', n);   // removed on both sides
     }));
+    body.querySelectorAll('[data-acc]').forEach(b => b.addEventListener('click', () => { b.disabled = true; frAct('accept', b.dataset.acc, { cls: '', text: `You and ${b.dataset.acc} are now friends!` }); }));
+    body.querySelectorAll('[data-dec]').forEach(b => b.addEventListener('click', () => { friendReq.incoming = friendReq.incoming.filter(x => x !== b.dataset.dec); openSheet('board', true); frAct('decline', b.dataset.dec); }));
+    body.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => { friendReq.outgoing = friendReq.outgoing.filter(x => x !== b.dataset.cancel); openSheet('board', true); frAct('cancel', b.dataset.cancel); }));
     if ($('friendAddBtn')) {
       const inp = $('friendName'), hint = $('friendHint');
       inp.addEventListener('input', () => { const v = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); if (v !== inp.value) inp.value = v; });
@@ -4777,12 +4810,46 @@ function openSheet(which, fromRefresh = false) {
         const v = inp.value;
         if (!/^[A-Z0-9]{3,5}$/.test(v)) { hint.className = 'pname-hint bad'; hint.textContent = 'Player names are 3 to 5 letters or numbers.'; return; }
         if (v === account.name) { hint.className = 'pname-hint bad'; hint.textContent = 'That is you!'; return; }
-        if (friends.includes(v)) { hint.className = 'pname-hint bad'; hint.textContent = `${v} is already in your friends.`; return; }
-        friends.push(v); saveJSON('bma.friends', { names: friends, t: Date.now() }); inp.value = '';
-        openSheet('board');   // refreshes from the server, which tells us if the name exists
+        if (friends.includes(v)) { hint.className = 'pname-hint bad'; hint.textContent = `${v} is already your friend.`; return; }
+        if (friendReq.outgoing.includes(v)) { hint.className = 'pname-hint bad'; hint.textContent = `You already sent ${v} a request.`; return; }
+        if (!account.token) { hint.className = 'pname-hint bad'; hint.textContent = 'Log in to add friends.'; return; }
+        hint.className = 'pname-hint'; hint.textContent = 'Sending…'; $('friendAddBtn').disabled = true;
+        api('/api/account', { action: 'friends', op: 'request', who: v, name: account.name, token: account.token }).then(r => {
+          const changed = setFriendLists(r); inp.value = '';
+          openSheet.friendMsg = r.result === 'friends' ? { cls: '', text: `You and ${v} are now friends!` } : { cls: '', text: `Request sent to ${v}. You'll be friends when they accept.` };
+          if (changed) refreshRank(); openSheet('board', true);
+        }).catch(e => { hint.className = 'pname-hint bad'; hint.textContent = e.message || 'No connection. Try again.'; $('friendAddBtn').disabled = false; });
       };
       $('friendAddBtn').addEventListener('click', add);
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+    }
+  } else if (which === 'player') {
+    // Someone's profile, opened from the leaderboard: their stats as saved online
+    const who = openSheet.player, P = openSheet.playerData && openSheet.playerData.name === who ? openSheet.playerData : null;
+    title = who;
+    const card = (icon, label, val) => `<div class="pstat"><img class="uiicon" src="${icon}" alt=""><span>${label}</span><b>${val ? val : '–'}</b></div>`;
+    const st = (P && P.stats) || {}, mins = Math.round((st.playTime || 0) / 60), lb = worldBoard && [...(worldBoard.top || []), ...(worldBoard.friends || [])].find(r => r.name === who);
+    const look = P ? P.look : lb ? lb.look : 0;
+    body.innerHTML = `<button class="plink" id="plBack">‹ Back to the leaderboard</button>
+      <div class="hero-pick"><canvas id="plFace"></canvas><div><small>${lb && lb.rank ? 'World #' + lb.rank : 'Player'}</small><b>${esc(who)}</b><em>${esc((SKINS[Math.min(look, SKINS.length - 1)] || SKINS[0]).name)}</em></div></div>` +
+      (!P ? `<p class="lb-wait">${openSheet.playerErr ? esc(openSheet.playerErr) : 'Loading…'}</p>` : `<h4 class="phead">Stats</h4><div class="pstats">
+        ${card('icons/ui/map.webp', 'Highest level', P.level)}
+        ${card('icons/ui/trophy.webp', 'Best score', P.best ? P.best.toLocaleString() : 0)}
+        ${card('icons/ui/mission.webp', 'Levels cleared', st.clears)}
+        ${card('icons/ui/star.webp', 'Flawless levels', st.flawless)}
+        ${card('icons/ui/stats.webp', 'Challenges beaten', st.challenges)}
+        ${card('assets/ladybug.webp', 'Beetles caught', st.beetles)}
+        ${card('assets/seed.webp', 'Seeds eaten', st.seeds ? st.seeds.toLocaleString() : 0)}
+        ${card('icons/ui/coin.webp', 'Gold coins', st.coins)}
+        ${card('icons/ui/heart.webp', 'Games played', st.games)}
+        ${card('icons/ui/house.webp', 'Time played', !mins ? 0 : mins < 60 ? mins + ' min' : Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min')}
+      </div>`);
+    paintAvatar($('plFace'), 64, 'look:' + Math.min(look || 0, SKINS.length - 1));
+    $('plBack').addEventListener('click', () => openSheet('board'));
+    if (!fromRefresh) {
+      openSheet.playerErr = '';
+      api('/api/account', { action: 'profile', who }).then(r => { openSheet.playerData = r; if (sheetOpen === 'player' && openSheet.player === who) openSheet('player', true); })
+        .catch(e => { openSheet.playerErr = e.message || 'No connection. Try again.'; if (sheetOpen === 'player' && openSheet.player === who) openSheet('player', true); });
     }
   } else if (which === 'gift') {
     title = 'A gift for you!';
@@ -5113,7 +5180,7 @@ restoreFromBackup().then(async local => {
     try { sessionStorage.setItem('bma.restored', '1'); } catch (e) { /* ignore */ }
     location.reload();   // start again with the restored progress
   } else backupNow();
-  submitScore(true); refreshRank(); refreshDuels(); claimGifts(); cloudPush();
+  submitScore(true); refreshRank(); refreshDuels(); claimGifts(); cloudPush(); refreshFriends();
   setTimeout(maybeAskPush, 2500);
   if (location.hash === '#live' && account.token && !gateNeeded()) {   // opened from a live-room notification
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
