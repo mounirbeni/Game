@@ -801,27 +801,6 @@
   .shop-hint { margin: 0 0 8px !important; text-align: center; font-size: 12px !important; color: #c9d4ff !important; }
   .shop-hint b { color: #ffd75a; }
   .pb-cost img[src*="heart"] { width: 18px; height: 18px; }
-  /* ===================== story intro ===================== */
-  #intro { position: fixed; inset: 0; z-index: 1100; overflow: hidden; background: #02040f; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-  #intro.hidden { display: none; }
-  #intro .sc { position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease; }
-  #intro .sc.on { opacity: 1; }
-  #intro .bg { position: absolute; inset: -4%; background: center/cover no-repeat; animation: introZoom 9s ease-out both; }
-  #intro .sc:not(.on) .bg, #intro .sc:not(.on) * { animation-play-state: paused; }
-  @keyframes introZoom { from { transform: scale(1); } to { transform: scale(1.12); } }
-  #intro .shade { position: absolute; inset: 0; background: linear-gradient(#0000 50%, #02040fcc 72%, #02040f 100%); }
-  #intro .story { position: relative; z-index: 2; width: min(92vw, 520px); min-height: 5em; margin-bottom: calc(env(safe-area-inset-bottom) + 92px); padding: 0 8px;
-    font-family: 'Lilita One', ui-rounded, system-ui, sans-serif; font-size: clamp(18px, 5.4vmin, 26px); line-height: 1.3; text-align: center; letter-spacing: .02em; text-shadow: 0 2px 0 #000, 0 0 12px #000; }
-  #intro .story b { color: #ffd75a; font-weight: 400; }
-  #intro .story em { color: #ff6b6b; font-style: normal; }
-  #intro .ctl { position: absolute; z-index: 3; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 24px); display: flex; justify-content: center; align-items: center; gap: 14px; }
-  #intro .dots { display: flex; gap: 7px; }
-  #intro .dots span { width: 8px; height: 8px; border-radius: 50%; background: #ffffff44; transition: background .3s, transform .3s; }
-  #intro .dots span.on { background: #ffd75a; transform: scale(1.3); }
-  #introSkip { position: absolute; z-index: 3; top: calc(env(safe-area-inset-top) + 14px); right: 14px; font: inherit; font-weight: 800; font-size: 14px; color: #fff; background: #ffffff1f; border: 1px solid #ffffff44; border-radius: 99px; padding: 7px 14px; }
-  #introGo { display: none; }
-  #intro.last #introGo { display: inline-block; }
-  #intro.last .dots { display: none; }
 </style>
 </head>
 <body>
@@ -879,16 +858,6 @@
     <button class="btn-green" id="tutNext">Next</button>
     <div class="fate-row"><button class="btn-blue" id="tutSkip">Skip</button></div>
   </div>
-</div>
-<div id="intro" class="hidden" aria-label="Story">
-  <div class="sc" data-s="0"><div class="bg" style="background-image:url(assets/intro/scene1.webp)"></div><div class="shade"></div></div>
-  <div class="sc" data-s="1"><div class="bg" style="background-image:url(assets/intro/scene2.webp)"></div><div class="shade"></div></div>
-  <div class="sc" data-s="2"><div class="bg" style="background-image:url(assets/intro/scene3.webp)"></div><div class="shade"></div></div>
-  <div class="sc" data-s="3"><div class="bg" style="background-image:url(assets/intro/scene4.webp)"></div><div class="shade"></div></div>
-  <div class="sc" data-s="4"><div class="bg" style="background-image:url(assets/intro/scene5.webp)"></div><div class="shade"></div></div>
-  <button id="introSkip">Skip ›</button>
-  <div class="story" id="introText"></div>
-  <div class="ctl"><div class="dots" id="introDots"></div><button class="btn-green" id="introGo">Play</button></div>
 </div>
 <div id="gate" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gate-card">
@@ -4682,58 +4651,6 @@ const TUT = [
 ];
 let tutStep = 0, tutDone = null;
 const tutorialSeen = () => { try { return localStorage.getItem('bma.tutorial') === '1'; } catch (e) { return true; } };
-// ---------- Story intro ----------
-// Five illustrated scenes (assets/intro/) on the very first visit (and from Settings > Story). Tap to go faster, Skip to leave.
-const INTRO = [
-  'Long ago, the <b>Glow Garden</b> shone every night with tiny golden seeds.',
-  'Then the <em>Red Queen</em> came with her ladybug army. She twisted the hedges into mazes… and stole the light.',
-  'Only one small hero was still awake: <b>Backman</b>, with an old lantern that every ladybug fears.',
-  'His friends are lost deep in the mazes. Each one has a gift of their own.',
-  'Eat every seed. Free every garden.<br>And beware… <em>the red laugh</em>.',
-];
-let introStep = 0, introTimer = null, introType = null, introDone = null;
-const introSeen = () => { try { return localStorage.getItem('bmaintro') === '1'; } catch (e) { return true; } };
-function showIntro(then) {
-  introDone = then || null; introStep = 0;
-  $('introDots').innerHTML = INTRO.map(() => '<span></span>').join('');
-  for (let i = 1; i <= 5; i++) new Image().src = `assets/intro/scene${i}.webp`;   // warm them up
-  $('intro').classList.remove('hidden');
-  introScene();
-}
-function introScene() {
-  clearTimeout(introTimer); clearInterval(introType);
-  const el = $('intro'), txt = $('introText'), html = INTRO[introStep];
-  el.querySelectorAll('.sc').forEach(sc => {
-    const on = +sc.dataset.s === introStep; sc.classList.toggle('on', on);
-    if (on) sc.querySelectorAll('*').forEach(x => { x.style.animation = 'none'; void x.offsetWidth; x.style.animation = ''; });   // replay its animations
-  });
-  el.querySelectorAll('#introDots span').forEach((d, i) => d.classList.toggle('on', i === introStep));
-  el.classList.toggle('last', introStep === INTRO.length - 1);
-  if (introStep === 1) setTimeout(() => sfx.die(), 900);   // the Red Queen laughs
-  // type the line out letter by letter (tags are written whole)
-  const parts = html.split(/(<[^>]+>)/); let pi = 0, ci = 0, out = '';
-  txt.innerHTML = '';
-  introType = setInterval(() => {
-    while (pi < parts.length && parts[pi].startsWith('<')) out += parts[pi++];
-    if (pi >= parts.length) { clearInterval(introType); introType = null; if (introStep < INTRO.length - 1) introTimer = setTimeout(introNext, 2600); return; }
-    out += parts[pi][ci++]; if (ci >= parts[pi].length) { pi++; ci = 0; }
-    txt.innerHTML = out;
-  }, 34);
-}
-function introNext() {
-  if (introType) { clearInterval(introType); introType = null; $('introText').innerHTML = INTRO[introStep]; if (introStep < INTRO.length - 1) introTimer = setTimeout(introNext, 2600); return; }   // first tap: finish the line
-  if (introStep < INTRO.length - 1) { introStep++; introScene(); } else closeIntro();
-}
-function closeIntro() {
-  clearTimeout(introTimer); clearInterval(introType); introType = null;
-  $('intro').classList.add('hidden');
-  try { localStorage.setItem('bmaintro', '1'); } catch (e) { /* ignore */ }
-  const f = introDone; introDone = null; if (f) f();
-}
-$('intro').addEventListener('click', e => { if (e.target.closest('#introSkip, #introGo')) return; introNext(); });
-$('introSkip').addEventListener('click', closeIntro);
-$('introGo').addEventListener('click', closeIntro);
-if (!introSeen()) showIntro();
 function showTutorial(then) {
   tutStep = 0; tutDone = then || null;
   renderTutorial();
@@ -5037,7 +4954,6 @@ function openSheet(which, fromRefresh = false) {
       <div class="set-row"><span>Notifications</span><button class="toggle ${pushOn() ? 'on' : ''}" id="pushToggle">${pushOn() ? 'On' : 'Off'}</button></div>
       <p id="pushMsg" style="font-size:12px">${pushHint()}</p>
       ${/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? '<div class="set-row"><span>Install</span></div><p>Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>' : ''}
-      <div class="set-row"><span>Story</span><button class="toggle on" id="showIntro">Play</button></div>
       <div class="set-row"><span>How to play</span><button class="toggle on" id="showTut">Show</button></div>
       <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins for credits. Mushrooms freeze every beetle for 3 seconds. Each level the garden grows and one more beetle joins in.</p>
       <div class="set-row"><span>Save code</span><button class="toggle on" id="copySave">Copy</button></div>
@@ -5057,7 +4973,6 @@ function openSheet(which, fromRefresh = false) {
       openSheet('settings'); if (r && $('pushMsg')) $('pushMsg').textContent = r;
     });
     $('showTut').addEventListener('click', () => { closeSheet(); showTutorial(); });
-    $('showIntro').addEventListener('click', () => { closeSheet(); showIntro(); });
     $('copySave').addEventListener('click', async e => {
       flushStats();
       const code = encodeSave(readSave());
