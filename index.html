@@ -782,6 +782,18 @@
   .bag-item i { position: absolute; right: -3px; bottom: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font: 400 12px/18px 'Lilita One', ui-rounded, system-ui, sans-serif;
     font-style: normal; color: #fff; background: #0a1450; border: 2px solid #ffcf3a; }
   .bag-item:active { transform: scale(.92); }
+  /* the character's skill: a big round button on the left, away from the powers */
+  .skill-btn { position: absolute; bottom: calc(100% + 6px); left: 6px; z-index: 6; width: 70px; height: 70px; border-radius: 50%; border: 3px solid #ffcf3a; cursor: pointer; touch-action: none;
+    -webkit-tap-highlight-color: transparent; background: radial-gradient(circle at 35% 30%, #4a6cff, #1a2a9a 70%); box-shadow: 0 0 0 3px #0a1450, 0 6px 12px #000c, 0 0 18px #ffcf3a66;
+    display: flex; align-items: center; justify-content: center; font-size: 32px; line-height: 1; animation: skillGlow 1.6s ease-in-out infinite; }
+  .skill-btn.hidden { display: none; }
+  .skill-btn i { position: absolute; right: -4px; bottom: -4px; min-width: 22px; height: 22px; border-radius: 11px; font: 400 14px/20px 'Lilita One', ui-rounded, system-ui, sans-serif; font-style: normal;
+    color: #fff; background: radial-gradient(circle at 35% 30%, #6dff5a, #1f9a2a); border: 2px solid #fff; }
+  .skill-btn.spent { filter: grayscale(1) brightness(.6); animation: none; }
+  .skill-btn.spent i { background: #555; }
+  .skill-btn.armed { background: radial-gradient(circle at 35% 30%, #4fe0ff, #0a6a8a 70%); }
+  .skill-btn:active { transform: scale(.92); }
+  @keyframes skillGlow { 0%, 100% { box-shadow: 0 0 0 3px #0a1450, 0 6px 12px #000c, 0 0 10px #ffcf3a44; } 50% { box-shadow: 0 0 0 3px #0a1450, 0 6px 12px #000c, 0 0 22px #ffcf3aaa; } }
   .si-img { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 3px 3px #0009); }
   .shop-hint { margin: 0 0 8px !important; text-align: center; font-size: 12px !important; color: #c9d4ff !important; }
   .shop-hint b { color: #ffd75a; }
@@ -874,6 +886,7 @@
     <button class="icon-btn hud-bag hidden" id="bagBtn" aria-label="Power-ups"><img class="uiicon" src="assets/items/magnet.webp" alt="" draggable="false"><i id="bagCount">0</i></button>
     <div id="controls"><button class="icon-btn" id="pauseBtn" aria-label="Pause"></button></div>
     <div class="bag-tray hidden" id="bagTray"></div>
+    <button class="skill-btn hidden" id="skillBtn" aria-label="Skill"><span id="skillIcon"></span><i id="skillCount">1</i></button>
     <span class="hud-credits" hidden><span id="credits">0</span></span>
   </div>
   <div id="wrap">
@@ -1542,15 +1555,15 @@ function speeds() {
   // Difficulty curve: level 1 is gentle (beetles ~64% of Backman's speed); each level adds a
   // little, capped at 80% so Backman can always get away by moving.
   const l = Math.min(level - 1, 10);
-  const player = (7.5 + l * 0.1) * (hasPerk('FOX') ? 1.1 : 1) * (bootsT > 0 && powersAllowed() ? 1.25 : 1);
+  const player = (7.5 + l * 0.1) * (bootsT > 0 && powersAllowed() ? 1.25 : 1) * (hasPerk('Shadow') && fx.dashT > 0 ? 1.4 : 1);   // Shadow's ambush dash
   return {
     player,
     // levels without gates have no escape tunnel, so their beetles are a little slower
-    beetle: (isHell(level) ? player * 0.97 : isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1) * (hasPerk('Shadow') ? 0.95 : 1),
-    fright: 4.2 * (hasPerk('ES') ? 0.8 : 1),   // ES: scared beetles crawl even slower
+    beetle: (isHell(level) ? player * 0.97 : isChallenge(level) ? Math.min(player * 0.9, (4.8 + l * 0.2) * 1.15) : Math.min(player * 0.8, 4.8 + l * 0.2)) * (level <= NO_GATES_UNTIL ? 0.92 : 1),
+    fright: 4.2,
     tunnel: 3.6,
     eaten: 15,
-    frightTime: (isHell(level) ? 2.5 : Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1)) * (hasPerk('ES') ? 1.5 : 1),
+    frightTime: (isHell(level) ? 2.5 : Math.max(4, 12 - (level - 1) * 0.7) * (isChallenge(level) ? 0.6 : 1)),
   };
 }
 
@@ -1645,7 +1658,7 @@ function levelCleared() {
   if (duel) { sfx.clear(); finishDuel(true); return; }
   const flawless = deathsThisLevel === 0;
   track('clears'); if (flawless) track('flawless'); if (isChallenge(level)) track('challenges');
-  const earned = (flawless ? 4 : 2) * (isHell(level) ? 3 : isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1) + (hasPerk('Voyager') ? 2 : 0);
+  const earned = (flawless ? 4 : 2) * (isHell(level) ? 3 : isChallenge(level) ? 2 : 1) * (hasPerk('MBN') ? 2 : 1);
   credits += earned; creditsThisLevel += earned;
   unlockedSkin = null;
   try { localStorage.setItem('bma.looksKept', '1'); } catch (e) { /* ignore */ }   // progress from now on never unlocks looks
@@ -1676,11 +1689,12 @@ function newGame(startLevel) {
   if (typeof gateNeeded === 'function' && cloudReady && gateNeeded()) { updateGate(); return; }
   const saved = loadProgress();
   level = startLevel || saved.level;
-  score = !duel && level === saved.level ? saved.score : 0; lives = hasPerk('Ranger') ? 4 : 3; shieldUsed = 0; extraLifeGiven = score >= extraLifeAt(); deathsThisLevel = 0; creditsThisLevel = 0;
+  score = !duel && level === saved.level ? saved.score : 0; lives = 3; shieldUsed = 0; extraLifeGiven = score >= extraLifeAt(); deathsThisLevel = 0; creditsThisLevel = 0;
   applyLevelMap(level, duel ? duel.seed : 0);
   resetMaze(); resetActors(); resize();
   levelIntro = true;
   popups = [];
+  resetSkill();
   updateDuelChip();
   setState('ready', 2.2);
   sfx.start();
@@ -1693,17 +1707,17 @@ function nextLevel() {
   freeFlashLayer();
   level++;
   deathsThisLevel = 0; creditsThisLevel = 0; shieldUsed = 0;
-  if (hasPerk('Ranger') && lives < 4) lives = 4;
   if (level >= loadProgress().level) saveProgress();   // replaying an old level never moves you back
   applyLevelMap(level);
   resetMaze(); resetActors(); resize();
   levelIntro = true;
+  resetSkill();
   setState('ready', 2.4);
   updateHud();
   pulsePerk();
 }
 
-function setState(s, t = 0) { state = s; stateTimer = t; try { updateBag(); if (s !== 'play') closeBag(); if (s === 'ready' && levelIntro) flashPerk(3200); } catch (e) { /* not ready yet */ } }
+function setState(s, t = 0) { state = s; stateTimer = t; try { updateBag(); updateSkillBtn(); if (s !== 'play') closeBag(); if (s === 'ready' && levelIntro) flashPerk(3200); } catch (e) { /* not ready yet */ } }
 
 // ---------- Grid helpers ----------
 function tileAt(x, y) {
@@ -1726,6 +1740,8 @@ function wrap(e) {
   // Top and bottom gates: walk out of the top and come back in at the bottom (and the other way round).
   else if (e.ty <= -1 && e.dir.y < 0) { e.ty = ROWS; if (e === player) snapCamera = true; }
   else if (e.ty >= ROWS && e.dir.y > 0) { e.ty = -1; if (e === player) snapCamera = true; }
+  else return;
+  if (e === player) fx.wrapped = true;   // came out of a gate (Voyager's far paths)
 }
 let snapCamera = false;
 function pos(e) { return { x: e.tx + e.dir.x * e.progress, y: e.ty + e.dir.y * e.progress }; }
@@ -1777,7 +1793,7 @@ function updatePlayer(dt) {
   const moving = player.dir.x || player.dir.y;
   if (moving) player.walk += dt * 12;
   const inTunnel = player.ty === TUNNEL_ROW && (player.tx < 2 || player.tx > COLS - 3);
-  advance(player, sp.player * (inTunnel && !hasPerk('FOX') ? 0.85 : 1) * dt, e => {
+  advance(player, sp.player * (inTunnel ? 0.85 : 1) * dt, e => {
     const w = e.want;
     if ((w.x || w.y) && canEnter(e.tx + w.x, e.ty + w.y, false)) e.dir = w;
     else if (!canEnter(e.tx + e.dir.x, e.ty + e.dir.y, false)) e.dir = DIRS.none;
@@ -1796,12 +1812,12 @@ function eatAt(x, y) {
   const loud = !live || player === live.me;   // in a live match you hear your own bites
   if ((c === '.' || c === 'o') && live) live.eaten.push({ x, y });
   if (c === '.') {
-    grid[y][x] = ' '; eraseSeed(x, y); track('seeds'); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore(hasPerk('Sprout') ? 15 : 10); seedsLeft--; seedsEaten++; if (loud) sfx.seed();
+    grid[y][x] = ' '; eraseSeed(x, y); track('seeds'); burst(x, y, '#ffe39a', 4, 2.4, 0.3, 0.06); addScore((hasPerk('Sprout') ? 15 : 10) * seedMult()); seedsLeft--; seedsEaten++; if (loud) sfx.seed();
   } else if (c === 'o') {
     grid[y][x] = ' '; burst(x, y, '#ffb02e', 16, 4.5, 0.6, 0.1); addScore(hasPerk('Sprout') ? 150 : 50); seedsLeft--; seedsEaten++; sfx.lantern();
     startFright();
   }
-  if (seedsEaten === Math.round(TOTAL_SEEDS * 0.3) || seedsEaten === Math.round(TOTAL_SEEDS * 0.7) || (hasPerk('ZOGHA') && seedsEaten === Math.round(TOTAL_SEEDS * 0.5))) spawnBonus();
+  if (seedsEaten === Math.round(TOTAL_SEEDS * 0.3) || seedsEaten === Math.round(TOTAL_SEEDS * 0.7)) spawnBonus();
   if (seedsLeft === 0) levelCleared();
 }
 
@@ -1897,6 +1913,190 @@ function drawPowers(now) {
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, T * 0.85, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
 }
+// ---------- Character skills and powers ----------
+// Each look has a skill the player fires with the round button (one charge a level) and a power
+// that works on its own. Phase 1: ES, ZOGHA, FOX, Shadow, Ranger and Voyager. Off in live matches.
+const SKILLS = {
+  ES:      { icon: '⏸️', name: 'Time stop' },
+  ZOGHA:   { icon: '🍬', name: 'Candy bait' },
+  FOX:     { icon: '🔄', name: 'Sly swap' },
+  Shadow:  { icon: '👻', name: 'Vanish' },
+  Ranger:  { icon: '🕸️', name: 'Net trap' },
+  Voyager: { icon: '📍', name: 'Waypoint' },
+};
+let skillCharges = 0;
+let fx = { picked: new Set(), streak: 0, mult: 1, lastSeedAt: -9, stillT: 0, dashT: 0, vanishT: 0, guardT: 0, candy: null, trap: null, mark: null, hint: null, cautionAt: -9 };
+const skillOf = () => SKILLS[SKINS[skinIndex].name];
+const skillAllowed = () => !live && !!skillOf();
+const skillText = n => skillCharges > 0 ? `${n}: tap the round button` : `${n} used this level`;
+function resetSkill() {
+  skillCharges = skillAllowed() ? 1 : 0;
+  fx = { picked: new Set(), streak: 0, mult: 1, lastSeedAt: -9, stillT: 0, dashT: 0, vanishT: 0, guardT: 0, candy: null, trap: null, mark: null, hint: null, cautionAt: -9 };
+  updateSkillBtn();
+}
+function updateSkillBtn() {
+  const b = $('skillBtn'); if (!b) return;
+  const sk = skillOf(), show = skillAllowed() && (state === 'play' || state === 'ready');
+  b.classList.toggle('hidden', !show);
+  if (!show) return;
+  b.classList.toggle('spent', skillCharges <= 0);
+  b.classList.toggle('armed', !!fx.mark);
+  $('skillIcon').textContent = fx.mark ? '↩️' : sk.icon;
+  $('skillCount').textContent = skillCharges;
+  b.setAttribute('aria-label', `${sk.name} (${skillCharges} left)`);
+}
+function nearestBeetle(max) {
+  const pp = pos(player); let best = null, bd = Infinity;
+  for (const b of beetles) {
+    if (b.mode !== 'active' || b.stun > 0) continue;
+    const q = pos(b), d = Math.abs(q.x - pp.x) + Math.abs(q.y - pp.y);
+    if (d < bd && d <= max) { bd = d; best = b; }
+  }
+  return best;
+}
+const inMaze = (x, y) => x >= 1 && x <= COLS - 2 && y >= 1 && y <= ROWS - 2;
+function jumpPlayer(x, y) {
+  Object.assign(player, { tx: x, ty: y, progress: 0, dir: DIRS.none, ox: 0, oy: 0 });
+  snapCamera = true; eatAt(x, y);
+}
+function useSkill() {
+  if (state !== 'play' || paused || skillCharges <= 0 || !skillAllowed()) return;
+  const name = SKINS[skinIndex].name, pp = pos(player), here = { x: Math.round(pp.x), y: Math.round(pp.y) };
+  let ok = true, why = '';
+  if (name === 'ES') {
+    const b = nearestBeetle(99);
+    if (!b) { ok = false; why = 'No ladybug out yet'; }
+    else { b.stun = 6; b.netted = false; const q = pos(b); popup(q.x, q.y, 'TIME STOP!', '#9fe6ff'); burst(q.x, q.y, '#bfefff', 20, 3, 0.7, 0.09); sfx.freeze(); }
+  } else if (name === 'ZOGHA') {
+    fx.candy = { ...here, t: 6 }; popup(here.x, here.y, 'CANDY!', '#ff9ad5'); burst(here.x, here.y, '#ff9ad5', 16, 3, 0.5, 0.08); sfx.bonus();
+  } else if (name === 'FOX') {
+    const b = nearestBeetle(8), q = b && pos(b), bx = q && Math.round(q.x), by = q && Math.round(q.y);
+    if (!b || !inMaze(bx, by) || !inMaze(here.x, here.y)) { ok = false; why = 'No ladybug close'; }
+    else {
+      Object.assign(b, { tx: here.x, ty: here.y, progress: 0 }); b.stun = 1.2;
+      burst(here.x, here.y, '#ff9f43', 18, 4, 0.5, 0.09); jumpPlayer(bx, by); fx.guardT = 1.2;
+      burst(bx, by, '#ff9f43', 18, 4, 0.5, 0.09); popup(bx, by, 'SWAP!', '#ffb36b'); sfx.portal();
+    }
+  } else if (name === 'Shadow') {
+    fx.vanishT = 5; popup(here.x, here.y, 'VANISH!', '#b8a8ff'); burst(here.x, here.y, '#6c63ff', 22, 3, 0.7, 0.1); sfx.portal();
+  } else if (name === 'Ranger') {
+    if (!inMaze(here.x, here.y)) { ok = false; why = 'Not here'; }
+    else { fx.trap = { ...here }; popup(here.x, here.y, 'NET SET', '#c8ff8a'); sfx.bonus(); }
+  } else if (name === 'Voyager') {
+    if (!fx.mark) {
+      if (!inMaze(here.x, here.y)) { popup(here.x, here.y, 'Not here', '#ffb0b8'); return; }
+      fx.mark = { ...here }; popup(here.x, here.y, 'WAYPOINT', '#7fe8ff'); sfx.bonus(); updateSkillBtn(); pulsePerk(); return;   // the charge is kept for the jump back
+    }
+    burst(here.x, here.y, '#7fe8ff', 18, 4, 0.5, 0.09);
+    jumpPlayer(fx.mark.x, fx.mark.y); fx.guardT = 1;
+    burst(fx.mark.x, fx.mark.y, '#7fe8ff', 22, 4, 0.6, 0.1); popup(fx.mark.x, fx.mark.y, 'BACK!', '#7fe8ff'); fx.mark = null; sfx.portal();
+  }
+  if (!ok) { popup(here.x, here.y, why, '#ffb0b8'); return; }
+  skillCharges--; updateSkillBtn(); pulsePerk();
+}
+// Seeds that branch off from a crossroads, counted a few tiles down each way (ES's path sense).
+function seedsDown(x, y, d, depth) {
+  const seen = new Set([x + ',' + y]), q = [[x + d.x, y + d.y, 1]]; let n = 0;
+  while (q.length) {
+    const [cx, cy, k] = q.shift(), key = cx + ',' + cy;
+    if (seen.has(key) || !inMaze(cx, cy) || !canEnter(cx, cy, false)) continue;
+    seen.add(key); const c = grid[cy][cx]; if (c === '.' || c === 'o') n++;
+    if (k < depth) for (const e of DIR_ORDER) q.push([cx + e.x, cy + e.y, k + 1]);
+  }
+  return n;
+}
+function updateSkills(dt) {
+  if (live) return;
+  const name = SKINS[skinIndex].name, pp = pos(player);
+  if (fx.vanishT > 0) fx.vanishT = Math.max(0, fx.vanishT - dt);
+  if (fx.guardT > 0) fx.guardT = Math.max(0, fx.guardT - dt);
+  if (fx.dashT > 0) fx.dashT = Math.max(0, fx.dashT - dt);
+  if (fx.candy && (fx.candy.t -= dt) <= 0) fx.candy = null;
+  if (fx.hint && (fx.hint.t -= dt) <= 0) fx.hint = null;
+  if (fx.trap) for (const b of beetles) {   // Ranger's net: the first ladybug over it is stuck
+    if (b.mode !== 'active' || b.frightened || b.stun > 0) continue;
+    const q = pos(b);
+    if (Math.abs(q.x - fx.trap.x) + Math.abs(q.y - fx.trap.y) < 0.5) {
+      b.stun = 6; b.netted = true; popup(fx.trap.x, fx.trap.y, 'CAUGHT!', '#c8ff8a'); burst(fx.trap.x, fx.trap.y, '#c8ff8a', 18, 3, 0.6, 0.09); fx.trap = null; pulsePerk(); break;
+    }
+  }
+  const moving = !!(player.dir.x || player.dir.y);
+  if (name === 'Shadow') {   // ambush: standing still charges a dash
+    if (!moving) { fx.stillT += dt; if (fx.stillT >= 1.5 && !fx.ambushReady) { fx.ambushReady = true; popup(pp.x, pp.y, 'READY', '#b8a8ff'); pulsePerk(); } }
+    else { if (fx.ambushReady) { fx.ambushReady = false; fx.dashT = 2; popup(pp.x, pp.y, 'DASH!', '#b8a8ff'); burst(pp.x, pp.y, '#6c63ff', 14, 3, 0.4, 0.08); } fx.stillT = 0; }
+  }
+  if (name === 'Ranger' && time - fx.cautionAt > 4) {   // caution: a ladybug close by
+    const close = beetles.some(b => { if (b.mode !== 'active' || b.frightened || b.stun > 0) return false; const q = pos(b); return Math.abs(q.x - pp.x) + Math.abs(q.y - pp.y) <= 3; });
+    if (close) { fx.cautionAt = time; popup(pp.x, pp.y - 0.6, '!', '#ff5d5d'); try { navigator.vibrate && navigator.vibrate(80); } catch (e) { /* ignore */ } }
+  }
+  if (name === 'FOX') for (const b of beetles) {   // pickpocket: brush past a ladybug and steal a credit
+    if (b.mode !== 'active' || b.frightened || fx.picked.has(b.i)) continue;
+    const q = pos(b), d = Math.hypot(q.x - pp.x, q.y - pp.y);
+    if (d < 1.25 && d > 0.55) { fx.picked.add(b.i); earnCredit(1, q.x, q.y); popup(q.x, q.y - 0.5, 'PICKED!', '#ffb36b'); pulsePerk(); }
+  }
+  if (fx.wrapped) {   // came out of a gate
+    fx.wrapped = false;
+    if (name === 'Voyager') { fx.guardT = Math.max(fx.guardT, 2); popup(pp.x, pp.y, 'SAFE!', '#7fe8ff'); pulsePerk(); }
+  }
+  if (name === 'ES' && player.progress === 0) {   // path sense at a crossroads
+    const key = player.tx + ',' + player.ty;
+    if (fx.hintAt !== key) {
+      fx.hintAt = key;
+      const exits = DIR_ORDER.filter(d => !opposite(d, player.dir) && inMaze(player.tx + d.x, player.ty + d.y) && canEnter(player.tx + d.x, player.ty + d.y, false));
+      if (exits.length >= 2) {
+        let best = null, bn = 0;
+        for (const d of exits) { const n = seedsDown(player.tx, player.ty, d, 10); if (n > bn) { bn = n; best = d; } }
+        fx.hint = best ? { x: player.tx, y: player.ty, d: best, t: 1.4 } : null;
+      }
+    }
+  }
+}
+// ZOGHA's sweet streak: seeds eaten one after another raise the points, up to x3.
+function seedMult() {
+  if (!hasPerk('ZOGHA')) return 1;
+  fx.streak = time - fx.lastSeedAt < 0.75 ? fx.streak + 1 : 0; fx.lastSeedAt = time;
+  const m = Math.min(3, 1 + Math.floor(fx.streak / 8));   // x2 after 8 seeds in a row, x3 after 16
+  if (m > fx.mult) { const pp = pos(player); popup(pp.x, pp.y - 0.6, `x${m}`, '#ff9ad5'); pulsePerk(); }
+  fx.mult = m; return m;
+}
+function drawSkillFx(now) {
+  if (live) return;
+  const c = (x, y) => [x * T + T / 2, y * T + T / 2];
+  if (fx.candy) {   // a striped candy
+    const [x, y] = c(fx.candy.x, fx.candy.y), r = T * 0.28, a = now / 300;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, T); g.addColorStop(0, 'rgba(255,154,213,.45)'); g.addColorStop(1, 'rgba(255,154,213,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, T, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+    ctx.fillStyle = '#ff5fae'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = T * 0.07; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(0, 0, r * 0.62, k * 2.1, k * 2.1 + 1.1); ctx.stroke(); }
+    ctx.restore();
+  }
+  if (fx.trap) {   // a green net
+    const [x, y] = c(fx.trap.x, fx.trap.y), h = T * 0.4;
+    ctx.strokeStyle = 'rgba(200,255,138,.85)'; ctx.lineWidth = Math.max(1, T * 0.05);
+    for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(x - h, y + k * h / 2.5); ctx.lineTo(x + h, y + k * h / 2.5); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x + k * h / 2.5, y - h); ctx.lineTo(x + k * h / 2.5, y + h); ctx.stroke(); }
+  }
+  if (fx.mark) {   // Voyager's waypoint
+    const [x, y] = c(fx.mark.x, fx.mark.y), p = 0.5 + 0.5 * Math.sin(now / 200);
+    ctx.strokeStyle = `rgba(127,232,255,${0.5 + 0.5 * p})`; ctx.lineWidth = T * 0.08;
+    ctx.beginPath(); ctx.arc(x, y, T * (0.3 + 0.08 * p), 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#7fe8ff'; ctx.beginPath(); ctx.arc(x, y, T * 0.1, 0, Math.PI * 2); ctx.fill();
+  }
+  if (fx.hint) {   // ES's arrow toward the most seeds
+    const [x, y] = c(fx.hint.x + fx.hint.d.x * 0.85, fx.hint.y + fx.hint.d.y * 0.85), ang = Math.atan2(fx.hint.d.y, fx.hint.d.x);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.globalAlpha = Math.min(1, fx.hint.t * 2);
+    ctx.fillStyle = '#ffd75a'; ctx.strokeStyle = '#3a2208'; ctx.lineWidth = T * 0.04;
+    ctx.beginPath(); ctx.moveTo(T * 0.24, 0); ctx.lineTo(-T * 0.14, -T * 0.18); ctx.lineTo(-T * 0.14, T * 0.18); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+  for (const b of beetles) if (b.stun > 0) {   // stuck or frozen ladybugs
+    const q = pos(b), [x, y] = c(q.x, q.y);
+    ctx.strokeStyle = b.netted ? 'rgba(200,255,138,.9)' : 'rgba(159,230,255,.9)'; ctx.lineWidth = T * 0.07;
+    ctx.beginPath(); ctx.arc(x, y, T * 0.5, 0, Math.PI * 2); ctx.stroke();
+  }
+  if (fx.guardT > 0) { const pp = pos(player), [x, y] = c(pp.x, pp.y); ctx.strokeStyle = 'rgba(127,232,255,.8)'; ctx.lineWidth = T * 0.07; ctx.beginPath(); ctx.arc(x, y, T * 0.55, 0, Math.PI * 2); ctx.stroke(); }
+}
+
 // Powers sit in a bar over the maze while playing: one tap uses one (no backpack to open first).
 function updateBag() {
   $('bagBtn').classList.add('hidden');
@@ -1915,9 +2115,9 @@ function openBag(owned) {
   t.classList.remove('hidden');
 }
 function closeBag() { $('bagTray').classList.add('hidden'); }
+$('skillBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); useSkill(); });
 $('bagBtn').addEventListener('click', e => { e.stopPropagation(); $('bagTray').classList.contains('hidden') ? openBag() : closeBag(); });
 function startFright() {
-  if (hasPerk('ES')) pulsePerk();
   if (hasPerk('MBN')) { freezeTimer = Math.max(freezeTimer, 1.5); pulsePerk(); }   // royal command: lanterns also freeze the beetles
   const sp = speeds();
   frightTimer = sp.frightTime;
@@ -1989,14 +2189,14 @@ const levelProgress = () => TOTAL_SEEDS ? seedsEaten / TOTAL_SEEDS : 0;
 function huntWeight(b) {
   const p = levelProgress(), n = beetles.length;
   // after losing a life (or at the start) beetles leave you alone for a while, easing back in
-  const breather = clamp((time - (isChallenge(level) ? 4 : 8) - (hasPerk('Shadow') ? 5 : 0)) / 6, 0, 1);
+  const breather = clamp((time - (isChallenge(level) ? 4 : 8)) / 6, 0, 1);
   if (isChallenge(level)) {   // challenge: everyone joins early and hunts hard near the end
     if (p >= 0.75) return breather;
     return breather * clamp((p - 0.1 - 0.3 * (b.i / Math.max(1, n - 1))) / 0.15, 0, 1);
   }
   // endgame: half of them hunt flat out, the rest only now and then
   if (p >= ENDGAME) return breather * (b.i < Math.ceil(n / 2) ? 1 : 0.55);
-  const start = (n > 1 ? 0.3 + 0.45 * (b.i / (n - 1)) : 0.35) + (hasPerk('Shadow') ? 0.1 : 0);   // when this beetle starts to hunt
+  const start = (n > 1 ? 0.3 + 0.45 * (b.i / (n - 1)) : 0.35);   // when this beetle starts to hunt
   return breather * clamp((p - start) / 0.2, 0, 1);             // fades in over the next 20% of seeds
 }
 function roamTarget(b) {
@@ -2022,6 +2222,7 @@ function updateBeetles(dt) {
       if (time >= b.releaseAt) { b.mode = 'leaving'; b.progress = 0; }
       continue;
     }
+    if (b.stun > 0) { b.stun = Math.max(0, b.stun - dt); continue; }   // frozen or netted by a skill
     if (freezeTimer > 0 && b.mode !== 'eaten') continue;   // frozen by a mushroom
     let speed;
     if (b.mode === 'eaten') speed = sp.eaten;
@@ -2044,6 +2245,8 @@ function updateBeetles(dt) {
         if (e.tx === DEN_CENTER.x && e.ty === DEN_CENTER.y) { e.mode = 'leaving'; e.frightened = false; e.dir = DIRS.up; return; }
         e.dir = chooseDir(e, DEN_CENTER, false, true); return;
       }
+      if (!e.frightened && fx.vanishT > 0) { e.dir = chooseDir(e, roamTarget(e), false, false, true); return; }   // Shadow vanished: nobody to chase
+      if (!e.frightened && fx.candy) { e.dir = chooseDir(e, fx.candy, false, false); return; }   // ZOGHA's candy pulls them in
       let target;
       if (e.frightened) target = null;
       else {
@@ -2077,6 +2280,8 @@ function checkCollisions() {
   for (const b of beetles) {
     if (b.mode === 'den' || b.mode === 'eaten') continue;
     if (freezeTimer > 0 && !b.frightened) continue;   // frozen beetles can't catch you
+    if (b.stun > 0 && !b.frightened) continue;          // nor can stunned ones
+    if (!b.frightened && !live && (fx.vanishT > 0 || fx.guardT > 0)) continue;   // vanished, or just safe after a swap/jump/gate
     const bp = pos(b);
     if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.5) {
       if (b.frightened) {
@@ -2106,8 +2311,8 @@ function checkCollisions() {
   if (bonus) {
     if (Math.abs(pp.x - bonus.x) + Math.abs(pp.y - bonus.y) < 0.7) {
       addScore(bonus.value); popup(bonus.x, bonus.y, String(bonus.value), '#ffd36b'); sfx.bonus();
-      earnCredit(hasPerk('ZOGHA') ? 2 : 1, bonus.x, bonus.y); if (hasPerk('ZOGHA')) pulsePerk();
-      freezeTimer = hasPerk('ZOGHA') ? 5 : 3; sfx.freeze(); popup(bonus.x, bonus.y + 0.9, 'FREEZE!', '#9fe6ff');
+      earnCredit(1, bonus.x, bonus.y);
+      freezeTimer = 3; sfx.freeze(); popup(bonus.x, bonus.y + 0.9, 'FREEZE!', '#9fe6ff');
       beetles.forEach(bt => { if (bt.mode !== 'den' && bt.mode !== 'eaten') { const q = pos(bt); burst(q.x, q.y, '#bfefff', 10, 2.5, 0.6, 0.08); } });
       bonus = null;
     }
@@ -2190,7 +2395,7 @@ function update(dt) {
 
   if (state === 'ready') {
     stateTimer -= dt;
-    if (stateTimer <= 0) { if (levelIntro && hasPerk('Voyager')) { freezeTimer = Math.max(freezeTimer, 3); pulsePerk(); } setState('play'); levelIntro = false; }
+    if (stateTimer <= 0) { setState('play'); levelIntro = false; }
     return;
   }
   if (live && live.role === 'guest') { liveGuestUpdate(dt); return; }
@@ -2203,6 +2408,7 @@ function update(dt) {
     checkCollisions();
     if (state !== 'play') return;
     updateBeetles(dt);
+    updateSkills(dt);
     checkCollisions();
     if (bonus) { bonus.timer -= dt; if (bonus.timer <= 0) bonus = null; }
     updateCoin(dt);
@@ -2570,7 +2776,7 @@ function draw(now) {
   if (state !== 'clear' || stateTimer > 1.8) {
     for (const b of beetles) if (!(state === 'dying' && stateTimer < 1.2)) drawBeetle(b, now);
   }
-  if (live) liveDrawPlayers(now); else { drawPowers(now); drawPlayer(now); }
+  if (live) liveDrawPlayers(now); else { drawSkillFx(now); drawPowers(now); if (fx.vanishT > 0) ctx.globalAlpha = 0.38 + 0.12 * Math.sin(now / 90); drawPlayer(now); ctx.globalAlpha = 1; }
   ctx.restore();
 
   drawParticles();
@@ -2743,23 +2949,23 @@ const SKINS = [
 // Every look has its own power in the game, so each one is worth unlocking for more than looks.
 const PERKS = {
   Backman:  { title: 'All-rounder', desc: 'The classic. No special power, no weakness.' },
-  ZOGHA:    { title: 'Sweet tooth', desc: 'An extra mushroom every level, mushrooms give +2 credits, and their freeze lasts 5 seconds instead of 3.' },
-  ES:       { title: 'Deep freeze', desc: 'Lanterns keep the beetles scared 50% longer, and scared beetles crawl 20% slower.' },
+  ZOGHA:    { title: 'Candy bait · Sweet streak', desc: 'Skill (button, once a level): drops a candy that pulls the ladybugs to it for 6 seconds. Power: eat seeds one after another without stopping: x2 points after 8, x3 after 16.' },
+  ES:       { title: 'Time stop · Path sense', desc: 'Skill (button, once a level): freezes the nearest ladybug for 6 seconds. Power: at a crossroads, an arrow points to the way with the most seeds.' },
   Sprout:   { title: 'Harvest', desc: 'Seeds are worth 15 points instead of 10, and lanterns 150 instead of 50.' },
-  FOX:      { title: 'Quick feet', desc: 'Runs 10% faster than everyone else and never slows down in the gates.' },
+  FOX:      { title: 'Sly swap · Pickpocket', desc: 'Skill (button, once a level): swaps places with the nearest ladybug up to 8 tiles away. Power: slip right past a ladybug without getting caught to steal a credit, once per ladybug each level.' },
   Minty:    { title: 'Lucky leaf', desc: 'Gold coins appear twice as often and stay twice as long.' },
   Midnight: { title: 'Magic shield', desc: 'Survives the first two beetle hits in every level.' },
   MBN:      { title: 'The King', desc: 'Royal aura: beetles near you slow down by 25%. Royal command: every lantern also freezes the beetles for 1.5 seconds. Royal treasury: double credits for clearing a level and 2 credits per beetle.' },
-  Shadow:   { title: 'Stealth', desc: 'Beetles notice you later, give you a longer head start, and move 5% slower.' },
-  Ranger:   { title: 'Survivor', desc: 'Starts every level with 4 lives, and the extra life comes at 3,000 points instead of 5,000.' },
+  Shadow:   { title: 'Vanish · Ambush', desc: 'Skill (button, once a level): the ladybugs lose sight of you for 5 seconds and you slip through them. Power: stand still for 1.5 seconds to charge a fast dash for when you move again.' },
+  Ranger:   { title: 'Net trap · Caution', desc: 'Skill (button, once a level): sets a net on your spot; the first ladybug to cross it is stuck for 6 seconds. Power: a ! warns you (and your phone buzzes) when a ladybug gets within 3 tiles.' },
   Seeker:   { title: 'Sharp eye', desc: 'Scared beetles are worth double points, and every gold coin gives 2 credits.' },
-  Voyager:  { title: 'Pathfinder', desc: 'The beetles stay frozen for the first 3 seconds of every level, and each cleared level pays 2 extra credits.' },
+  Voyager:  { title: 'Waypoint · Far paths', desc: 'Skill (button, once a level): tap once to mark your spot, tap again to jump back to it. Power: going through a gate keeps you safe for 2 seconds after you come out.' },
 };
 const perk = () => SKINS[skinIndex].name;
 const hasPerk = n => !live && perk() === n;   // perks are off in live matches (fair play)
 let shieldUsed = 0;   // Midnight's shields used this level
 const SHIELDS = 2;
-const extraLifeAt = () => hasPerk('Ranger') ? 3000 : 5000;
+const extraLifeAt = () => 5000;
 
 
 // ---------- Backman sprite ----------
@@ -3053,16 +3259,16 @@ function drawBeetle(b, now) {
 // Shows the current character's power on the game screen, with its live state where it has one.
 const PERK_STATE = {
   Midnight: () => shieldUsed >= SHIELDS ? 'Shields used this level' : `${SHIELDS - shieldUsed} shield${SHIELDS - shieldUsed > 1 ? 's' : ''} ready`,
-  Ranger: () => '4 lives each level',
+  Ranger: () => skillText('Net trap'),
   Seeker: () => 'Double beetle points, 2-credit coins',
-  Voyager: () => 'Beetles frozen at the start',
-  ES: () => 'Lanterns last longer',
-  FOX: () => '10% faster',
+  Voyager: () => fx.mark ? 'Tap the button to jump back' : skillText('Waypoint'),
+  ES: () => skillText('Time stop'),
+  FOX: () => skillText('Sly swap'),
   Sprout: () => 'Seeds worth 15',
   Minty: () => 'More gold coins',
-  ZOGHA: () => 'Extra mushroom, +2 credits',
+  ZOGHA: () => fx.mult > 1 ? `Sweet streak x${fx.mult}` : skillText('Candy bait'),
   MBN: () => 'Double clear credits',
-  Shadow: () => 'Beetles notice you later',
+  Shadow: () => fx.ambushReady ? 'Dash ready: move!' : skillText('Vanish'),
 };
 function updatePerkChip() {
   const chip = $('perkChip'); if (!chip) return;
@@ -4808,7 +5014,7 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 // Exposed for automated testing.
-window.__backman = { get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
+window.__backman = { get fx() { return fx; }, get skillCharges() { return skillCharges; }, useSkill, get player() { return player; }, get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },

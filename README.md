@@ -56,19 +56,19 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 | Look | Price | Powers |
 | --- | --- | --- |
 | Backman | free | All-rounder: no special power |
-| ZOGHA | 120 | Sweet tooth: one extra mushroom per level; mushrooms give +2 credits; mushroom freeze lasts 5 s |
+| ZOGHA | 120 | Skill: Candy bait (pulls the ladybugs for 6 s). Power: Sweet streak (x2 seed points after 8 in a row, x3 after 16) |
 | Sprout | 150 | Harvest: seeds 15 points, lanterns 150 points |
 | Minty | 180 | Lucky leaf: gold coins appear twice as often and stay twice as long |
-| ES | 220 | Deep freeze: lanterns last 50% longer; scared beetles 20% slower |
-| FOX | 300 | Quick feet: 10% faster; no slowdown in the gates |
-| Shadow | 350 | Stealth: beetles notice you later and move 5% slower |
-| Ranger | 400 | Survivor: 4 lives each level; extra life at 3,000 points |
+| ES | 220 | Skill: Time stop (nearest ladybug frozen 6 s). Power: Path sense (arrow to the way with the most seeds at crossroads) |
+| FOX | 300 | Skill: Sly swap (swap places with the nearest ladybug, 8 tiles). Power: Pickpocket (brush past a ladybug: +1 credit, once each) |
+| Shadow | 350 | Skill: Vanish (ladybugs lose you for 5 s, you pass through them). Power: Ambush (stand still 1.5 s for a 2 s dash) |
+| Ranger | 400 | Skill: Net trap (first ladybug over it stuck 6 s). Power: Caution (! and a buzz when a ladybug is within 3 tiles) |
 | Seeker | 420 | Sharp eye: scared beetles worth double points; gold coins give 2 credits |
-| Voyager | 430 | Pathfinder: beetles frozen for the first 3 s of every level; +2 credits per cleared level |
+| Voyager | 430 | Skill: Waypoint (mark a spot, tap again to jump back). Power: Far paths (2 s safe after coming out of a gate) |
 | Midnight | 450 | Magic shield: survives the first two beetle hits each level |
 | MBN | 600 | The King: beetles within 3 tiles slow down 25%; lanterns also freeze the beetles for 1.5 s; double level-clear credits; 2 credits per beetle |
 
-Powers are switched off in live matches with friends.
+Skills use the round button (one charge a level). Powers and skills are switched off in live matches with friends.
 
 ## The beetles
 
