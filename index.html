@@ -1428,48 +1428,61 @@ function unlockAudio() {
 }
 // ---------- Music ----------
 // The game's official theme, "Crowns and Coins", looping softly under the sound effects. It plays
-// through Web Audio (not an <audio> tag) so iOS doesn't turn the game into a media player, starts
-// with the first tap, stops when the game is hidden, and has its own switch in Settings.
+// through Web Audio (not an <audio> tag) so iOS doesn't turn the game into a media player.
+// - The file is downloaded as soon as the page opens, so the music starts with the very first tap.
+// - Leaving the game fades it out and remembers where it was; coming back continues from there.
+// - It has its own switch in Settings, and Sound off silences it too.
 const MUSIC_URL = 'assets/music/crowns-and-coins.mp3', MUSIC_VOL = 0.3;
 let musicOn = (() => { try { return localStorage.getItem('bmamusic') !== 'off'; } catch (e) { return true; } })();
-let musicBuf = null, musicSrc = null, musicGain = null, musicLoading = null;
-function loadMusic() {
+let musicBuf = null, musicSrc = null, musicGain = null, musicDecoding = null, musicPos = 0, musicStartedAt = 0;
+const musicBytes = fetch(MUSIC_URL).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);   // start downloading now
+const musicWanted = () => musicOn && !muted && !document.hidden;
+function decodeMusic() {
   if (musicBuf) return Promise.resolve(musicBuf);
-  if (!musicLoading) musicLoading = fetch(MUSIC_URL).then(r => r.arrayBuffer())
-    .then(ab => new Promise((res, rej) => audio().decodeAudioData(ab, res, rej)))
-    .then(b => (musicBuf = b)).catch(() => { musicLoading = null; return null; });
-  return musicLoading;
+  if (!musicDecoding) musicDecoding = musicBytes.then(ab => ab && new Promise((res, rej) => audio().decodeAudioData(ab.slice(0), res, rej)))
+    .then(b => (musicBuf = b || null)).catch(() => { musicDecoding = null; return null; });
+  return musicDecoding;
 }
 async function startMusic() {
-  if (muted || !musicOn || musicSrc || document.hidden) return;
+  if (!musicWanted() || musicSrc) return;
   const a = audio(); if (!a) return;
-  const buf = await loadMusic();
-  if (!buf || muted || !musicOn || musicSrc || document.hidden) return;
-  if (a.state !== 'running') { try { await a.resume(); } catch (e) { return; } }
-  musicGain = a.createGain(); musicGain.gain.setValueAtTime(0, a.currentTime); musicGain.gain.linearRampToValueAtTime(MUSIC_VOL, a.currentTime + 1.5);
+  const buf = await decodeMusic();
+  if (!buf || !musicWanted() || musicSrc) return;
+  if (a.state !== 'running') { try { await a.resume(); } catch (e) { return; } if (a.state !== 'running') return; }   // iPhone: wait for the next tap
+  const at = musicPos % buf.duration;
+  musicGain = a.createGain(); musicGain.gain.setValueAtTime(0.0001, a.currentTime); musicGain.gain.exponentialRampToValueAtTime(MUSIC_VOL, a.currentTime + 0.9);
   musicGain.connect(a.destination);
-  musicSrc = a.createBufferSource(); musicSrc.buffer = buf; musicSrc.loop = true; musicSrc.connect(musicGain); musicSrc.start(0);
+  musicSrc = a.createBufferSource(); musicSrc.buffer = buf; musicSrc.loop = true; musicSrc.connect(musicGain);
+  musicSrc.start(0, at); musicStartedAt = a.currentTime - at;
 }
-function stopMusic() {
+// Stop, keeping the place in the song, with a very short fade so there is no click.
+function pauseMusic() {
   if (!musicSrc) return;
-  try { musicSrc.stop(); } catch (e) { /* ignore */ }
-  try { musicGain.disconnect(); } catch (e) { /* ignore */ }
+  const a = actx, src = musicSrc, g = musicGain;
+  musicPos = musicBuf ? (a.currentTime - musicStartedAt) % musicBuf.duration : 0;
   musicSrc = null; musicGain = null;
+  try { g.gain.cancelScheduledValues(a.currentTime); g.gain.setValueAtTime(g.gain.value, a.currentTime); g.gain.linearRampToValueAtTime(0.0001, a.currentTime + 0.08); src.stop(a.currentTime + 0.1); } catch (e) { try { src.stop(); } catch (x) { /* ignore */ } }
+  setTimeout(() => { try { g.disconnect(); } catch (e) { /* ignore */ } }, 200);
 }
+const stopMusic = pauseMusic;
 function setMusic(on) {
   musicOn = on;
   try { localStorage.setItem('bmamusic', on ? 'on' : 'off'); } catch (e) { /* ignore */ }
-  if (on) unlockAudio(); else { stopMusic(); audioIdleSoon(); }
+  if (on) unlockAudio(); else { pauseMusic(); audioIdleSoon(); }
 }
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    // leaving the game: suspend the audio so nothing keeps playing in the background
-    stopMusic();
-    if (actx && actx.state === 'running') actx.suspend().catch(() => {});
+    // leaving the game: fade the music out (no click), then suspend the audio
+    pauseMusic();
+    clearTimeout(audioIdleTimer);
+    setTimeout(() => { if (document.hidden && actx && actx.state === 'running') actx.suspend().catch(() => {}); }, 150);
     try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* ignore */ }
   }
-  else if (actx && !muted) audioIdleSoon();   // it wakes up again with the next sound
+  else if (actx && !muted) {
+    if (musicWanted()) { actx.resume().then(startMusic).catch(() => {}); }   // continue the song (on iPhone it may wait for a tap)
+    audioIdleSoon();
+  }
 });
 
 const jitter = (v, amt) => v * (1 + (Math.random() * 2 - 1) * amt);
@@ -1478,7 +1491,7 @@ const jitter = (v, amt) => v * (1 + (Math.random() * 2 - 1) * amt);
 let audioIdleTimer = 0;
 function audioIdleSoon() {
   clearTimeout(audioIdleTimer);
-  audioIdleTimer = setTimeout(() => { if (!musicSrc && actx && actx.state === 'running') actx.suspend().catch(() => {}); }, 1500);   // never while the music plays
+  audioIdleTimer = setTimeout(() => { if (!musicSrc && !musicWanted() && actx && actx.state === 'running') actx.suspend().catch(() => {}); }, 1500);   // never while the music plays or is about to
 }
 function play(fn) {
   if (muted) return;
@@ -5073,7 +5086,7 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 // Exposed for automated testing.
-window.__backman = { get music() { return { playing: !!musicSrc, ctx: actx && actx.state, dur: musicBuf && Math.round(musicBuf.duration), on: musicOn }; }, setMusic, toggleMute, get fx() { return fx; }, get skillCharges() { return skillCharges; }, useSkill, get player() { return player; }, get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
+window.__backman = { get music() { return { playing: !!musicSrc, ctx: actx && actx.state, dur: musicBuf && Math.round(musicBuf.duration), on: musicOn, at: musicBuf ? +(((musicSrc ? actx.currentTime - musicStartedAt : musicPos) % musicBuf.duration)).toFixed(1) : 0 }; }, setMusic, toggleMute, get fx() { return fx; }, get skillCharges() { return skillCharges; }, useSkill, get player() { return player; }, get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
