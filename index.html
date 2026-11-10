@@ -1929,12 +1929,12 @@ function drawPowers(now) {
 // Each look has a skill the player fires with the round button (one charge a level) and a power
 // that works on its own. Phase 1: ES, ZOGHA, FOX, Shadow, Ranger and Voyager. Off in live matches.
 const SKILLS = {
-  ES:      { icon: '⏳', name: 'Time stop' },
-  ZOGHA:   { icon: '🍬', name: 'Candy bait' },
-  FOX:     { icon: '🔄', name: 'Sly swap' },
-  Shadow:  { icon: '👻', name: 'Vanish' },
-  Ranger:  { icon: '🪤', name: 'Net trap' },
-  Voyager: { icon: '📍', name: 'Waypoint' },
+  ES:      { icon: '⏳', name: 'Time stop', img: 'assets/items/icebomb.webp' },
+  ZOGHA:   { icon: '🍬', name: 'Candy bait', img: 'assets/items/magnet.webp' },
+  FOX:     { icon: '🔄', name: 'Sly swap', img: 'assets/items/boots.webp' },
+  Shadow:  { icon: '👻', name: 'Vanish', img: 'assets/items/shield.webp' },
+  Ranger:  { icon: '🪤', name: 'Net trap', img: 'assets/items/basket.webp' },
+  Voyager: { icon: '📍', name: 'Waypoint', img: 'assets/items/lantern.webp', back: 'assets/items/chest.webp' },
 };
 let skillCharges = 0;
 let fx = { picked: new Set(), streak: 0, mult: 1, lastSeedAt: -9, stillT: 0, dashT: 0, vanishT: 0, guardT: 0, candy: null, trap: null, mark: null, hint: null, cautionAt: -9 };
