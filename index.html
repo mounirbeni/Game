@@ -1456,15 +1456,16 @@ async function startMusic() {
   musicSrc.start(0, at); musicStartedAt = a.currentTime - at;
 }
 // Stop, keeping the place in the song, with a very short fade so there is no click.
-function pauseMusic() {
+function pauseMusic(fade = 0.08) {
   if (!musicSrc) return;
   const a = actx, src = musicSrc, g = musicGain;
   musicPos = musicBuf ? (a.currentTime - musicStartedAt) % musicBuf.duration : 0;
   musicSrc = null; musicGain = null;
-  try { g.gain.cancelScheduledValues(a.currentTime); g.gain.setValueAtTime(g.gain.value, a.currentTime); g.gain.linearRampToValueAtTime(0.0001, a.currentTime + 0.08); src.stop(a.currentTime + 0.1); } catch (e) { try { src.stop(); } catch (x) { /* ignore */ } }
+  try { g.gain.cancelScheduledValues(a.currentTime); g.gain.setValueAtTime(g.gain.value, a.currentTime); g.gain.linearRampToValueAtTime(0.0001, a.currentTime + fade); src.stop(a.currentTime + fade + 0.02); } catch (e) { try { src.stop(); } catch (x) { /* ignore */ } }
   setTimeout(() => { try { g.disconnect(); } catch (e) { /* ignore */ } }, 200);
 }
 const stopMusic = pauseMusic;
+setTimeout(() => { if (musicWanted()) { try { const a = audio(); if (a) a.resume().then(() => a.state === 'running' && startMusic()).catch(() => {}); } catch (e) { /* ignore */ } } }, 300);
 function setMusic(on) {
   musicOn = on;
   try { localStorage.setItem('bmamusic', on ? 'on' : 'off'); } catch (e) { /* ignore */ }
@@ -1473,10 +1474,10 @@ function setMusic(on) {
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    // leaving the game: fade the music out (no click), then suspend the audio
-    pauseMusic();
+    // Leaving the game: only fade the music out. The audio is NOT suspended here: suspending it
+    // while iPhone is already putting the app to sleep is what made the little beep.
     clearTimeout(audioIdleTimer);
-    setTimeout(() => { if (document.hidden && actx && actx.state === 'running') actx.suspend().catch(() => {}); }, 150);
+    pauseMusic(0.03);
     try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* ignore */ }
   }
   else if (actx && !muted) {
