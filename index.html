@@ -777,8 +777,11 @@
     font-style: normal; color: #fff; background: radial-gradient(circle at 35% 30%, #6dff5a, #1f9a2a); border: 2px solid #fff; box-shadow: 0 2px 3px #0009; }
   .bag-tray { position: absolute; bottom: calc(100% + 6px); right: 6px; left: 88px; z-index: 6; display: flex; justify-content: flex-end; gap: 6px; padding: 0; pointer-events: none; }
   .bag-tray > * { pointer-events: auto; }
+  /* shop items: smaller and labelled, so they never look like the character's own skill */
+  .bag-tray::before { content: 'ITEMS'; position: absolute; right: 2px; top: -15px; font: 400 10px/1 'Lilita One', ui-rounded, system-ui, sans-serif; letter-spacing: .14em;
+    color: #cfe0ff; background: #0a1450cc; border: 1px solid #ffcf3a66; border-radius: 6px; padding: 2px 6px; pointer-events: none; }
   .bag-tray.hidden { display: none; }
-  .bag-item { position: relative; flex: none; width: min(58px, calc((100vw - 130px) / 5)); height: min(59px, calc((100vw - 130px) / 5 + 1px)); padding: 8px; border: 0; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; background: url(assets/frame-square.webp) center / 100% 100% no-repeat; filter: drop-shadow(0 4px 6px #000c); }
+  .bag-item { position: relative; flex: none; width: min(48px, calc((100vw - 130px) / 5)); height: min(49px, calc((100vw - 130px) / 5 + 1px)); opacity: .95; padding: 8px; border: 0; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; background: url(assets/frame-square.webp) center / 100% 100% no-repeat; filter: drop-shadow(0 4px 6px #000c); }
   .bag-item img { width: 100%; height: 100%; filter: drop-shadow(0 2px 2px #0009); }
   .bag-item i { position: absolute; right: -3px; bottom: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font: 400 12px/18px 'Lilita One', ui-rounded, system-ui, sans-serif;
     font-style: normal; color: #fff; background: #0a1450; border: 2px solid #ffcf3a; }
@@ -788,6 +791,9 @@
     -webkit-tap-highlight-color: transparent; background: radial-gradient(circle at 35% 30%, #4a6cff, #1a2a9a 70%); box-shadow: 0 0 0 3px #0a1450, 0 6px 12px #000c, 0 0 18px #ffcf3a66;
     display: flex; align-items: center; justify-content: center; font-size: 32px; line-height: 1; animation: skillGlow 1.6s ease-in-out infinite; }
   .skill-btn.hidden { display: none; }
+  .skill-btn canvas { position: absolute; left: -10px; top: -12px; width: 32px; height: 32px; border-radius: 50%; border: 2px solid #ffcf3a; background: radial-gradient(#2a5a9a, #12305a); }
+  .skill-btn b { position: absolute; left: 50%; top: -17px; transform: translateX(-50%); white-space: nowrap; font: 400 11px/1 'Lilita One', ui-rounded, system-ui, sans-serif; letter-spacing: .04em;
+    color: #ffd75a; text-shadow: 0 2px 0 #3a2208; pointer-events: none; }
   .skill-btn i { position: absolute; right: -4px; bottom: -4px; min-width: 22px; height: 22px; border-radius: 11px; font: 400 14px/20px 'Lilita One', ui-rounded, system-ui, sans-serif; font-style: normal;
     color: #fff; background: radial-gradient(circle at 35% 30%, #6dff5a, #1f9a2a); border: 2px solid #fff; }
   .skill-btn.spent { filter: grayscale(1) brightness(.6); animation: none; }
@@ -887,7 +893,7 @@
     <button class="icon-btn hud-bag hidden" id="bagBtn" aria-label="Power-ups"><img class="uiicon" src="assets/items/magnet.webp" alt="" draggable="false"><i id="bagCount">0</i></button>
     <div id="controls"><button class="icon-btn" id="pauseBtn" aria-label="Pause"></button></div>
     <div class="bag-tray hidden" id="bagTray"></div>
-    <button class="skill-btn hidden" id="skillBtn" aria-label="Skill"><span id="skillIcon"></span><i id="skillCount">1</i></button>
+    <button class="skill-btn hidden" id="skillBtn" aria-label="Skill"><canvas id="skillFace"></canvas><span id="skillIcon"></span><i id="skillCount">1</i><b id="skillName"></b></button>
     <span class="hud-credits" hidden><span id="credits">0</span></span>
   </div>
   <div id="wrap">
@@ -1918,11 +1924,11 @@ function drawPowers(now) {
 // Each look has a skill the player fires with the round button (one charge a level) and a power
 // that works on its own. Phase 1: ES, ZOGHA, FOX, Shadow, Ranger and Voyager. Off in live matches.
 const SKILLS = {
-  ES:      { icon: '⏸️', name: 'Time stop' },
+  ES:      { icon: '⏳', name: 'Time stop' },
   ZOGHA:   { icon: '🍬', name: 'Candy bait' },
   FOX:     { icon: '🔄', name: 'Sly swap' },
   Shadow:  { icon: '👻', name: 'Vanish' },
-  Ranger:  { icon: '🕸️', name: 'Net trap' },
+  Ranger:  { icon: '🪤', name: 'Net trap' },
   Voyager: { icon: '📍', name: 'Waypoint' },
 };
 let skillCharges = 0;
@@ -1943,6 +1949,8 @@ function updateSkillBtn() {
   b.classList.toggle('spent', skillCharges <= 0);
   b.classList.toggle('armed', !!fx.mark);
   $('skillIcon').textContent = fx.mark ? '↩️' : sk.icon;
+  $('skillName').textContent = sk.name;
+  const cv = $('skillFace'); if (cv.dataset.look !== String(skinIndex)) { cv.dataset.look = String(skinIndex); paintAvatar(cv, 32, 'look:' + skinIndex); }
   $('skillCount').textContent = skillCharges;
   b.setAttribute('aria-label', `${sk.name} (${skillCharges} left)`);
 }
