@@ -1882,10 +1882,19 @@ const HEART_PACKS = [
 ];
 let bag = loadJSON('bma.items', { magnet: 0, boots: 0, ice: 0, shield: 0, lantern: 0, hearts: 0 });
 const saveBag = () => saveJSON('bma.items', bag);
+// Items bought before they were removed are paid back in credits, once.
+function refundItems() {
+  if (devMode) return;
+  let back = 0;
+  for (const [k, it] of Object.entries(ITEMS)) if (bag[k] > 0 && bag[k] < 900) { back += bag[k] * it.price; bag[k] = 0; }
+  if (!back) return;
+  saveBag(); credits += back; saveMeta();
+  try { const pp = pos(player); popup(pp.x, pp.y, `+${back} credits`, '#ffd75a'); } catch (e) { /* not in a level */ }
+}
 let magnetT = 0, bootsT = 0, bubble = 0;
 const powersAllowed = () => !live && !duel;
 function useItem(k) {
-  if (!powersAllowed() || state !== 'play' || paused || !(bag[k] > 0)) return;
+  if (!SHOP_ITEMS_ON || !powersAllowed() || state !== 'play' || paused || !(bag[k] > 0)) return;
   if (!devMode) bag[k]--; saveBag();
   const pp = pos(player);
   if (k === 'magnet') { magnetT = 15; popup(pp.x, pp.y, 'MAGNET!', '#ff8a8a'); }
@@ -2107,8 +2116,11 @@ function drawSkillFx(now) {
 }
 
 // Powers sit in a bar over the maze while playing: one tap uses one (no backpack to open first).
+// Shop items were removed: each character only has its own skill. (The bar is kept switched off.)
+const SHOP_ITEMS_ON = false;
 function updateBag() {
   $('bagBtn').classList.add('hidden');
+  if (!SHOP_ITEMS_ON) { closeBag(); return; }
   const owned = Object.keys(ITEMS).filter(k => bag[k] > 0);
   if (!owned.length || !powersAllowed() || state !== 'play') { closeBag(); return; }
   openBag(owned);
@@ -3650,7 +3662,8 @@ function applyDev() {
   if (!devMode) return;
   if (credits !== DEV_CREDITS) { credits = DEV_CREDITS; try { localStorage.setItem('backman.credits', String(credits)); } catch (e) { /* ignore */ } }
   let changed = false;
-  for (const k of [...Object.keys(ITEMS), 'hearts']) if (bag[k] !== DEV_ITEMS) { bag[k] = DEV_ITEMS; changed = true; }
+  for (const k of ['hearts']) if (bag[k] !== DEV_ITEMS) { bag[k] = DEV_ITEMS; changed = true; }
+  for (const k of Object.keys(ITEMS)) if (bag[k]) { bag[k] = 0; changed = true; }
   if (changed) saveBag();
 }
 function setDevMode(on) {
@@ -4702,8 +4715,8 @@ function openSheet(which, fromRefresh = false) {
   } else if (which === 'shop') {
     // The shop: things to buy, in sections. Heroes are on sale; the other sections open as their items are added.
     title = 'Shop';
-    const tab = openSheet.shopTab || 'heroes';
-    const TABS = [['heroes', 'Heroes'], ['power', 'Powers'], ['hearts', 'Hearts']];
+    const tab = openSheet.shopTab === 'power' ? 'heroes' : (openSheet.shopTab || 'heroes');
+    const TABS = [['heroes', 'Heroes'], ['hearts', 'Hearts']];
     let h = `<div class="shop-wallet"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b>${inf(credits.toLocaleString())}</b><small>credits</small></div>` +
       `<div class="tabs shop-tabs">${TABS.map(([k, t]) => `<button data-stab="${k}" class="${tab === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
     if (tab === 'heroes') {
@@ -4983,6 +4996,7 @@ function frame(now) {
 // Title screen shows the maze in the background.
 loadMeta();
 applyDev();
+refundItems();
 { const saved = loadProgress(); level = saved.level; score = saved.score; }
 lives = 3;
 renderPicker();

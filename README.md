@@ -68,7 +68,7 @@ The service worker (`sw.js`) only runs when the game is served over http(s), not
 | Midnight | 450 | Magic shield: survives the first two beetle hits each level |
 | MBN | 600 | The King: beetles within 3 tiles slow down 25%; lanterns also freeze the beetles for 1.5 s; double level-clear credits; 2 credits per beetle |
 
-Skills use the round button (one charge a level). Powers and skills are switched off in live matches with friends.
+Skills use the round button (one charge a level) and belong to their character only. There are no shop items any more (items bought earlier were refunded in credits). Powers and skills are switched off in live matches with friends.
 
 ## The beetles
 
