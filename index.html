@@ -801,6 +801,44 @@
   .shop-hint { margin: 0 0 8px !important; text-align: center; font-size: 12px !important; color: #c9d4ff !important; }
   .shop-hint b { color: #ffd75a; }
   .pb-cost img[src*="heart"] { width: 18px; height: 18px; }
+  /* ===================== story intro ===================== */
+  #intro { position: fixed; inset: 0; z-index: 1100; overflow: hidden; background: #02040f; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+  #intro.hidden { display: none; }
+  #intro .sc { position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease; }
+  #intro .sc.on { opacity: 1; }
+  #intro .bg { position: absolute; inset: -6%; background: center/cover no-repeat; animation: introZoom 9s ease-out both; }
+  #intro .sc:not(.on) .bg, #intro .sc:not(.on) * { animation-play-state: paused; }
+  @keyframes introZoom { from { transform: scale(1); } to { transform: scale(1.12); } }
+  #intro .shade { position: absolute; inset: 0; background: linear-gradient(#0000 35%, #02040fee 78%); }
+  #intro .glow { position: absolute; width: 7vmin; aspect-ratio: 1; background: url(assets/seed.webp) center/contain no-repeat; filter: drop-shadow(0 0 2vmin #ffe39a); animation: introFloat 4s ease-in-out infinite alternate; }
+  @keyframes introFloat { from { transform: translateY(0) scale(.9); opacity: .6; } to { transform: translateY(-4vmin) scale(1.1); opacity: 1; } }
+  #intro .red { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, #ff2a2a33, #3a000099 80%); animation: introPulse 2.4s ease-in-out infinite alternate; }
+  @keyframes introPulse { from { opacity: .6; } to { opacity: 1; } }
+  #intro .bug { position: absolute; width: 16vmin; background: url(assets/ladybug.webp) center/contain no-repeat; aspect-ratio: 1; animation: introMarch 3.2s ease-out both; }
+  #intro .bug.queen { width: 34vmin; filter: drop-shadow(0 0 3vmin #ff3030); }
+  #intro .crown { position: absolute; left: 50%; top: -9vmin; width: 14vmin; transform: translateX(-50%); font-size: 12vmin; text-align: center; filter: drop-shadow(0 0 2vmin #ffd75a); }
+  @keyframes introMarch { from { transform: translateY(40vmin) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+  #intro .hero { position: absolute; left: 50%; top: 30%; width: 42vmin; aspect-ratio: 1; transform: translateX(-50%); background: url(assets/backman.webp) center/contain no-repeat; animation: introWake 2.6s ease-out both; }
+  @keyframes introWake { 0% { filter: brightness(.25) blur(2px); transform: translateX(-50%) translateY(3vmin) scale(.92); } 100% { filter: none; transform: translateX(-50%); } }
+  #intro .lamp { position: absolute; left: 63%; top: 47%; width: 16vmin; aspect-ratio: 1; background: url(assets/lantern.webp) center/contain no-repeat; filter: drop-shadow(0 0 5vmin #ffb02e); animation: introLamp 1.6s ease-in-out .8s infinite alternate both; }
+  @keyframes introLamp { from { filter: drop-shadow(0 0 1vmin #ffb02e) brightness(.7); } to { filter: drop-shadow(0 0 7vmin #ffb02e) brightness(1.2); } }
+  #intro .halo { position: absolute; left: 50%; top: 42%; width: 120vmin; aspect-ratio: 1; transform: translate(-50%, -50%); background: radial-gradient(circle, #ffb02e44, #0000 60%); animation: introPulse 1.6s ease-in-out infinite alternate; }
+  #intro .friends { position: absolute; left: 0; right: 0; top: 24%; display: flex; flex-wrap: wrap; justify-content: center; gap: 2vmin; padding: 0 6vmin; }
+  #intro .friends i { width: 24vmin; aspect-ratio: 1; background: center/contain no-repeat; animation: introMarch 1s ease-out both; filter: drop-shadow(0 1vmin 2vmin #000c); }
+  #intro .title { position: absolute; left: 0; right: 0; top: 22%; text-align: center; font-family: 'Lilita One', ui-rounded, system-ui, sans-serif; font-size: 13vmin; line-height: .95; color: #ffd75a;
+    text-shadow: 0 1vmin 0 #6a3b00, 0 0 6vmin #ffb02e88; animation: introMarch 1.4s ease-out both; }
+  #intro .story { position: relative; z-index: 2; width: min(92vw, 520px); min-height: 8.5em; margin-bottom: calc(env(safe-area-inset-bottom) + 92px); padding: 0 8px;
+    font-family: 'Lilita One', ui-rounded, system-ui, sans-serif; font-size: clamp(18px, 5.4vmin, 26px); line-height: 1.3; text-align: center; letter-spacing: .02em; text-shadow: 0 2px 0 #000, 0 0 12px #000; }
+  #intro .story b { color: #ffd75a; font-weight: 400; }
+  #intro .story em { color: #ff6b6b; font-style: normal; }
+  #intro .ctl { position: absolute; z-index: 3; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 24px); display: flex; justify-content: center; align-items: center; gap: 14px; }
+  #intro .dots { display: flex; gap: 7px; }
+  #intro .dots span { width: 8px; height: 8px; border-radius: 50%; background: #ffffff44; transition: background .3s, transform .3s; }
+  #intro .dots span.on { background: #ffd75a; transform: scale(1.3); }
+  #introSkip { position: absolute; z-index: 3; top: calc(env(safe-area-inset-top) + 14px); right: 14px; font: inherit; font-weight: 800; font-size: 14px; color: #fff; background: #ffffff1f; border: 1px solid #ffffff44; border-radius: 99px; padding: 7px 14px; }
+  #introGo { display: none; }
+  #intro.last #introGo { display: inline-block; }
+  #intro.last .dots { display: none; }
 </style>
 </head>
 <body>
@@ -858,6 +896,19 @@
     <button class="btn-green" id="tutNext">Next</button>
     <div class="fate-row"><button class="btn-blue" id="tutSkip">Skip</button></div>
   </div>
+</div>
+<div id="intro" class="hidden" aria-label="Story">
+  <div class="sc" data-s="0"><div class="bg" style="background-image:url(assets/home-bg.jpg);filter:blur(7px) brightness(.6) saturate(1.2)"></div><div class="shade"></div>
+    <i class="glow" style="left:18%;top:22%"></i><i class="glow" style="left:70%;top:16%;animation-delay:-1s"></i><i class="glow" style="left:44%;top:38%;animation-delay:-2s"></i><i class="glow" style="left:80%;top:44%;animation-delay:-3s"></i><i class="glow" style="left:10%;top:48%;animation-delay:-1.5s"></i></div>
+  <div class="sc" data-s="1"><div class="bg" style="background-image:url(assets/home-bg.jpg);filter:blur(7px) saturate(.4) brightness(.4) hue-rotate(-30deg)"></div><div class="red"></div><div class="shade"></div>
+    <i class="bug" style="left:6%;top:40%;animation-delay:.5s"></i><i class="bug" style="right:6%;top:40%;animation-delay:.7s"></i><i class="bug" style="left:24%;top:50%;animation-delay:.9s"></i><i class="bug" style="right:24%;top:50%;animation-delay:1.1s"></i>
+    <i class="bug queen" style="left:calc(50% - 17vmin);top:20%"><span class="crown">👑</span></i></div>
+  <div class="sc" data-s="2"><div class="bg" style="background-image:url(assets/home-bg.jpg);filter:blur(8px) brightness(.25)"></div><div class="halo"></div><div class="shade"></div><i class="hero"></i><i class="lamp"></i></div>
+  <div class="sc" data-s="3"><div class="bg" style="background-image:url(assets/home-bg.jpg);filter:blur(8px) brightness(.35) saturate(1.2)"></div><div class="shade"></div><div class="friends" id="introFriends"></div></div>
+  <div class="sc" data-s="4"><div class="bg" style="background-image:url(assets/home-bg.jpg)"></div><div class="shade"></div></div>
+  <button id="introSkip">Skip ›</button>
+  <div class="story" id="introText"></div>
+  <div class="ctl"><div class="dots" id="introDots"></div><button class="btn-green" id="introGo">Play</button></div>
 </div>
 <div id="gate" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gate-card">
@@ -4651,6 +4702,58 @@ const TUT = [
 ];
 let tutStep = 0, tutDone = null;
 const tutorialSeen = () => { try { return localStorage.getItem('bma.tutorial') === '1'; } catch (e) { return true; } };
+// ---------- Story intro ----------
+// Five short scenes on the very first visit (and from Settings > Story). Tap to go faster, Skip to leave.
+const INTRO = [
+  'Long ago, the <b>Glow Garden</b> shone every night with tiny golden seeds.',
+  'Then the <em>Red Queen</em> came with her ladybug army. She twisted the hedges into mazes… and stole the light.',
+  'Only one small hero was still awake: <b>Backman</b>, with an old lantern that every ladybug fears.',
+  'His friends are lost deep in the mazes. Each one has a gift of their own.',
+  'Eat every seed. Free every garden.<br>And beware… <em>the red laugh</em>.',
+];
+let introStep = 0, introTimer = null, introType = null, introDone = null;
+const introSeen = () => { try { return localStorage.getItem('bmaintro') === '1'; } catch (e) { return true; } };
+function showIntro(then) {
+  introDone = then || null; introStep = 0;
+  const fr = $('introFriends'); if (fr && !fr.children.length) fr.innerHTML = ['zogha', 'es', 'fox', 'shadow', 'ranger', 'voyager'].map((n, i) => `<i style="background-image:url(assets/skins/${n}.webp);animation-delay:${0.3 + i * 0.25}s"></i>`).join('');
+  $('introDots').innerHTML = INTRO.map(() => '<span></span>').join('');
+  $('intro').classList.remove('hidden');
+  introScene();
+}
+function introScene() {
+  clearTimeout(introTimer); clearInterval(introType);
+  const el = $('intro'), txt = $('introText'), html = INTRO[introStep];
+  el.querySelectorAll('.sc').forEach(sc => {
+    const on = +sc.dataset.s === introStep; sc.classList.toggle('on', on);
+    if (on) sc.querySelectorAll('*').forEach(x => { x.style.animation = 'none'; void x.offsetWidth; x.style.animation = ''; });   // replay its animations
+  });
+  el.querySelectorAll('#introDots span').forEach((d, i) => d.classList.toggle('on', i === introStep));
+  el.classList.toggle('last', introStep === INTRO.length - 1);
+  if (introStep === 1) setTimeout(() => sfx.die(), 900);   // the Red Queen laughs
+  // type the line out letter by letter (tags are written whole)
+  const parts = html.split(/(<[^>]+>)/); let pi = 0, ci = 0, out = '';
+  txt.innerHTML = '';
+  introType = setInterval(() => {
+    while (pi < parts.length && parts[pi].startsWith('<')) out += parts[pi++];
+    if (pi >= parts.length) { clearInterval(introType); introType = null; if (introStep < INTRO.length - 1) introTimer = setTimeout(introNext, 2600); return; }
+    out += parts[pi][ci++]; if (ci >= parts[pi].length) { pi++; ci = 0; }
+    txt.innerHTML = out;
+  }, 34);
+}
+function introNext() {
+  if (introType) { clearInterval(introType); introType = null; $('introText').innerHTML = INTRO[introStep]; if (introStep < INTRO.length - 1) introTimer = setTimeout(introNext, 2600); return; }   // first tap: finish the line
+  if (introStep < INTRO.length - 1) { introStep++; introScene(); } else closeIntro();
+}
+function closeIntro() {
+  clearTimeout(introTimer); clearInterval(introType); introType = null;
+  $('intro').classList.add('hidden');
+  try { localStorage.setItem('bmaintro', '1'); } catch (e) { /* ignore */ }
+  const f = introDone; introDone = null; if (f) f();
+}
+$('intro').addEventListener('click', e => { if (e.target.closest('#introSkip, #introGo')) return; introNext(); });
+$('introSkip').addEventListener('click', closeIntro);
+$('introGo').addEventListener('click', closeIntro);
+if (!introSeen()) showIntro();
 function showTutorial(then) {
   tutStep = 0; tutDone = then || null;
   renderTutorial();
@@ -4954,6 +5057,7 @@ function openSheet(which, fromRefresh = false) {
       <div class="set-row"><span>Notifications</span><button class="toggle ${pushOn() ? 'on' : ''}" id="pushToggle">${pushOn() ? 'On' : 'Off'}</button></div>
       <p id="pushMsg" style="font-size:12px">${pushHint()}</p>
       ${/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? '<div class="set-row"><span>Install</span></div><p>Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>' : ''}
+      <div class="set-row"><span>Story</span><button class="toggle on" id="showIntro">Play</button></div>
       <div class="set-row"><span>How to play</span><button class="toggle on" id="showTut">Show</button></div>
       <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins for credits. Mushrooms freeze every beetle for 3 seconds. Each level the garden grows and one more beetle joins in.</p>
       <div class="set-row"><span>Save code</span><button class="toggle on" id="copySave">Copy</button></div>
@@ -4973,6 +5077,7 @@ function openSheet(which, fromRefresh = false) {
       openSheet('settings'); if (r && $('pushMsg')) $('pushMsg').textContent = r;
     });
     $('showTut').addEventListener('click', () => { closeSheet(); showTutorial(); });
+    $('showIntro').addEventListener('click', () => { closeSheet(); showIntro(); });
     $('copySave').addEventListener('click', async e => {
       flushStats();
       const code = encodeSave(readSave());
