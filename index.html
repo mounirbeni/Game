@@ -1324,7 +1324,9 @@ function setupGates(n) {
 // Someone in a doorway (or stepping into one) keeps the gates where they are for a moment.
 const atEdge = e => [[e.tx, e.ty], [e.tx + e.dir.x, e.ty + e.dir.y]].some(([x, y]) => x <= 0 || x >= COLS - 1 || y <= 0 || y >= ROWS - 1);
 function updateGates(dt) {
+  const was = gateTimer;
   gateTimer -= dt;
+  [2, 1.4, 0.8, 0.3].forEach((th, i) => { if (was > th && gateTimer <= th && state === 'play') sfx.gateTick(i); });   // a rising tick before they move
   if (gateTimer > 0 || atEdge(player) || beetles.some(atEdge)) return;
   const pick = (list, cur) => { const far = list.filter(v => Math.abs(v - cur) > 2); return far.length ? far[Math.floor(Math.random() * far.length)] : cur; };
   TUNNEL_ROW = pick(gateRows, TUNNEL_ROW);
@@ -1537,37 +1539,35 @@ function munch(t) {
   noise(t + 0.022, 0.04, { f: jitter(1300, 0.2), q: 1.5, vol: 0.28 });
   thump(t, jitter(165, 0.1), 70, 0.055, 0.26);
 }
+// a soft tone: rounded attack and a long tail, so nothing clicks or hisses
+function tone(t0, f, f2, dur, vol, type = 'sine', att = 0.015) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f, t0); if (f2 && f2 !== f) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + att);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(master);
+  o.start(t0); o.stop(t0 + dur + 0.03);
+}
+let seedFlip = false;
 const sfx = {
-  seed() { play(munch); },                                   // crunchy bite
-  danger() { play(t => { thump(t, 95, 55, 0.13, 0.32); thump(t + 0.17, 85, 50, 0.12, 0.24); }); },   // heartbeat: a ladybug is close
-  freeze() { play(t => {                                     // icy crackle
-    noise(t, 0.5, { type: 'highpass', f: 5000, f2: 9000, vol: 0.12 });
-    [0, 0.06, 0.12].forEach((d, i) => thump(t + d, 1500 + i * 400, 2400 + i * 500, 0.12, 0.07));
+  seed() { play(t => { seedFlip = !seedFlip; tone(t, seedFlip ? 620 : 740, seedFlip ? 780 : 900, 0.09, 0.07, 'triangle', 0.008); }); },   // soft pip, alternating
+  danger() { play(t => { tone(t, 70, 52, 0.22, 0.34, 'sine', 0.02); tone(t + 0.2, 64, 48, 0.2, 0.24, 'sine', 0.02); }); },   // heartbeat: a ladybug is close
+  gateTick(i) { play(t => { tone(t, 440 * Math.pow(1.26, i), null, 0.22, 0.06, 'sine', 0.01); tone(t, 880 * Math.pow(1.26, i), null, 0.12, 0.02, 'sine', 0.01); }); },   // the gates are about to move
+  portal() { play(t => {                                     // the gates move: soft swell and a chime
+    noise(t, 0.5, { type: 'lowpass', f: 300, f2: 900, q: 0.5, vol: 0.06 });
+    [523, 659, 784].forEach((f, i) => tone(t + i * 0.07, f, null, 0.55, 0.06, 'sine', 0.02));
   }); },
-  lantern() { play(t => {                                    // lantern flares up
-    thump(t, 110, 55, 0.12, 0.3);
-    noise(t, 0.4, { f: 500, f2: 5500, q: 0.8, vol: 0.16 });
-  }); },
-  eat() { play(t => {                                        // crunching a beetle
-    [0, 0.055, 0.11].forEach((d, i) => noise(t + d, 0.07, { type: 'lowpass', f: 2800 - i * 600, q: 0.7, vol: 0.32 }));
-    thump(t, 230, 50, 0.2, 0.38);
-  }); },
-  bonus() { play(t => { munch(t); munch(t + 0.09); noise(t + 0.18, 0.12, { type: 'highpass', f: 5000, vol: 0.08 }); }); },
-  die() { play(t => {                                        // squashed: falling poof
-    noise(t, 0.75, { type: 'lowpass', f: 4000, f2: 140, q: 0.6, vol: 0.3 });
-    thump(t, 300, 40, 0.65, 0.34);
-  }); },
-  start() { play(t => noise(t, 0.45, { f: 300, f2: 2400, q: 0.7, vol: 0.5 })); },   // soft whoosh
-  portal() { play(t => { noise(t, 0.35, { f: 400, f2: 2400, q: 1.2, vol: 0.3 }); [0, 0.06, 0.12].forEach((d, i) => thump(t + d, 900 + i * 300, 1600 + i * 400, 0.05, 0.08)); }); },   // the gates move: stone sliding plus chimes
-  clear() { play(t => [0, 0.09, 0.18].forEach((d, i) => {   // three rising pops
-    thump(t + d, 420 + i * 160, 820 + i * 220, 0.08, 0.16);
-    noise(t + d, 0.03, { type: 'highpass', f: 3000, vol: 0.07 });
-  })); },
-  life() { play(t => [0, 0.08].forEach(d => thump(t + d, 650, 1150, 0.07, 0.15))); },
-  coin() { play(t => {                                       // metallic coin clink
-    noise(t, 0.03, { type: 'highpass', f: 6000, vol: 0.12 });
-    thump(t, 1975, 1975, 0.09, 0.09); thump(t + 0.07, 2637, 2637, 0.22, 0.08);
-  }); },
+  freeze() { play(t => [1047, 1319, 1568, 2093].forEach((f, i) => tone(t + i * 0.05, f, null, 0.5, 0.045, 'sine', 0.01))); },   // icy sparkle
+  lantern() { play(t => { tone(t, 220, 440, 0.45, 0.14, 'triangle', 0.04); tone(t + 0.05, 330, 660, 0.4, 0.06, 'sine', 0.04); }); },   // warm rising swell
+  eat() { play(t => [392, 523, 659].forEach((f, i) => tone(t + i * 0.06, f, f * 1.05, 0.18, 0.1, 'triangle', 0.008))); },   // happy bloop for a beetle
+  bonus() { play(t => { tone(t, 784, null, 0.18, 0.08, 'sine', 0.008); tone(t + 0.08, 1047, null, 0.28, 0.08, 'sine', 0.008); }); },
+  die() { play(t => { tone(t, 440, 110, 0.9, 0.16, 'triangle', 0.02); tone(t, 220, 60, 0.9, 0.1, 'sine', 0.02); }); },   // soft falling glide
+  start() { play(t => [392, 523, 784].forEach((f, i) => tone(t + i * 0.1, f, null, 0.4, 0.08, 'sine', 0.02))); },   // gentle rising chime
+  clear() { play(t => [523, 659, 784, 1047].forEach((f, i) => tone(t + i * 0.09, f, null, 0.5, 0.09, 'sine', 0.01))); },
+  life() { play(t => [0, 0.09].forEach((d, i) => tone(t + d, 660 + i * 220, null, 0.25, 0.09, 'sine', 0.01))); },
+  coin() { play(t => { tone(t, 1319, null, 0.12, 0.06, 'sine', 0.005); tone(t + 0.07, 1760, null, 0.3, 0.06, 'sine', 0.005); }); },   // soft coin chime
 };
 
 // ---------- Game state ----------
