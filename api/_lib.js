@@ -128,6 +128,8 @@ export async function saveCloud({ name, token, save }) {
   if (!acc) return AUTH_FAIL;
   const clean = cleanSave(save);
   if (!clean) return { status: 400, body: { error: 'invalid', message: 'That save does not look right.' } };
+  const reset = await readReset(acc.name);
+  if (reset && clean['bma.resetSeen'] !== reset.id) Object.assign(clean, reset.set, { 'bma.resetSeen': reset.id });   // a phone that hasn't seen the reset can't push the old progress back
   const t = Date.now();
   await (await blob()).write(`saves/${acc.name}.json`, JSON.stringify({ t, save: clean }));
   return { status: 200, body: { saved: t } };
@@ -137,7 +139,12 @@ export async function loadCloud({ name, token }) {
   if (!acc) return AUTH_FAIL;
   const text = await (await blob()).read(`saves/${acc.name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? rec.save : null } };
+  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? rec.save : null, reset: await readReset(acc.name) } };
+}
+// A progress correction set by the developer (reset/<NAME>.json = { id, set: { 'backman.level': '23', ... } }).
+// Phones apply it once, replacing those values even when theirs are higher.
+async function readReset(name) {
+  try { const r = JSON.parse(await (await blob()).read(`reset/${name}.json`) || 'null'); return r && typeof r.id === 'string' && r.set && typeof r.set === 'object' ? r : null; } catch (e) { return null; }
 }
 // Log in on a new device with name + password: hands out a new key for that device.
 // At most 10 wrong passwords per name every 15 minutes, so nobody can try password after password.
@@ -157,7 +164,7 @@ export async function login({ name: rawName, password }) {
   await (await blob()).write(`keys/${name}/${hash(token)}.json`, JSON.stringify({ t: Date.now() }));
   const text = await (await blob()).read(`saves/${name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name, token, hasPassword: true, dev: DEV_NAMES.includes(name), t: rec ? rec.t : 0, save: rec ? rec.save : null } };
+  return { status: 200, body: { name, token, hasPassword: true, dev: DEV_NAMES.includes(name), t: rec ? rec.t : 0, save: rec ? rec.save : null, reset: await readReset(name) } };
 }
 // ---------- Gifts ----------
 // Credits handed out to players. Each gift goes to every account that existed when it was made

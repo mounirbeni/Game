@@ -3716,9 +3716,14 @@ function cloudPush(closing) {
   api('/api/account', JSON.parse(body)).then(() => { cloudLast = text; cloudState = 'saved'; }).catch(() => { cloudState = 'offline'; });
 }
 // Merge a save from the server into this device. Returns true when it brought more progress.
-function mergeCloud(save) {
-  if (!save) return false;
+function mergeCloud(save, reset) {
+  if (!save && !reset) return false;
   const cur = readSave(), merged = mergeSave(cur, save);
+  if (reset && reset.set && merged['bma.resetSeen'] !== reset.id) {   // a correction from the developer: replace, even downwards
+    for (const [k, v] of Object.entries(reset.set)) if (isSaveKey(k) && typeof v === 'string') merged[k] = v;
+    merged['bma.resetSeen'] = reset.id;
+    try { sessionStorage.removeItem('bma.restored'); } catch (e) { /* ignore */ }   // make sure the page restarts with it
+  }
   const gained = ['backman.level', 'backman.cleared', 'backman.credits', 'backman.best', 'backman.owned', 'bma.stats']
     .some(k => merged[k] !== cur[k]);
   writeSave(merged); backupNow();
@@ -3740,7 +3745,7 @@ async function cloudPull() {
     const r = await api('/api/account', { action: 'load', name: account.name, token: account.token });
     if (account.hasPassword !== r.hasPassword || !!account.dev !== !!r.dev) { account.hasPassword = r.hasPassword; account.dev = !!r.dev; saveJSON('bma.account', account); }
     cloudState = 'saved';
-    const gained = mergeCloud(r.save);
+    const gained = mergeCloud(r.save, r.reset);
     setDevMode(!!r.dev);
     return gained;
   } catch (e) { cloudState = 'offline'; return false; }
@@ -3763,7 +3768,7 @@ async function loginAccount(raw, password) {
   flushStats();
   account = { name: res.name, token: res.token, hasPassword: true, dev: !!res.dev };
   saveJSON('bma.account', account);
-  mergeCloud(res.save);
+  mergeCloud(res.save, res.reset);
   setDevMode(!!res.dev);
   profile = loadJSON('bma.profile', profile); profile.name = res.name; saveJSON('bma.profile', profile);
   backupNow();
