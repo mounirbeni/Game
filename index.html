@@ -1423,12 +1423,49 @@ function unlockAudio() {
   const a = audio(); if (!a) return;
   if (a.state !== 'running') a.resume().catch(() => {});
   try { const s = a.createBufferSource(); s.buffer = a.createBuffer(1, 1, 22050); s.connect(a.destination); s.start(0); } catch (e) { /* ignore */ }
+  startMusic();
   audioIdleSoon();
+}
+// ---------- Music ----------
+// The game's official theme, "Crowns and Coins", looping softly under the sound effects. It plays
+// through Web Audio (not an <audio> tag) so iOS doesn't turn the game into a media player, starts
+// with the first tap, stops when the game is hidden, and has its own switch in Settings.
+const MUSIC_URL = 'assets/music/crowns-and-coins.mp3', MUSIC_VOL = 0.3;
+let musicOn = (() => { try { return localStorage.getItem('bmamusic') !== 'off'; } catch (e) { return true; } })();
+let musicBuf = null, musicSrc = null, musicGain = null, musicLoading = null;
+function loadMusic() {
+  if (musicBuf) return Promise.resolve(musicBuf);
+  if (!musicLoading) musicLoading = fetch(MUSIC_URL).then(r => r.arrayBuffer())
+    .then(ab => new Promise((res, rej) => audio().decodeAudioData(ab, res, rej)))
+    .then(b => (musicBuf = b)).catch(() => { musicLoading = null; return null; });
+  return musicLoading;
+}
+async function startMusic() {
+  if (muted || !musicOn || musicSrc || document.hidden) return;
+  const a = audio(); if (!a) return;
+  const buf = await loadMusic();
+  if (!buf || muted || !musicOn || musicSrc || document.hidden) return;
+  if (a.state !== 'running') { try { await a.resume(); } catch (e) { return; } }
+  musicGain = a.createGain(); musicGain.gain.setValueAtTime(0, a.currentTime); musicGain.gain.linearRampToValueAtTime(MUSIC_VOL, a.currentTime + 1.5);
+  musicGain.connect(a.destination);
+  musicSrc = a.createBufferSource(); musicSrc.buffer = buf; musicSrc.loop = true; musicSrc.connect(musicGain); musicSrc.start(0);
+}
+function stopMusic() {
+  if (!musicSrc) return;
+  try { musicSrc.stop(); } catch (e) { /* ignore */ }
+  try { musicGain.disconnect(); } catch (e) { /* ignore */ }
+  musicSrc = null; musicGain = null;
+}
+function setMusic(on) {
+  musicOn = on;
+  try { localStorage.setItem('bmamusic', on ? 'on' : 'off'); } catch (e) { /* ignore */ }
+  if (on) unlockAudio(); else { stopMusic(); audioIdleSoon(); }
 }
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     // leaving the game: suspend the audio so nothing keeps playing in the background
+    stopMusic();
     if (actx && actx.state === 'running') actx.suspend().catch(() => {});
     try { if (navigator.mediaSession) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } } catch (e) { /* ignore */ }
   }
@@ -1441,7 +1478,7 @@ const jitter = (v, amt) => v * (1 + (Math.random() * 2 - 1) * amt);
 let audioIdleTimer = 0;
 function audioIdleSoon() {
   clearTimeout(audioIdleTimer);
-  audioIdleTimer = setTimeout(() => { if (actx && actx.state === 'running') actx.suspend().catch(() => {}); }, 1500);
+  audioIdleTimer = setTimeout(() => { if (!musicSrc && actx && actx.state === 'running') actx.suspend().catch(() => {}); }, 1500);   // never while the music plays
 }
 function play(fn) {
   if (muted) return;
@@ -3404,7 +3441,7 @@ function toggleMute() {
   muted = !muted;
   try { localStorage.setItem('backman.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
   fillPauseCard();
-  if (muted) { if (actx) actx.suspend().catch(() => {}); } else unlockAudio();
+  if (muted) { stopMusic(); if (actx) actx.suspend().catch(() => {}); } else unlockAudio();
 }
 $('startBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
 { const saved = loadProgress(); if (saved.level > 1) $('startBtn').textContent = `Continue: level ${saved.level}`; }
@@ -4859,6 +4896,7 @@ function openSheet(which, fromRefresh = false) {
     title = 'Settings';
     body.innerHTML = `<div class="set-row"><span>Profile</span><button class="toggle on" id="openProfile">Edit</button></div>
       <div class="set-row"><span>Sound</span><button class="toggle ${muted ? '' : 'on'}" id="soundToggle">${muted ? 'Off' : 'On'}</button></div>
+      <div class="set-row"><span>Music</span><button class="toggle ${musicOn ? 'on' : ''}" id="musicToggle">${musicOn ? 'On' : 'Off'}</button></div>
       <div class="set-row"><span>Notifications</span><button class="toggle ${pushOn() ? 'on' : ''}" id="pushToggle">${pushOn() ? 'On' : 'Off'}</button></div>
       <p id="pushMsg" style="font-size:12px">${pushHint()}</p>
       ${/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? '<div class="set-row"><span>Install</span></div><p>Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>' : ''}
@@ -4874,6 +4912,7 @@ function openSheet(which, fromRefresh = false) {
       <p style="font-size:12px">Bug Maze Adventure · ${account.token ? 'progress is saved on this device and online.' : 'progress is saved on this device.'}</p>`;
     $('openProfile').addEventListener('click', () => openSheet('profile'));
     $('soundToggle').addEventListener('click', () => { toggleMute(); openSheet('settings'); });
+    $('musicToggle').addEventListener('click', () => { setMusic(!musicOn); openSheet('settings'); });
     $('pushToggle').addEventListener('click', async () => {
       const msg = $('pushMsg'); $('pushToggle').disabled = true;
       const r = pushOn() ? await pushDisable() : await pushEnable();
@@ -5034,7 +5073,7 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 // Exposed for automated testing.
-window.__backman = { get fx() { return fx; }, get skillCharges() { return skillCharges; }, useSkill, get player() { return player; }, get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
+window.__backman = { get music() { return { playing: !!musicSrc, ctx: actx && actx.state, dur: musicBuf && Math.round(musicBuf.duration), on: musicOn }; }, setMusic, toggleMute, get fx() { return fx; }, get skillCharges() { return skillCharges; }, useSkill, get player() { return player; }, get state() { return state; }, get score() { return score; }, get seedsLeft() { return seedsLeft; },
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
