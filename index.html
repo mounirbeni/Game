@@ -42,7 +42,7 @@
   #lives .life img { width: 24px; height: 24px; display: block; filter: drop-shadow(0 2px 1px #0008); }
   /* bottom bar: lives | score and level | pause, each on its stone-and-gold frame at its true proportions.
      One height is shared so the three frames always fit the screen width side by side. */
-  #hud { --hh: min(54px, calc((100vw - 48px) / 8.9)); position: relative; gap: 8px; justify-content: center !important; margin: 0 auto; }
+  #hud { --hh: min(48px, calc((100vw - 56px) / 9.9)); position: relative; gap: 8px; justify-content: center !important; margin: 0 auto; }
   .hud-pill, #hud .icon-btn { height: var(--hh); padding: 0; border: 0; border-radius: 0; box-shadow: none; display: flex; align-items: center; justify-content: center;
     background: center / 100% 100% no-repeat; filter: drop-shadow(0 4px 5px #0009); }
   .hud-lives { flex: none; width: calc(var(--hh) * 2.507); min-width: 0; background-image: url(assets/frame-mid.webp); }
@@ -786,21 +786,17 @@
   .bag-item i { position: absolute; right: -3px; bottom: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font: 400 12px/18px 'Lilita One', ui-rounded, system-ui, sans-serif;
     font-style: normal; color: #fff; background: #0a1450; border: 2px solid #ffcf3a; }
   .bag-item:active { transform: scale(.92); }
-  /* the character's skill: a big round button on the left, away from the powers */
-  .skill-btn { position: absolute; bottom: calc(100% + 6px); left: 6px; z-index: 6; width: 70px; height: 70px; border-radius: 50%; border: 3px solid #ffcf3a; cursor: pointer; touch-action: none;
-    -webkit-tap-highlight-color: transparent; background: radial-gradient(circle at 35% 30%, #4a6cff, #1a2a9a 70%); box-shadow: 0 0 0 3px #0a1450, 0 6px 12px #000c, 0 0 18px #ffcf3a66;
-    display: flex; align-items: center; justify-content: center; font-size: 32px; line-height: 1; animation: skillGlow 1.6s ease-in-out infinite; }
-  .skill-btn.hidden { display: none; }
-  .skill-btn canvas { position: absolute; left: -10px; top: -12px; width: 32px; height: 32px; border-radius: 50%; border: 2px solid #ffcf3a; background: radial-gradient(#2a5a9a, #12305a); }
-  .skill-btn b { position: absolute; left: 50%; top: -17px; transform: translateX(-50%); white-space: nowrap; font: 400 11px/1 'Lilita One', ui-rounded, system-ui, sans-serif; letter-spacing: .04em;
-    color: #ffd75a; text-shadow: 0 2px 0 #3a2208; pointer-events: none; }
-  .skill-btn i { position: absolute; right: -4px; bottom: -4px; min-width: 22px; height: 22px; border-radius: 11px; font: 400 14px/20px 'Lilita One', ui-rounded, system-ui, sans-serif; font-style: normal;
+  /* the character's skill: a square button in the bottom row, next to pause */
+  #hud .hud-skill { position: relative; }
+  #hud .hud-skill.hidden { display: none; }
+  #hud .hud-skill img, #hud .hud-skill span { width: 62%; height: 62%; display: flex; align-items: center; justify-content: center; font-size: calc(var(--hh) * .5); line-height: 1; filter: drop-shadow(0 2px 2px #0009); object-fit: contain; }
+  #hud .hud-skill img.hidden, #hud .hud-skill span.hidden { display: none; }
+  #hud .hud-skill i { position: absolute; right: -4px; top: -4px; min-width: 17px; height: 17px; padding: 0 3px; border-radius: 9px; font: 400 11px/15px 'Lilita One', ui-rounded, system-ui, sans-serif; font-style: normal;
     color: #fff; background: radial-gradient(circle at 35% 30%, #6dff5a, #1f9a2a); border: 2px solid #fff; }
-  .skill-btn.spent { filter: grayscale(1) brightness(.6); animation: none; }
-  .skill-btn.spent i { background: #555; }
-  .skill-btn.armed { background: radial-gradient(circle at 35% 30%, #4fe0ff, #0a6a8a 70%); }
-  .skill-btn:active { transform: scale(.92); }
-  @keyframes skillGlow { 0%, 100% { box-shadow: 0 0 0 3px #0a1450, 0 6px 12px #000c, 0 0 10px #ffcf3a44; } 50% { box-shadow: 0 0 0 3px #0a1450, 0 6px 12px #000c, 0 0 22px #ffcf3aaa; } }
+  #hud .hud-skill:not(.spent) { animation: skillGlow 1.8s ease-in-out infinite; }
+  #hud .hud-skill.spent { filter: grayscale(1) brightness(.6) drop-shadow(0 4px 5px #0009); }
+  #hud .hud-skill.spent i { background: #555; }
+  @keyframes skillGlow { 0%, 100% { filter: drop-shadow(0 4px 5px #0009) drop-shadow(0 0 2px #ffcf3a66); } 50% { filter: drop-shadow(0 4px 5px #0009) drop-shadow(0 0 8px #ffcf3a); } }
   .si-img { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 3px 3px #0009); }
   .shop-hint { margin: 0 0 8px !important; text-align: center; font-size: 12px !important; color: #c9d4ff !important; }
   .shop-hint b { color: #ffd75a; }
@@ -891,9 +887,9 @@
     <div class="hud-pill hud-lives" aria-label="Lives"><div id="lives"></div></div>
     <div class="hud-pill hud-score"><span id="score">0</span><small><span id="levelLbl">Level</span> <span id="level">1</span></small></div>
     <button class="icon-btn hud-bag hidden" id="bagBtn" aria-label="Power-ups"><img class="uiicon" src="assets/items/magnet.webp" alt="" draggable="false"><i id="bagCount">0</i></button>
+    <button class="icon-btn hud-skill hidden" id="skillBtn" aria-label="Skill"><img id="skillImg" class="hidden" alt="" draggable="false"><span id="skillIcon"></span><i id="skillCount">1</i></button>
     <div id="controls"><button class="icon-btn" id="pauseBtn" aria-label="Pause"></button></div>
     <div class="bag-tray hidden" id="bagTray"></div>
-    <button class="skill-btn hidden" id="skillBtn" aria-label="Skill"><canvas id="skillFace"></canvas><span id="skillIcon"></span><i id="skillCount">1</i><b id="skillName"></b></button>
     <span class="hud-credits" hidden><span id="credits">0</span></span>
   </div>
   <div id="wrap">
@@ -1957,9 +1953,10 @@ function updateSkillBtn() {
   if (!show) return;
   b.classList.toggle('spent', skillCharges <= 0);
   b.classList.toggle('armed', !!fx.mark);
+  const img = $('skillImg'), src = fx.mark ? (sk.back || '') : (sk.img || '');
+  img.classList.toggle('hidden', !src); $('skillIcon').classList.toggle('hidden', !!src);
+  if (src && img.getAttribute('src') !== src) img.src = src;
   $('skillIcon').textContent = fx.mark ? '↩️' : sk.icon;
-  $('skillName').textContent = sk.name;
-  const cv = $('skillFace'); if (cv.dataset.look !== String(skinIndex)) { cv.dataset.look = String(skinIndex); paintAvatar(cv, 32, 'look:' + skinIndex); }
   $('skillCount').textContent = skillCharges;
   b.setAttribute('aria-label', `${sk.name} (${skillCharges} left)`);
 }
