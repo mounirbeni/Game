@@ -62,7 +62,8 @@
     pointer-events: none; background: #08142acc; border: 2px solid #ffcf3a; box-shadow: 0 3px 8px #0009; transition: opacity .3s; }
   #perkChip.hidden { display: none; }
   /* the player asked for a clear view while playing: no cards over the maze */
-  #perkChip, #duelChip { display: none !important; }
+  #duelChip { display: none !important; }
+  #perkChip:not(.flash) { display: none !important; }   /* only shown for a moment: level start, and when the power works */
   #perkFace { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(#2a5a9a, #12305a); }
   #perkChip .pk-text { display: flex; flex-direction: column; line-height: 1.05; }
   #perkChip b { font-size: 12px; color: #ffd75a; font-weight: 900; }
@@ -774,10 +775,9 @@
   #hud .hud-bag img { width: 58%; height: 58%; filter: drop-shadow(0 2px 2px #0009); }
   #hud .hud-bag i { position: absolute; right: -3px; top: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font: 400 12px/18px 'Lilita One', ui-rounded, system-ui, sans-serif;
     font-style: normal; color: #fff; background: radial-gradient(circle at 35% 30%, #6dff5a, #1f9a2a); border: 2px solid #fff; box-shadow: 0 2px 3px #0009; }
-  .bag-tray { position: absolute; bottom: calc(100% + 8px); right: 4px; z-index: 6; display: flex; gap: 6px; padding: 8px; border-radius: 18px;
-    background: linear-gradient(#18307e, #071040); border: 2px solid #ffcf3a; box-shadow: 0 8px 18px #000c; animation: cardPop .25s cubic-bezier(.2, 1.5, .4, 1) both; }
+  .bag-tray { position: absolute; bottom: calc(100% + 6px); right: 6px; z-index: 6; display: flex; gap: 8px; padding: 0; }
   .bag-tray.hidden { display: none; }
-  .bag-item { position: relative; width: 52px; height: 53px; padding: 7px; border: 0; cursor: pointer; background: url(assets/frame-square.webp) center / 100% 100% no-repeat; }
+  .bag-item { position: relative; width: 58px; height: 59px; padding: 8px; border: 0; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; background: url(assets/frame-square.webp) center / 100% 100% no-repeat; filter: drop-shadow(0 4px 6px #000c); }
   .bag-item img { width: 100%; height: 100%; filter: drop-shadow(0 2px 2px #0009); }
   .bag-item i { position: absolute; right: -3px; bottom: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font: 400 12px/18px 'Lilita One', ui-rounded, system-ui, sans-serif;
     font-style: normal; color: #fff; background: #0a1450; border: 2px solid #ffcf3a; }
@@ -1574,7 +1574,7 @@ function resetActors() {
     i, ...d,
     tx: d.start.x, ty: d.start.y, dir: i === 0 ? DIRS.left : DIRS.up, progress: 0,
     mode: i === 0 ? 'active' : 'den',
-    releaseAt: d.release * Math.max(0.5, 1 - (level - 1) * 0.08) * (isHell(level) ? 0.2 : isChallenge(level) ? 0.5 : 1),
+    releaseAt: i * 10,   // one beetle leaves the den every 10 seconds
     frightened: false, bob: Math.random() * 6,
   }));
   frightTimer = 0; frightChain = 0;
@@ -1703,7 +1703,7 @@ function nextLevel() {
   pulsePerk();
 }
 
-function setState(s, t = 0) { state = s; stateTimer = t; try { updateBag(); if (s !== 'play') closeBag(); } catch (e) { /* not ready yet */ } }
+function setState(s, t = 0) { state = s; stateTimer = t; try { updateBag(); if (s !== 'play') closeBag(); if (s === 'ready' && levelIntro) flashPerk(3200); } catch (e) { /* not ready yet */ } }
 
 // ---------- Grid helpers ----------
 function tileAt(x, y) {
@@ -1872,7 +1872,7 @@ function useItem(k) {
   else if (k === 'shield') { bubble = 1; popup(pp.x, pp.y, 'BUBBLE!', '#9fd8ff'); }
   else if (k === 'lantern') { startFright(); sfx.lantern(); burst(pp.x, pp.y, '#ffb02e', 18, 4.5, 0.6, 0.1); }
   if (k !== 'ice' && k !== 'lantern') sfx.bonus();
-  closeBag(); updateBag();
+  updateBag();
 }
 function updatePowers(dt) {
   if (bootsT > 0) bootsT = Math.max(0, bootsT - dt);
@@ -1897,16 +1897,21 @@ function drawPowers(now) {
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, T * 0.85, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
 }
+// Powers sit in a bar over the maze while playing: one tap uses one (no backpack to open first).
 function updateBag() {
-  const n = Object.keys(ITEMS).reduce((a, k) => a + (bag[k] || 0), 0), b = $('bagBtn');
-  b.classList.toggle('hidden', !n || !powersAllowed() || state === 'title');
-  $('bagCount').textContent = inf(n);
-  const first = Object.keys(ITEMS).find(k => bag[k] > 0); if (first) b.querySelector('img').src = `assets/items/${ITEMS[first].img}.webp`;
+  $('bagBtn').classList.add('hidden');
+  const owned = Object.keys(ITEMS).filter(k => bag[k] > 0);
+  if (!owned.length || !powersAllowed() || state !== 'play') { closeBag(); return; }
+  openBag(owned);
 }
-function openBag() {
-  const t = $('bagTray');
-  t.innerHTML = Object.keys(ITEMS).filter(k => bag[k] > 0).map(k => `<button class="bag-item" data-use="${k}" aria-label="${ITEMS[k].name}"><img class="uiicon" src="assets/items/${ITEMS[k].img}.webp" alt="" draggable="false"><i>${inf(bag[k])}</i></button>`).join('');
-  t.querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); useItem(b.dataset.use); }));
+function openBag(owned) {
+  const t = $('bagTray'), key = owned.map(k => k + ':' + bag[k]).join(',') + devMode;
+  if (t.dataset.key !== key) {
+    t.dataset.key = key;
+    t.innerHTML = owned.map(k => `<button class="bag-item" data-use="${k}" aria-label="Use ${ITEMS[k].name}"><img class="uiicon" src="assets/items/${ITEMS[k].img}.webp" alt="" draggable="false"><i>${inf(bag[k])}</i></button>`).join('');
+    // pointerdown, not click: it fires the moment the finger touches, which matters with a beetle close by
+    t.querySelectorAll('[data-use]').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); useItem(b.dataset.use); }));
+  }
   t.classList.remove('hidden');
 }
 function closeBag() { $('bagTray').classList.add('hidden'); }
@@ -2076,7 +2081,7 @@ function checkCollisions() {
     if (Math.abs(pp.x - bp.x) + Math.abs(pp.y - bp.y) < 0.5) {
       if (b.frightened) {
         b.frightened = false; b.mode = 'eaten';
-        const pts = 200 * 2 ** Math.min(frightChain, 3) * (hasPerk('Seeker') ? 2 : 1);
+        const pts = 200 * 2 ** Math.min(frightChain, 3) * (hasPerk('Seeker') ? 2 : 1); if (hasPerk('Seeker')) pulsePerk();
         frightChain++;
         addScore(pts); popup(bp.x, bp.y, String(pts), '#9fd8ff'); sfx.eat(); track('beetles'); burst(bp.x, bp.y, '#ff3b3b', 16, 5, 0.55, 0.1); earnCredit(hasPerk('MBN') ? 2 : 1, bp.x, bp.y);
         if (b.progress > 0) { /* keep moving; will route home at next center */ }
@@ -3071,8 +3076,15 @@ function updatePerkChip() {
   const cv = $('perkFace');
   if (cv.dataset.look !== name) { cv.dataset.look = name; paintAvatar(cv, 30, 'look:' + skinIndex); }
 }
+let perkFlashTimer = 0;
+function flashPerk(ms) {
+  const chip = $('perkChip'); if (!chip) return;
+  updatePerkChip(); chip.classList.add('flash');
+  clearTimeout(perkFlashTimer); perkFlashTimer = setTimeout(() => chip.classList.remove('flash'), ms);
+}
 function pulsePerk() {
   const chip = $('perkChip'); if (!chip) return;
+  flashPerk(2000);
   chip.classList.remove('pop'); void chip.offsetWidth; chip.classList.add('pop');
 }
 
@@ -4486,7 +4498,7 @@ function openSheet(which, fromRefresh = false) {
           `<button class="claim-btn si-buy" data-buy="${i}" ${can ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${price}</button></div>`; }).join('') + '</div>'
         : '<p class="hero-all">You own every hero!</p>';
     } else if (tab === 'power') {
-      h += '<p class="shop-hint">Use them during a level from the backpack next to the pause button.</p><div class="shop-list">' + Object.entries(ITEMS).map(([k, it]) =>
+      h += '<p class="shop-hint">During a level they sit just above the pause button: one tap uses one.</p><div class="shop-list">' + Object.entries(ITEMS).map(([k, it]) =>
         `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${inf(bag[k] || 0)}</em><p>${it.desc}</p></div>` +
         (devMode ? '' : `<button class="claim-btn si-buy" data-item="${k}" ${credits >= it.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${it.price}</button>`) + '</div>').join('') + '</div>';
     } else {
