@@ -806,12 +806,6 @@
   .tab-badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #ff4d4d; color: #fff; font-style: normal; font-size: 12px; line-height: 18px; }
   .lb-row.tap { cursor: pointer; }
   .lb-row.tap:active { filter: brightness(1.25); }
-  /* ===================== intro video ===================== */
-  #introVid { position: fixed; inset: 0; z-index: 1100; background: #000; display: flex; align-items: center; justify-content: center; transition: opacity .6s; }
-  #introVid.hidden { display: none; }
-  #introVid.fade { opacity: 0; }
-  #introVid video { width: 100%; height: 100%; object-fit: cover; }
-  #introSkip { position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: 14px; font: inherit; font-weight: 800; font-size: 14px; color: #fff; background: #0006; border: 1px solid #ffffff55; border-radius: 99px; padding: 7px 14px; }
 </style>
 </head>
 <body>
@@ -870,7 +864,6 @@
     <div class="fate-row"><button class="btn-blue" id="tutSkip">Skip</button></div>
   </div>
 </div>
-<div id="introVid" class="hidden" aria-label="Intro"><video id="introV" muted playsinline preload="none"></video><button id="introSkip">Skip ›</button></div>
 <div id="gate" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gate-card">
     <img class="gate-logo" src="icons/icon-192.png" alt="">
@@ -4686,27 +4679,6 @@ const TUT = [
 ];
 let tutStep = 0, tutDone = null;
 const tutorialSeen = () => { try { return localStorage.getItem('bma.tutorial') === '1'; } catch (e) { return true; } };
-// ---------- Intro video ----------
-// A short animated intro on the very first visit (and from Settings > Intro). Muted, so the game's
-// own music plays over it; tap Skip to leave.
-const INTRO_URL = 'assets/intro.mp4';
-const introSeen = () => { try { return localStorage.getItem('bmaintro') === '1'; } catch (e) { return true; } };
-function showIntro() {
-  const box = $('introVid'), v = $('introV');
-  if (!v.src) v.src = INTRO_URL;
-  box.classList.remove('hidden', 'fade'); v.currentTime = 0;
-  v.play().catch(() => {});   // muted video may autoplay; if not, the first tap starts it
-  try { localStorage.setItem('bmaintro', '1'); } catch (e) { /* ignore */ }
-}
-function closeIntro() {
-  const box = $('introVid'), v = $('introV');
-  box.classList.add('fade'); setTimeout(() => { box.classList.add('hidden'); try { v.pause(); } catch (e) { /* ignore */ } }, 600);
-}
-$('introSkip').addEventListener('click', e => { e.stopPropagation(); closeIntro(); });
-$('introVid').addEventListener('click', () => { const v = $('introV'); if (v.paused) v.play().catch(() => {}); });
-$('introV').addEventListener('ended', closeIntro);
-$('introV').addEventListener('error', closeIntro);   // missing or unplayable: just go on to the game
-if (!introSeen()) showIntro();
 function showTutorial(then) {
   tutStep = 0; tutDone = then || null;
   renderTutorial();
@@ -5054,7 +5026,6 @@ function openSheet(which, fromRefresh = false) {
       <div class="set-row"><span>Notifications</span><button class="toggle ${pushOn() ? 'on' : ''}" id="pushToggle">${pushOn() ? 'On' : 'Off'}</button></div>
       <p id="pushMsg" style="font-size:12px">${pushHint()}</p>
       ${/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone() ? '<div class="set-row"><span>Install</span></div><p>Play it like an app: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>' : ''}
-      <div class="set-row"><span>Intro</span><button class="toggle on" id="showIntro">Play</button></div>
       <div class="set-row"><span>How to play</span><button class="toggle on" id="showTut">Show</button></div>
       <p>Swipe anywhere to steer Backman (or use the arrow keys). Eat every glowing seed to clear the garden. Lanterns make the beetles flee: catch them for points and credits. Grab gold coins for credits. Mushrooms freeze every beetle for 3 seconds. Each level the garden grows and one more beetle joins in.</p>
       <div class="set-row"><span>Save code</span><button class="toggle on" id="copySave">Copy</button></div>
@@ -5074,7 +5045,6 @@ function openSheet(which, fromRefresh = false) {
       openSheet('settings'); if (r && $('pushMsg')) $('pushMsg').textContent = r;
     });
     $('showTut').addEventListener('click', () => { closeSheet(); showTutorial(); });
-    $('showIntro').addEventListener('click', () => { closeSheet(); showIntro(); });
     $('copySave').addEventListener('click', async e => {
       flushStats();
       const code = encodeSave(readSave());
