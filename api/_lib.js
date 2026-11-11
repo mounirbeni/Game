@@ -172,6 +172,7 @@ export async function login({ name: rawName, password }) {
 //   giftclaim/<gift id>/<NAME>.json   created when collected, so it can never be collected twice
 export const GIFTS = [
   { id: 'welcome500', credits: 500, made: 1794189600000, until: 1794189600000 + 30 * 86400000, note: 'A gift from Bug Maze Adventure!' },
+  { id: 'gift1000', credits: 1000, made: 1794367433713, until: 1794367433713 + 30 * 86400000, note: 'A gift from Bug Maze Adventure: 1,000 credits for you!' },
 ];
 export async function claimGifts({ name, token }) {
   const acc = await authedAccount(name, token);
