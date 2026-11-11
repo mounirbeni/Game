@@ -1646,7 +1646,7 @@ function speeds() {
   // Difficulty curve: level 1 is gentle (beetles ~64% of Backman's speed); each level adds a
   // little, capped at 80% so Backman can always get away by moving.
   const l = Math.min(level - 1, 10);
-  const player = (7.5 + l * 0.1) * (bootsT > 0 && powersAllowed() ? 1.25 : 1) * (hasPerk('Shadow') && fx.dashT > 0 ? 1.4 : 1);   // Shadow's ambush dash
+  const player = (7.5 + l * 0.1) * (bootsT > 0 && powersAllowed() ? 1.25 : 1) * ((hasPerk('Shadow') || hasPerk('Minty')) && fx.dashT > 0 ? 1.4 : 1) * (hasPerk('Backman') ? 1.08 : 1);   // Shadow's dash, Minty's sprint, Backman's quick feet
   return {
     player,
     // levels without gates have no escape tunnel, so their beetles are a little slower
@@ -2023,6 +2023,12 @@ const SKILLS = {
   Shadow:  { icon: '👻', name: 'Vanish', img: 'assets/items/shield.webp' },
   Ranger:  { icon: '🪤', name: 'Net trap', img: 'assets/items/basket.webp' },
   Voyager: { icon: '📍', name: 'Waypoint', img: 'assets/items/lantern.webp', back: 'assets/items/chest.webp' },
+  Backman: { icon: '💡', name: 'Flash', img: 'assets/lantern.webp' },
+  Sprout:  { icon: '🌱', name: 'Seed burst', img: 'assets/seed.webp' },
+  Minty:   { icon: '🍀', name: 'Leaf sprint', img: 'assets/mushroom.webp' },
+  Midnight:{ icon: '🌙', name: 'Moon glow', img: 'icons/ui/star.webp' },
+  MBN:     { icon: '👑', name: 'Royal decree', img: 'icons/ui/trophy.webp' },
+  Seeker:  { icon: '🪙', name: 'Treasure call', img: 'icons/ui/coin.webp' },
 };
 let skillCharges = 0;
 // Extra uses of a hero's own skill, bought in the shop (Shop > Skills). The free use of each level
@@ -2092,6 +2098,26 @@ function useSkill() {
   } else if (name === 'Ranger') {
     if (!inMaze(here.x, here.y)) { ok = false; why = 'Not here'; }
     else { fx.trap = { ...here }; popup(here.x, here.y, 'NET SET', '#c8ff8a'); sfx.bonus(); }
+  } else if (name === 'Backman') {   // a short lantern flash: every ladybug is scared for 3 seconds
+    if (!beetles.some(b => b.mode === 'active')) { ok = false; why = 'No ladybug out yet'; }
+    else { startFright(); frightTimer = Math.min(frightTimer, 3); popup(here.x, here.y, 'FLASH!', '#ffd36b'); burst(here.x, here.y, '#ffd36b', 22, 4.5, 0.6, 0.1); sfx.lantern(); }
+  } else if (name === 'Sprout') {   // eats every seed within 2 tiles
+    let n = 0;
+    for (let y = here.y - 2; y <= here.y + 2; y++) for (let x = here.x - 2; x <= here.x + 2; x++)
+      if (Math.abs(x - here.x) + Math.abs(y - here.y) <= 2 && grid[y] && grid[y][x] === '.') { eatAt(x, y); n++; if (state !== 'play') break; }
+    if (!n) { ok = false; why = 'No seeds around'; }
+    else { popup(here.x, here.y, 'BURST!', '#c8ff8a'); burst(here.x, here.y, '#c8ff8a', 20, 4, 0.5, 0.09); }
+  } else if (name === 'Minty') {   // 4 seconds of extra speed
+    fx.dashT = 4; popup(here.x, here.y, 'SPRINT!', '#7dffcf'); burst(here.x, here.y, '#7dffcf', 16, 3, 0.4, 0.08); sfx.bonus();
+  } else if (name === 'Midnight') {   // stuns every ladybug within 4 tiles for 3 seconds
+    const near = beetles.filter(b => { if (b.mode !== 'active') return false; const q = pos(b); return Math.abs(q.x - pp.x) + Math.abs(q.y - pp.y) <= 4; });
+    if (!near.length) { ok = false; why = 'No ladybug close'; }
+    else { near.forEach(b => { b.stun = Math.max(b.stun || 0, 3); b.netted = false; }); popup(here.x, here.y, 'MOON GLOW!', '#b8a8ff'); burst(here.x, here.y, '#d4d0ff', 26, 4.5, 0.7, 0.1); sfx.freeze(); }
+  } else if (name === 'MBN') {   // every ladybug freezes for 3 seconds
+    freezeTimer = Math.max(freezeTimer, 3); popup(here.x, here.y, 'ROYAL DECREE!', '#ffd75a'); burst(here.x, here.y, '#ffd75a', 24, 4.5, 0.7, 0.1); sfx.freeze();
+  } else if (name === 'Seeker') {   // a gold coin appears somewhere in the maze
+    if (coin) { ok = false; why = 'A coin is already out'; }
+    else { spawnCoin(); if (!coin) { ok = false; why = 'No room for a coin'; } else { popup(here.x, here.y, 'TREASURE!', '#ffd75a'); burst(coin.x, coin.y, '#ffd75a', 18, 3, 0.6, 0.09); sfx.coin(); } }
   } else if (name === 'Voyager') {
     if (!fx.mark) {
       if (!inMaze(here.x, here.y)) { popup(here.x, here.y, 'Not here', '#ffb0b8'); return; }
@@ -3072,17 +3098,17 @@ const SKINS = [
 ];
 // Every look has its own power in the game, so each one is worth unlocking for more than looks.
 const PERKS = {
-  Backman:  { title: 'All-rounder', desc: 'The classic. No special power, no weakness.' },
+  Backman:  { title: 'Flash · Quick feet', desc: 'Skill (button, once a level): a lantern flash scares every ladybug for 3 seconds. Power: moves 8% faster than the other heroes.' },
   ZOGHA:    { title: 'Candy bait · Sweet streak', desc: 'Skill (button, once a level): drops a candy that pulls the ladybugs to it for 6 seconds. Power: eat seeds one after another without stopping: x2 points after 8, x3 after 16.' },
   ES:       { title: 'Time stop · Path sense', desc: 'Skill (button, once a level): freezes the nearest ladybug for 6 seconds. Power: at a crossroads, an arrow points to the way with the most seeds.' },
-  Sprout:   { title: 'Harvest', desc: 'Seeds are worth 15 points instead of 10, and lanterns 150 instead of 50.' },
+  Sprout:   { title: 'Seed burst · Harvest', desc: 'Skill (button, once a level): eats every seed within 2 tiles around you. Power: seeds are worth 15 points instead of 10, and lanterns 150 instead of 50.' },
   FOX:      { title: 'Sly swap · Pickpocket', desc: 'Skill (button, once a level): swaps places with the nearest ladybug up to 8 tiles away. Power: slip right past a ladybug without getting caught to steal a credit, once per ladybug each level.' },
-  Minty:    { title: 'Lucky leaf', desc: 'Gold coins appear twice as often and stay twice as long.' },
-  Midnight: { title: 'Magic shield', desc: 'Survives the first two beetle hits in every level.' },
-  MBN:      { title: 'The King', desc: 'Royal aura: beetles near you slow down by 25%. Royal command: every lantern also freezes the beetles for 1.5 seconds. Royal treasury: double credits for clearing a level and 2 credits per beetle.' },
+  Minty:    { title: 'Leaf sprint · Lucky leaf', desc: 'Skill (button, once a level): runs 40% faster for 4 seconds. Power: gold coins appear twice as often and stay twice as long.' },
+  Midnight: { title: 'Moon glow · Magic shield', desc: 'Skill (button, once a level): stuns every ladybug within 4 tiles for 3 seconds. Power: survives the first two beetle hits in every level.' },
+  MBN:      { title: 'Royal decree · The King', desc: 'Skill (button, once a level): every ladybug freezes for 3 seconds. Power: royal aura: beetles near you slow down by 25%. Royal command: every lantern also freezes the beetles for 1.5 seconds. Royal treasury: double credits for clearing a level and 2 credits per beetle.' },
   Shadow:   { title: 'Vanish · Ambush', desc: 'Skill (button, once a level): the ladybugs lose sight of you for 5 seconds and you slip through them. Power: stand still for 1.5 seconds to charge a fast dash for when you move again.' },
   Ranger:   { title: 'Net trap · Caution', desc: 'Skill (button, once a level): sets a net on your spot; the first ladybug to cross it is stuck for 6 seconds. Power: a ! warns you (and your phone buzzes) when a ladybug gets within 3 tiles.' },
-  Seeker:   { title: 'Sharp eye', desc: 'Scared beetles are worth double points, and every gold coin gives 2 credits.' },
+  Seeker:   { title: 'Treasure call · Sharp eye', desc: 'Skill (button, once a level): a gold coin appears in the maze. Power: scared beetles are worth double points, and every gold coin gives 2 credits.' },
   Voyager:  { title: 'Waypoint · Far paths', desc: 'Skill (button, once a level): tap once to mark your spot, tap again to jump back to it. Power: going through a gate keeps you safe for 2 seconds after you come out.' },
 };
 const perk = () => SKINS[skinIndex].name;
