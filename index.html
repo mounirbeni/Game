@@ -814,6 +814,18 @@
   .ab-row b { display: block; color: #ffd75a; font-size: 13px; }
   .ab-row span { display: block; color: #d6defc; font-size: 12px; line-height: 1.3; }
   #perkFace { background: none !important; }
+  .t-skbtn { position: absolute; left: 22%; top: 13cqw; width: 26cqw; height: 26cqw; border-radius: 50%; background: radial-gradient(#2a5a9a, #0c223a); border: .9cqw solid #ffcf3a; display: flex; align-items: center; justify-content: center; animation: tPulse 1.4s ease-in-out infinite; }
+  .t-skbtn img { width: 78%; height: 78%; object-fit: contain; }
+  .t-skbtn i { position: absolute; top: -1.5cqw; right: -1.5cqw; min-width: 7cqw; height: 7cqw; border-radius: 4cqw; background: #2fbf4a; color: #fff; font: 900 4.4cqw/7cqw system-ui, sans-serif; font-style: normal; text-align: center; border: .5cqw solid #fff; }
+  .t-finger.t-tap { left: 36%; top: 30cqw; bottom: auto; animation: tTap 1.4s ease-in-out infinite; }
+  .t-power { position: absolute; right: 20%; top: 14cqw; width: 24cqw; height: 24cqw; object-fit: contain; animation: tGlow 1.8s ease-in-out infinite; }
+  .t-cap.s1 { left: 20%; } .t-cap.s2 { right: 12%; width: 40%; }
+  @keyframes tPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  @keyframes tTap { 0%, 100% { transform: translate(0, 0); } 45% { transform: translate(-4cqw, -6cqw) scale(.92); } }
+  #skillHint { position: fixed; z-index: 60; max-width: 220px; padding: 8px 12px; border-radius: 14px; background: #ffd75a; color: #3a2200; font: 800 13px/1.25 system-ui, sans-serif; box-shadow: 0 6px 18px #0008; animation: rise .3s ease-out both; pointer-events: none; }
+  #skillHint b { display: block; font: 400 15px/1.1 'Lilita One', ui-rounded, system-ui, sans-serif; }
+  #skillHint::after { content: ''; position: absolute; right: 22px; bottom: -8px; border: 8px solid transparent; border-bottom: 0; border-top-color: #ffd75a; }
+  #skillBtn.hint { animation: tPulse 0.9s ease-in-out infinite; box-shadow: 0 0 0 4px #ffd75a; border-radius: 50%; }
 </style>
 </head>
 <body>
@@ -867,7 +879,7 @@
     <div class="tut-art" id="tutArt"></div>
     <h2 class="card-title fate-title" id="tutTitle"></h2>
     <p class="tut-text" id="tutText"></p>
-    <div class="tut-dots" id="tutDots"><i></i><i></i><i></i></div>
+    <div class="tut-dots" id="tutDots"><i></i><i></i><i></i><i></i></div>
     <button class="btn-green" id="tutNext">Next</button>
     <div class="fate-row"><button class="btn-blue" id="tutSkip">Skip</button></div>
   </div>
@@ -2081,6 +2093,19 @@ function jumpPlayer(x, y) {
   Object.assign(player, { tx: x, ty: y, progress: 0, dir: DIRS.none, ox: 0, oy: 0 });
   snapCamera = true; eatAt(x, y);
 }
+// The first time a hero with a skill plays, a bubble points at the skill button.
+function skillHintSoon() {
+  let seen = true; try { seen = localStorage.getItem('bma.skillhint') === '1'; } catch (e) { /* ignore */ }
+  if (seen || !skillAllowed() || skillTotal() <= 0) return;
+  const btn = $('skillBtn'); if (!btn || btn.classList.contains('hidden')) return;
+  try { localStorage.setItem('bma.skillhint', '1'); } catch (e) { /* ignore */ }
+  const r = btn.getBoundingClientRect(), tip = document.createElement('div');
+  tip.id = 'skillHint'; tip.innerHTML = `<b>${esc(skillOf().name)}</b>Tap here to use your skill!`;
+  tip.style.right = Math.max(8, innerWidth - r.right - 20) + 'px'; tip.style.bottom = (innerHeight - r.top + 12) + 'px';
+  document.body.appendChild(tip); btn.classList.add('hint');
+  const done = () => { tip.remove(); btn.classList.remove('hint'); };
+  setTimeout(done, 6000); btn.addEventListener('pointerdown', done, { once: true });
+}
 function useSkill() {
   if (state !== 'play' || paused || skillTotal() <= 0 || !skillAllowed()) return;
   const name = SKINS[skinIndex].name, pp = pos(player), here = { x: Math.round(pp.x), y: Math.round(pp.y) };
@@ -2550,7 +2575,7 @@ function update(dt) {
 
   if (state === 'ready') {
     stateTimer -= dt;
-    if (stateTimer <= 0) { setState('play'); levelIntro = false; }
+    if (stateTimer <= 0) { setState('play'); levelIntro = false; skillHintSoon(); }
     return;
   }
   if (live && live.role === 'guest') { liveGuestUpdate(dt); return; }
@@ -4733,6 +4758,9 @@ const TUT = [
           <rect x="72" y="14" width="22" height="72" rx="8" fill="#2f63e6" stroke="#ffcf3a" stroke-width="3"/><rect x="28" y="40" width="44" height="20" fill="#ffb02e" opacity=".35"/>
           <path d="M34 50h30M56 42l9 8-9 8" fill="none" stroke="#ffd75a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span class="t-cap m">Freeze</span><span class="t-cap c">Credits</span><span class="t-cap g">Gates</span>` },
+  { title: 'Skills and powers', text: 'Every hero has a <b>skill</b>: tap the <b>round button</b> at the bottom to use it (1 free use each level, more in Shop &gt; Skills). Its <b>power</b> works by itself. See both in <b>My Heroes</b>.',
+    art: `<span class="t-skbtn"><img src="assets/skills/flash.webp" alt=""><i>1</i></span><i class="t-finger t-tap"></i>
+          <img class="t-power" src="assets/powers/backman.webp" alt=""><span class="t-cap s1">Skill: tap</span><span class="t-cap s2">Power: automatic</span>` },
 ];
 let tutStep = 0, tutDone = null;
 const tutorialSeen = () => { try { return localStorage.getItem('bma.tutorial') === '1'; } catch (e) { return true; } };
