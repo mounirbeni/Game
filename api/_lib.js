@@ -204,6 +204,8 @@ export async function submit({ name: rawName, token, best, level, look }) {
   const s = await blob();
   const mine = (await s.list(`lb/${name}/`)).map(p => ({ p, ...parse(p) })).filter(x => x.name);
   const cur = mine.reduce((a, x) => ({ best: Math.max(a.best, x.best), level: Math.max(a.level, x.level), look: x.look }), { best: 0, level: 0, look });
+  const reset = await readReset(name), rl = reset && parseInt(reset.set['backman.level'], 10);
+  if (rl && cur.level > rl && level <= rl) cur.level = 0;   // a developer correction lowered this player's level: let the board follow it
   const next = { best: Math.max(cur.best, best), level: Math.max(cur.level, level), look };
   const path = `lb/${name}/${pad(next.best, 9)}-${pad(next.level, 4)}-${pad(next.look, 2)}`;
   if (!mine.some(x => x.p === path)) {
