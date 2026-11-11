@@ -806,6 +806,8 @@
   .tab-badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #ff4d4d; color: #fff; font-style: normal; font-size: 12px; line-height: 18px; }
   .lb-row.tap { cursor: pointer; }
   .lb-row.tap:active { filter: brightness(1.25); }
+  .sk-buys { display: flex; flex-direction: column; gap: 6px; }
+  .sk-buys .si-buy { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -2023,10 +2025,17 @@ const SKILLS = {
   Voyager: { icon: '📍', name: 'Waypoint', img: 'assets/items/lantern.webp', back: 'assets/items/chest.webp' },
 };
 let skillCharges = 0;
+// Extra uses of a hero's own skill, bought in the shop (Shop > Skills). The free use of each level
+// is spent first; the extra ones are kept between levels until used.
+const SKILL_PACKS = [{ n: 1, price: 40 }, { n: 5, price: 160 }];
+let skillBag = loadJSON('bma.skills', {});
+const saveSkillBag = () => saveJSON('bma.skills', skillBag);
+const skillStock = (name = SKINS[skinIndex].name) => devMode ? 99 : Math.max(0, Math.floor(skillBag[name] || 0));
+const skillTotal = () => skillCharges + (skillAllowed() ? skillStock() : 0);
 let fx = { picked: new Set(), streak: 0, mult: 1, lastSeedAt: -9, stillT: 0, dashT: 0, vanishT: 0, guardT: 0, candy: null, trap: null, mark: null, hint: null, cautionAt: -9 };
 const skillOf = () => SKILLS[SKINS[skinIndex].name];
 const skillAllowed = () => !live && !!skillOf();
-const skillText = n => skillCharges > 0 ? `${n}: tap the round button` : `${n} used this level`;
+const skillText = n => skillTotal() > 0 ? `${n}: tap the round button` : `${n} used this level`;
 function resetSkill() {
   skillCharges = skillAllowed() ? 1 : 0;
   fx = { picked: new Set(), streak: 0, mult: 1, lastSeedAt: -9, stillT: 0, dashT: 0, vanishT: 0, guardT: 0, candy: null, trap: null, mark: null, hint: null, cautionAt: -9 };
@@ -2037,14 +2046,14 @@ function updateSkillBtn() {
   const sk = skillOf(), show = skillAllowed() && (state === 'play' || state === 'ready');
   b.classList.toggle('hidden', !show);
   if (!show) return;
-  b.classList.toggle('spent', skillCharges <= 0);
+  b.classList.toggle('spent', skillTotal() <= 0);
   b.classList.toggle('armed', !!fx.mark);
   const img = $('skillImg'), src = fx.mark ? (sk.back || '') : (sk.img || '');
   img.classList.toggle('hidden', !src); $('skillIcon').classList.toggle('hidden', !!src);
   if (src && img.getAttribute('src') !== src) img.src = src;
   $('skillIcon').textContent = fx.mark ? '↩️' : sk.icon;
-  $('skillCount').textContent = skillCharges;
-  b.setAttribute('aria-label', `${sk.name} (${skillCharges} left)`);
+  $('skillCount').textContent = devMode ? '∞' : skillTotal();
+  b.setAttribute('aria-label', `${sk.name} (${skillTotal()} left)`);
 }
 function nearestBeetle(max) {
   const pp = pos(player); let best = null, bd = Infinity;
@@ -2061,7 +2070,7 @@ function jumpPlayer(x, y) {
   snapCamera = true; eatAt(x, y);
 }
 function useSkill() {
-  if (state !== 'play' || paused || skillCharges <= 0 || !skillAllowed()) return;
+  if (state !== 'play' || paused || skillTotal() <= 0 || !skillAllowed()) return;
   const name = SKINS[skinIndex].name, pp = pos(player), here = { x: Math.round(pp.x), y: Math.round(pp.y) };
   let ok = true, why = '';
   if (name === 'ES') {
@@ -2093,7 +2102,9 @@ function useSkill() {
     burst(fx.mark.x, fx.mark.y, '#7fe8ff', 22, 4, 0.6, 0.1); popup(fx.mark.x, fx.mark.y, 'BACK!', '#7fe8ff'); fx.mark = null; sfx.portal();
   }
   if (!ok) { popup(here.x, here.y, why, '#ffb0b8'); return; }
-  skillCharges--; updateSkillBtn(); pulsePerk();
+  if (skillCharges > 0) skillCharges--;   // the level's free use first, then one bought in the shop
+  else if (!devMode) { skillBag[name] = skillStock(name) - 1; saveSkillBag(); }
+  updateSkillBtn(); pulsePerk();
 }
 // Seeds that branch off from a crossroads, counted a few tiles down each way (ES's path sense).
 function seedsDown(x, y, d, depth) {
@@ -4876,7 +4887,7 @@ function openSheet(which, fromRefresh = false) {
     // The shop: things to buy, in sections. Heroes are on sale; the other sections open as their items are added.
     title = 'Shop';
     const tab = openSheet.shopTab === 'power' ? 'heroes' : (openSheet.shopTab || 'heroes');
-    const TABS = [['heroes', 'Heroes'], ['hearts', 'Hearts']];
+    const TABS = [['heroes', 'Heroes'], ['skills', 'Skills'], ['hearts', 'Hearts']];
     let h = `<div class="shop-wallet"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"><b>${inf(credits.toLocaleString())}</b><small>credits</small></div>` +
       `<div class="tabs shop-tabs">${TABS.map(([k, t]) => `<button data-stab="${k}" class="${tab === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
     if (tab === 'heroes') {
@@ -4885,6 +4896,12 @@ function openSheet(which, fromRefresh = false) {
         return `<div class="shop-item"><canvas data-look="${i}"></canvas><div class="si-info"><b>${esc(sk.name)}</b><em>${esc(pk.title)}</em><p>${esc(pk.desc)}</p></div>` +
           `<button class="claim-btn si-buy" data-buy="${i}" ${can ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${price}</button></div>`; }).join('') + '</div>'
         : '<p class="hero-all">You own every hero!</p>';
+    } else if (tab === 'skills') {
+      // Extra uses of each hero's own skill. Only heroes you own can stock up.
+      h += '<p class="shop-hint">Every hero gets <b>1 free use</b> of its skill in each level. Buy extra uses here: they are kept until you use them.</p><div class="shop-list">' +
+        Object.entries(SKILLS).map(([hero, sk]) => { const i = SKINS.findIndex(x => x.name === hero), own = isSkinUnlocked(i), desc = (PERKS[hero].desc.match(/Skill \([^)]*\): ([^.]*\.)/) || [])[1] || '';
+          return `<div class="shop-item sk-item"><img class="si-img" src="${sk.img}" alt=""><div class="si-info"><b>${esc(sk.name)}</b><em>${esc(hero)} · ${own ? 'You have ' + inf(skillStock(hero)) + ' extra' : 'Buy this hero first'}</em><p>${esc(desc.charAt(0).toUpperCase() + desc.slice(1))}</p></div>` +
+            (devMode || !own ? '' : '<div class="sk-buys">' + SKILL_PACKS.map((pk, k) => `<button class="claim-btn si-buy" data-skill="${hero}" data-pk="${k}" ${credits >= pk.price ? '' : 'disabled'}>+${pk.n} <img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${pk.price}</button>`).join('') + '</div>') + '</div>'; }).join('') + '</div>';
     } else if (tab === 'power') {
       h += '<p class="shop-hint">During a level they sit just above the pause button: one tap uses one.</p><div class="shop-list">' + Object.entries(ITEMS).map(([k, it]) =>
         `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${inf(bag[k] || 0)}</em><p>${it.desc}</p></div>` +
@@ -4908,6 +4925,8 @@ function openSheet(which, fromRefresh = false) {
     };
     body.querySelectorAll('[data-item]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.item;
       confirmBuy(b, ITEMS[k].price, () => { bag[k] = (bag[k] || 0) + 1; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `<b>${ITEMS[k].name}</b> added to your backpack.`; }); }));
+    body.querySelectorAll('[data-skill]').forEach(b => b.addEventListener('click', () => { const hero = b.dataset.skill, pk = SKILL_PACKS[+b.dataset.pk];
+      confirmBuy(b, pk.price, () => { skillBag[hero] = skillStock(hero) + pk.n; saveSkillBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} <b>${esc(SKILLS[hero].name)}</b> for ${esc(hero)}. You have <b>${skillStock(hero)}</b> extra.`; }); }));
     body.querySelectorAll('[data-pack]').forEach(b => b.addEventListener('click', () => { const pk = HEART_PACKS.find(x => x.id === b.dataset.pack);
       confirmBuy(b, pk.price, () => { bag.hearts = (bag.hearts || 0) + pk.n; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} heart${pk.n > 1 ? 's' : ''}! You have <b>${inf(bag.hearts)}</b>.`; }); }));
     body.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
