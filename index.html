@@ -808,6 +808,12 @@
   .lb-row.tap:active { filter: brightness(1.25); }
   .sk-buys { display: flex; flex-direction: column; gap: 6px; }
   .sk-buys .si-buy { white-space: nowrap; }
+  .ab-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 10px; }
+  .ab-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 14px; background: #0c223a; border: 2px solid #2d6aa0; text-align: left; }
+  .ab-row img { width: 44px; height: 44px; flex: none; object-fit: contain; }
+  .ab-row b { display: block; color: #ffd75a; font-size: 13px; }
+  .ab-row span { display: block; color: #d6defc; font-size: 12px; line-height: 1.3; }
+  #perkFace { background: none !important; }
 </style>
 </head>
 <body>
@@ -2025,10 +2031,10 @@ const SKILLS = {
   Voyager: { icon: '📍', name: 'Waypoint', img: 'assets/skills/waypoint.webp', back: 'assets/items/chest.webp' },
   Backman: { icon: '💡', name: 'Flash', img: 'assets/lantern.webp' },
   Sprout:  { icon: '🌱', name: 'Seed burst', img: 'assets/seed.webp' },
-  Minty:   { icon: '🍀', name: 'Leaf sprint', img: 'assets/mushroom.webp' },
-  Midnight:{ icon: '🌙', name: 'Moon glow', img: 'icons/ui/star.webp' },
-  MBN:     { icon: '👑', name: 'Royal decree', img: 'icons/ui/trophy.webp' },
-  Seeker:  { icon: '🪙', name: 'Treasure call', img: 'icons/ui/coin.webp' },
+  Minty:   { icon: '🍀', name: 'Leaf sprint', img: 'assets/skills/sprint.webp' },
+  Midnight:{ icon: '🌙', name: 'Moon glow', img: 'assets/skills/moon.webp' },
+  MBN:     { icon: '👑', name: 'Royal decree', img: 'assets/skills/decree.webp' },
+  Seeker:  { icon: '🪙', name: 'Treasure call', img: 'assets/skills/treasure.webp' },
 };
 let skillCharges = 0;
 // Extra uses of a hero's own skill, bought in the shop (Shop > Skills). The free use of each level
@@ -3410,27 +3416,41 @@ function drawBeetle(b, now) {
 const PERK_STATE = {
   Midnight: () => shieldUsed >= SHIELDS ? 'Shields used this level' : `${SHIELDS - shieldUsed} shield${SHIELDS - shieldUsed > 1 ? 's' : ''} ready`,
   Ranger: () => skillText('Net trap'),
-  Seeker: () => 'Double beetle points, 2-credit coins',
+  Seeker: () => skillText('Treasure call'),
+  Backman: () => skillText('Flash'),
   Voyager: () => fx.mark ? 'Tap the button to jump back' : skillText('Waypoint'),
   ES: () => skillText('Time stop'),
   FOX: () => skillText('Sly swap'),
-  Sprout: () => 'Seeds worth 15',
-  Minty: () => 'More gold coins',
+  Sprout: () => skillText('Seed burst'),
+  Minty: () => fx.dashT > 0 ? 'Sprinting!' : skillText('Leaf sprint'),
   ZOGHA: () => fx.mult > 1 ? `Sweet streak x${fx.mult}` : skillText('Candy bait'),
-  MBN: () => 'Double clear credits',
+  MBN: () => skillText('Royal decree'),
   Shadow: () => fx.ambushReady ? 'Dash ready: move!' : skillText('Vanish'),
 };
 function updatePerkChip() {
   const chip = $('perkChip'); if (!chip) return;
   const name = SKINS[skinIndex].name, pk = PERKS[name];
-  const show = name !== 'Backman' && state !== 'title';
+  const show = state !== 'title';
   chip.classList.toggle('hidden', !show);
   if (!show) return;
   $('perkName').textContent = pk.title;
   $('perkState').textContent = (PERK_STATE[name] || (() => ''))();
   chip.classList.toggle('used', name === 'Midnight' && shieldUsed >= SHIELDS);
   const cv = $('perkFace');
-  if (cv.dataset.look !== name) { cv.dataset.look = name; paintAvatar(cv, 30, 'look:' + skinIndex); }
+  if (cv.dataset.look !== name) {   // the power's badge
+    cv.dataset.look = name; const dpr = Math.min(3, window.devicePixelRatio || 1); cv.width = cv.height = Math.round(30 * dpr);
+    const im = new Image(); im.onload = () => { if (cv.dataset.look === name) { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height); } };
+    im.onerror = () => paintAvatar(cv, 30, 'look:' + skinIndex); im.src = powerImg(name);
+  }
+}
+// Each hero's power badge, and its skill and power written out with their icons.
+const powerImg = name => `assets/powers/${name.toLowerCase()}.webp`;
+function abilityRows(name) {
+  const d = PERKS[name].desc, sk = SKILLS[name];
+  const skill = (d.match(/Skill \([^)]*\): (.*?) Power: /) || [])[1] || '', power = (d.match(/Power: (.*)$/) || [])[1] || '';
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  return `<div class="ab-row"><img src="${sk ? sk.img : ''}" alt=""><div><b>Skill · ${esc(sk ? sk.name : '')}</b><span>${esc(cap(skill))} Once a level, with the button.</span></div></div>` +
+    `<div class="ab-row"><img src="${powerImg(name)}" alt=""><div><b>Power · ${esc(PERKS[name].title.split(' · ')[1] || '')}</b><span>${esc(cap(power))}</span></div></div>`;
 }
 let perkFlashTimer = 0;
 function flashPerk(ms) {
@@ -4902,7 +4922,7 @@ function openSheet(which, fromRefresh = false) {
     // My heroes: only the characters you own. Pick one to play with.
     title = 'My Heroes';
     const mine = SKINS.map((sk, i) => i).filter(isSkinUnlocked), sel = SKINS[skinIndex], pk = PERKS[sel.name];
-    body.innerHTML = `<div class="hero-pick"><canvas id="heroBig"></canvas><div><small>Playing as</small><b>${esc(sel.name)}</b><em>${esc(pk.title)}</em><p>${esc(pk.desc)}</p></div></div>` +
+    body.innerHTML = `<div class="hero-pick"><canvas id="heroBig"></canvas><div><small>Playing as</small><b>${esc(sel.name)}</b><em>${esc(pk.title)}</em></div></div><div class="ab-list">${abilityRows(sel.name)}</div>` +
       `<div class="hero-grid">${mine.map(i => `<button class="hero-tile ${i === skinIndex ? 'sel' : ''}" data-hero="${i}"><canvas></canvas><span>${esc(SKINS[i].name)}</span></button>`).join('')}</div>` +
       (mine.length < SKINS.length ? `<button class="gold-btn" id="moreHeroes">Get more heroes</button>` : '<p class="hero-all">You own every hero!</p>');
     paintAvatar($('heroBig'), 84, 'look:' + skinIndex);
