@@ -2112,9 +2112,9 @@ function useSkill() {
   } else if (name === 'Midnight') {   // stuns every ladybug within 4 tiles for 3 seconds
     const near = beetles.filter(b => { if (b.mode !== 'active') return false; const q = pos(b); return Math.abs(q.x - pp.x) + Math.abs(q.y - pp.y) <= 4; });
     if (!near.length) { ok = false; why = 'No ladybug close'; }
-    else { near.forEach(b => { b.stun = Math.max(b.stun || 0, 3); b.netted = false; }); popup(here.x, here.y, 'MOON GLOW!', '#b8a8ff'); burst(here.x, here.y, '#d4d0ff', 26, 4.5, 0.7, 0.1); sfx.freeze(); }
+    else { near.forEach(b => { b.stun = Math.max(b.stun || 0, 3); b.netted = false; }); popup(here.x, here.y, 'GLOW!', '#b8a8ff'); burst(here.x, here.y, '#d4d0ff', 26, 4.5, 0.7, 0.1); sfx.freeze(); }
   } else if (name === 'MBN') {   // every ladybug freezes for 3 seconds
-    freezeTimer = Math.max(freezeTimer, 3); popup(here.x, here.y, 'ROYAL DECREE!', '#ffd75a'); burst(here.x, here.y, '#ffd75a', 24, 4.5, 0.7, 0.1); sfx.freeze();
+    freezeTimer = Math.max(freezeTimer, 3); popup(here.x, here.y, 'DECREE!', '#ffd75a'); burst(here.x, here.y, '#ffd75a', 24, 4.5, 0.7, 0.1); sfx.freeze();
   } else if (name === 'Seeker') {   // a gold coin appears somewhere in the maze
     if (coin) { ok = false; why = 'A coin is already out'; }
     else { spawnCoin(); if (!coin) { ok = false; why = 'No room for a coin'; } else { popup(here.x, here.y, 'TREASURE!', '#ffd75a'); burst(coin.x, coin.y, '#ffd75a', 18, 3, 0.6, 0.09); sfx.coin(); } }
