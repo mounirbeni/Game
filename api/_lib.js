@@ -528,7 +528,7 @@ export async function room(body) {
     if (body.action === 'peek') return { status: 200, body: { room: r } };
     if (!okSdp(body.offer)) return { status: 400, body: { error: 'invalid', message: 'Connection data missing.' } };
     await s.remove([`rooms/${code}/a-${me}.json`]);
-    await s.write(`rooms/${code}/p-${me}.json`, JSON.stringify({ name: me, look: Math.max(0, Math.min(99, Math.floor(+body.look || 0))), offer: body.offer, t: now }));
+    await s.write(`rooms/${code}/p-${me}.json`, JSON.stringify({ name: me, look: Math.max(0, Math.min(99, Math.floor(+body.look || 0))), lvl: Math.max(1, Math.min(9999, Math.floor(+body.lvl || 1))), offer: body.offer, t: now }));
     return { status: 200, body: { room: r } };
   }
   if (body.action === 'wait') {   // a joining player waits for the host's answer

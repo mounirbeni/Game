@@ -4332,7 +4332,10 @@ async function rtcConfig() {
   return RTC_CFG;
 }
 const LIVE_HZ = 1 / 30;   // state updates per second, both ways
-const LIVE_REWARD = { win: 10, play: 2, team: 5, teamLost: 1 };
+// Credits for a live match. 'short' is for a match that ended in under 45 seconds of play because
+// others left (so leaving on purpose can't be used to farm credits).
+const LIVE_REWARD = { first: 30, second: 15, play: 8, team: 20, teamLeft: 10, teamLost: 5, short: 2 };
+const LIVE_LEVEL_MAX = 60;
 // Server calls for live play never hang: they give up after 8 seconds.
 async function roomApi(body, keepalive) {
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, t = ctl && setTimeout(() => ctl.abort(), 8000);
@@ -4370,7 +4373,7 @@ function lobbyMsg(t, ok) { if (lobby) { lobby.msg = t; lobby.ok = !!ok; } else l
 function lobbyRender() { if (sheetOpen === 'live') openSheet('live', true); }
 function lobbyPeers() {   // everyone in the lobby, host first
   if (!lobby) return [];
-  if (lobby.role === 'host') return [{ name: account.name, look: skinIndex, ok: true }, ...Object.values(lobby.peers).map(p => ({ name: p.name, look: p.look, ok: p.open }))];
+  if (lobby.role === 'host') return [{ name: account.name, look: skinIndex, lvl: loadProgress().level, ok: true }, ...Object.values(lobby.peers).map(p => ({ name: p.name, look: p.look, lvl: p.lvl || 1, ok: p.open }))];
   return lobby.list || [];
 }
 function lobbySend(peer, msg) { try { if (peer.dc && peer.dc.readyState === 'open') peer.dc.send(JSON.stringify(msg)); } catch (e) { /* closed */ } }
@@ -4417,7 +4420,7 @@ async function hostPoll() {
       if (!L.started && !cur && Object.keys(L.peers).length >= LIVE_MAX - 1) continue;   // room full
       L.answered[p.name] = p.t;
       if (cur) { delete L.peers[p.name]; closePeer(cur); }
-      const peer = { name: p.name, look: p.look, t: p.t, open: false, made: Date.now(), heard: 0, pc: new RTCPeerConnection(rtcCfg || RTC_CFG), dc: null, fdc: null };
+      const peer = { name: p.name, look: p.look, lvl: p.lvl || 1, t: p.t, open: false, made: Date.now(), heard: 0, pc: new RTCPeerConnection(rtcCfg || RTC_CFG), dc: null, fdc: null };
       L.peers[p.name] = peer;
       peer.pc.ondatachannel = ev => { if (ev.channel.label === 'fast') { peer.fdc = ev.channel; ev.channel.onmessage = e => hostMessage(peer, e); } else hostChannel(peer, ev.channel); };
       peer.pc.onconnectionstatechange = () => {
@@ -4518,7 +4521,7 @@ async function guestConnect(L) {
   await pc.setLocalDescription(await pc.createOffer());
   await iceDone(pc);
   if (lobby !== L || L.host !== host) return false;
-  const r = await roomApi({ action: 'join', code: L.code, look: skinIndex, offer: pc.localDescription.sdp });
+  const r = await roomApi({ action: 'join', code: L.code, look: skinIndex, lvl: loadProgress().level, offer: pc.localDescription.sdp });
   if (lobby !== L || L.host !== host) return false;
   if (!L.mode) L.mode = r.room.mode;
   L.hostName = host.name = r.room.host;
@@ -4620,7 +4623,9 @@ async function liveHostStart() {
   if (!guests.length) { lobbyMsg('Wait for at least one friend to connect.'); return; }
   for (const p of Object.values(lobby.peers)) if (!p.open) { delete lobby.peers[p.name]; closePeer(p); }
   lobby.started = true;
-  const cfg = { mode: lobby.mode, level: Math.max(6, Math.min(12, loadProgress().level)), seed: 100000 + Math.floor(Math.random() * 900000000),
+  // the maze fits the whole group: the average of everyone's level (at least 6, at most 60)
+  const lv = lobbyPeers().map(p => Math.max(1, +p.lvl || 1)), avg = Math.round(lv.reduce((a, b) => a + b, 0) / lv.length);
+  const cfg = { mode: lobby.mode, level: Math.max(6, Math.min(LIVE_LEVEL_MAX, avg)), seed: 100000 + Math.floor(Math.random() * 900000000),
     players: lobbyPeers().map(p => ({ name: p.name, look: p.look })) };
   // the room stays (hidden from the list) so a player who loses the connection can come back
   roomApi({ action: 'start', code: lobby.code, players: cfg.players.map(p => p.name) }).catch(() => {});
@@ -4701,6 +4706,7 @@ function liveCheckEnd() {
 }
 function liveHostUpdate(dt) {
   time += dt;
+  live.playT = (live.playT || 0) + dt;
   updateModes(dt);
   const me = player;
   // a guest who went quiet is treated as disconnected; one away too long has left
@@ -4893,7 +4899,7 @@ function liveDrawPlayers(now) {
 function liveEnd(reason) {
   if (!live || live.done) return;
   live.done = true;
-  const r = { reason, mode: live.mode, players: live.players.map(livePub) };
+  const r = { reason, mode: live.mode, players: live.players.map(livePub), pt: Math.round(live.playT || 0) };
   liveSend(); lobbyBroadcast({ t: 'end', r });
   if (lobby && lobby.code) roomApi({ action: 'close', code: lobby.code }).catch(() => {});
   liveShowResult(r);
@@ -4904,10 +4910,23 @@ function liveShowResult(r) {
   const order = r.players.slice().sort((a, b) => b.score - a.score);
   const me = account.name, team = r.mode === 'coop';
   let reward = 0, title = '';
+  const short = r.reason === 'alone' && (r.pt || 0) < 45;   // the others left almost at once
   if (r.reason === 'hostLeft') { title = 'Connection to the host lost'; reward = 0; }
   else if (r.reason === 'hostClosed') { title = 'The host ended the match'; reward = 0; }
-  else if (team) { const won = r.reason === 'cleared'; title = won ? 'Maze cleared together!' : 'Out of lives'; reward = won ? LIVE_REWARD.team : LIVE_REWARD.teamLost; }
-  else { const win = order[0] && order[0].name === me && (order.length < 2 || order[0].score > order[1].score); title = win ? 'You win!' : `${esc(order[0].name)} wins!`; reward = win ? LIVE_REWARD.win : LIVE_REWARD.play; }
+  else if (team) {
+    if (r.reason === 'cleared') { title = 'Maze cleared together!'; reward = LIVE_REWARD.team; }
+    else if (r.reason === 'alone') { title = 'Your teammates left'; reward = short ? LIVE_REWARD.short : LIVE_REWARD.teamLeft; }
+    else { title = 'Out of lives'; reward = LIVE_REWARD.teamLost; }
+  } else if (r.reason === 'alone') {   // everyone else left: the one still playing wins
+    const stayed = r.players.find(p => !p.left), win = stayed && stayed.name === me;
+    title = win ? 'You win! The others left' : `${esc(stayed ? stayed.name : order[0].name)} wins!`;
+    reward = short ? LIVE_REWARD.short : win ? LIVE_REWARD.first : LIVE_REWARD.play;
+  } else {
+    const top = order[0] ? order[0].score : 0, tie = order.length > 1 && order[1].score === top;
+    const place = order.findIndex(p => p.name === me);
+    if (tie) { title = "It's a tie!"; reward = order[place] && order[place].score === top ? LIVE_REWARD.second : LIVE_REWARD.play; }
+    else { title = place === 0 ? 'You win!' : `${esc(order[0].name)} wins!`; reward = place === 0 ? LIVE_REWARD.first : place === 1 ? LIVE_REWARD.second : LIVE_REWARD.play; }
+  }
   if (reward) { credits += reward; saveMeta(); updateHud(); }
   $('liveTitle').innerHTML = title;
   $('liveText').innerHTML = '<div class="live-res">' + order.map((p, i) => `<div class="${p.name === me ? 'me' : ''}"><span>${team ? '' : i + 1}</span><span>${esc(p.name)}${p.left ? ' <small>(left)</small>' : ''}</span><b>${p.score.toLocaleString()}</b></div>`).join('') + '</div>' +
