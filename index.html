@@ -1977,17 +1977,13 @@ function drawRoyalAura(now) {
   const pp = pos(player), cx = (pp.x + player.ox) * T + T / 2, cy = (pp.y + player.oy) * T + T / 2, pulse = 0.5 + 0.5 * Math.sin(now / 160);
   ctx.save();
   // the king's aura
-  const g = ctx.createRadialGradient(cx, cy, T * 0.4, cx, cy, T * (ROYAL_RANGE + 0.5));
-  g.addColorStop(0, `rgba(255,215,90,${0.28 + 0.12 * pulse})`); g.addColorStop(0.7, 'rgba(255,200,60,0.10)'); g.addColorStop(1, 'rgba(255,200,60,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, T * (ROYAL_RANGE + 0.5), 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.7 + 0.3 * pulse; drawGlow('255,215,90', 0.4, cx, cy, T * (ROYAL_RANGE + 0.5)); ctx.globalAlpha = 1;
   ctx.strokeStyle = `rgba(255,224,102,${0.55 + 0.35 * pulse})`; ctx.lineWidth = Math.max(2, T * 0.08);
   ctx.beginPath(); ctx.arc(cx, cy, T * (0.75 + 0.1 * pulse), 0, Math.PI * 2); ctx.stroke();
   // a gold glow under every slowed beetle
   for (const b of slowed) {
     const q = pos(b), bx = q.x * T + T / 2, by = q.y * T + T / 2;
-    const bg = ctx.createRadialGradient(bx, by, 0, bx, by, T * 0.75);
-    bg.addColorStop(0, `rgba(255,224,102,${0.55 + 0.25 * pulse})`); bg.addColorStop(1, 'rgba(255,224,102,0)');
-    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bx, by, T * 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.7 + 0.3 * pulse; drawGlow('255,224,102', 0.8, bx, by, T * 0.75); ctx.globalAlpha = 1;
     ctx.strokeStyle = `rgba(255,224,102,${0.7 + 0.3 * pulse})`; ctx.lineWidth = Math.max(2, T * 0.09);
     ctx.beginPath(); ctx.arc(bx, by, T * (0.62 + 0.06 * pulse), 0, Math.PI * 2); ctx.stroke();
   }
@@ -2265,8 +2261,7 @@ function drawSkillFx(now) {
   const c = (x, y) => [x * T + T / 2, y * T + T / 2];
   if (fx.candy) {   // a striped candy
     const [x, y] = c(fx.candy.x, fx.candy.y), r = T * 0.28, a = now / 300;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, T); g.addColorStop(0, 'rgba(255,154,213,.45)'); g.addColorStop(1, 'rgba(255,154,213,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, T, 0, Math.PI * 2); ctx.fill();
+    drawGlow('255,154,213', 0.45, x, y, T);
     ctx.save(); ctx.translate(x, y); ctx.rotate(a);
     ctx.fillStyle = '#ff5fae'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = T * 0.07; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(0, 0, r * 0.62, k * 2.1, k * 2.1 + 1.1); ctx.stroke(); }
@@ -2552,9 +2547,7 @@ function drawCoin(now) {
   if (!coin || (coin.timer < 2 && Math.floor(coin.timer * 8) % 2 === 0)) return;
   const cx = coin.x * T + T / 2, cy = coin.y * T + T / 2 + Math.sin(now / 220) * T * 0.05;
   const R = T * 0.3, w = Math.max(0.15, Math.abs(Math.cos(now / 260)));
-  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, T * 0.75);
-  glow.addColorStop(0, 'rgba(255,207,90,0.45)'); glow.addColorStop(1, 'rgba(255,207,90,0)');
-  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, T * 0.75, 0, Math.PI * 2); ctx.fill();
+  drawGlow('255,207,90', 0.45, cx, cy, T * 0.75);
   ctx.save(); ctx.translate(cx, cy); ctx.scale(w, 1);
   if (mapArt.coin) { const S = T * 0.72; ctx.drawImage(mapArt.coin, -S / 2, -S / 2, S, S); ctx.restore(); return; }
   ctx.fillStyle = '#c98a0c'; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
@@ -2570,6 +2563,7 @@ let particles = [];
 function burst(x, y, color, n, speed = 3, life = 0.45, size = 0.08) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, v = speed * (0.35 + Math.random() * 0.65);
+    if (particles.length >= 260) particles.shift();   // keep busy moments light
     particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: life * (0.7 + Math.random() * 0.3), max: life, color, size });
   }
 }
@@ -2958,13 +2952,19 @@ function roundRect(g, x, y, w, h, r) {
   g.closePath();
 }
 
-let lastDraw = 0, maxDpr = 3;
+let lastDraw = 0, maxDpr = 2;   // 2x looks the same on phones and draws less than half the pixels of 3x
 // Copy only the on-screen part of a full-maze layer (much cheaper than the whole level).
 function blitVisible(layer) {
   const x0 = clamp(Math.floor(camX), 0, COLS * T), y0 = clamp(Math.floor(camY), 0, ROWS * T);
   const w = Math.min(Math.ceil(viewW) + 2, COLS * T - x0), h = Math.min(Math.ceil(viewH) + 2, ROWS * T - y0);
-  if (w <= 0 || h <= 0) return;
-  ctx.drawImage(layer, 0, 0, COLS * T, ROWS * T);
+  if (w <= 0 || h <= 0 || !layer) return;
+  const k = layer.width / (COLS * T);   // layer pixels per maze pixel (the layer's own resolution)
+  ctx.drawImage(layer, x0 * k, y0 * k, w * k, h * k, x0, y0, w, h);
+}
+// Is this actor inside the camera view (with a tile of margin)?
+function onScreen(e) {
+  const q = pos(e), x = (q.x + (e.ox || 0)) * T, y = (q.y + (e.oy || 0)) * T;
+  return x > camX - T * 2 && x < camX + viewW + T && y > camY - T * 2 && y < camY + viewH + T;
 }
 function draw(now) {
   const fdt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0;
@@ -2982,7 +2982,9 @@ function draw(now) {
   // seeds (pre-rendered) & lanterns
   if (seedLayer) blitVisible(seedLayer);
   const pulse = 0.5 + 0.5 * Math.sin(now / 180);
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+  const vx0 = Math.max(0, Math.floor(camX / T) - 1), vy0 = Math.max(0, Math.floor(camY / T) - 1);
+  const vx1 = Math.min(COLS - 1, Math.ceil((camX + viewW) / T) + 1), vy1 = Math.min(ROWS - 1, Math.ceil((camY + viewH) / T) + 1);
+  for (let y = vy0; y <= vy1; y++) for (let x = vx0; x <= vx1; x++) {
     if (grid[y][x] === 'o') drawLantern(x * T + T / 2, y * T + T / 2, pulse);
   }
 
@@ -2995,7 +2997,7 @@ function draw(now) {
   ctx.save();
   ctx.beginPath(); ctx.rect(0, 0, COLS * T, ROWS * T); ctx.clip();
   if (state !== 'clear' || stateTimer > 1.8) {
-    for (const b of beetles) if (!(state === 'dying' && stateTimer < 1.2)) drawBeetle(b, now);
+    for (const b of beetles) if (!(state === 'dying' && stateTimer < 1.2) && onScreen(b)) drawBeetle(b, now);
   }
   if (live) liveDrawPlayers(now); else { drawSkillFx(now); drawPowers(now); if (fx.vanishT > 0) ctx.globalAlpha = 0.38 + 0.12 * Math.sin(now / 90); drawPlayer(now); ctx.globalAlpha = 1; }
   ctx.restore();
@@ -3073,7 +3075,9 @@ function drawLastSeedHints(now) {
   if (seedsLeft > FEW_SEEDS || state !== 'play') return;
   const pulse = 0.5 + 0.5 * Math.sin(now / 150);
   ctx.strokeStyle = `rgba(255,226,140,${0.35 + pulse * 0.5})`; ctx.lineWidth = T * 0.06;
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+  const x0 = Math.max(0, Math.floor(camX / T)), y0 = Math.max(0, Math.floor(camY / T));
+  const x1 = Math.min(COLS - 1, Math.ceil((camX + viewW) / T)), y1 = Math.min(ROWS - 1, Math.ceil((camY + viewH) / T));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     if (grid[y][x] !== '.') continue;
     ctx.beginPath(); ctx.arc(x * T + T / 2, y * T + T / 2, T * (0.24 + pulse * 0.1), 0, Math.PI * 2); ctx.stroke();
   }
@@ -3115,17 +3119,25 @@ function drawGateWarning(now) {
   const a = 0.45 + 0.4 * Math.sin(now / 80);
   for (const [x, y] of [[0, TUNNEL_ROW], [COLS - 1, TUNNEL_ROW], [DOOR_COL, 0], [DOOR_COL, ROWS - 1]]) {
     if (x < 0) continue;
-    const cx = x * T + T / 2, cy = y * T + T / 2, g = ctx.createRadialGradient(cx, cy, 0, cx, cy, T * 1.1);
-    g.addColorStop(0, `rgba(255,200,80,${a})`); g.addColorStop(0.5, `rgba(255,140,30,${a * 0.6})`); g.addColorStop(1, 'rgba(255,140,30,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, T * 1.1, 0, Math.PI * 2); ctx.fill();
+    const cx = x * T + T / 2, cy = y * T + T / 2;
+    ctx.globalAlpha = Math.max(0, Math.min(1, a)); drawGlow('255,170,50', 1, cx, cy, T * 1.1); ctx.globalAlpha = 1;
   }
 }
+// Soft round glows are drawn once into a small image and reused: painting a gradient every frame
+// was by far the most expensive thing in the game.
+const glowCache = {};
+function glowSprite(rgb, alpha) {
+  const key = rgb + alpha;
+  if (glowCache[key]) return glowCache[key];
+  const S = 64, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  gr.addColorStop(0, `rgba(${rgb},${alpha})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  return (glowCache[key] = c);
+}
+function drawGlow(rgb, alpha, cx, cy, r) { ctx.drawImage(glowSprite(rgb, alpha), cx - r, cy - r, r * 2, r * 2); }
 function drawLantern(cx, cy, pulse) {
-  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, T * (0.55 + pulse * 0.2));
-  glow.addColorStop(0, 'rgba(255,190,70,0.55)');
-  glow.addColorStop(1, 'rgba(255,190,70,0)');
-  ctx.fillStyle = glow;
-  ctx.beginPath(); ctx.arc(cx, cy, T * 0.8, 0, Math.PI * 2); ctx.fill();
+  drawGlow('255,190,70', 0.55, cx, cy, T * (0.55 + pulse * 0.2));
   if (mapArt.lantern) { const S = T * (0.78 + pulse * 0.06); ctx.drawImage(mapArt.lantern, cx - S / 2, cy - S / 2, S, S); return; }
   // body
   ctx.fillStyle = '#5a3a14';
@@ -5282,11 +5294,13 @@ function frame(now) {
   if (state === 'play' && !paused && raw < 0.25) {
     frameAvg = frameAvg * 0.95 + raw * 0.05;
     slowFrames = frameAvg > 0.024 ? slowFrames + 1 : 0;
-    if (slowFrames > 120 && maxDpr > 2) { maxDpr = 2; resize(); }
+    if (slowFrames > 120 && maxDpr > 1.5) { maxDpr = maxDpr > 2 ? 2 : 1.5; slowFrames = 0; resize(); }   // a slow phone steps down once more
   }
   if (state === 'play' && !paused) { stats.playTime += dt; statsDirty = true; }
   update(dt);
-  draw(now);
+  // the home screen and the map cover the maze completely: no need to draw it behind them
+  const covered = state === 'title' && (!homeEl.classList.contains('hidden') || !$('mapScreen').classList.contains('hidden'));
+  if (!covered) draw(now); else lastDraw = now;
   requestAnimationFrame(frame);
 }
 
