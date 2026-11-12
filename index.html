@@ -842,15 +842,9 @@
   /* medal window: reaching the world top 3 */
   #rankPop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
     background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
-  .medal { --m1: #fff3a8; --m2: #ffcf3a; --m3: #b07a00; position: relative; width: 104px; height: 128px; margin-top: -4px; animation: medalIn .7s cubic-bezier(.2, 1.6, .4, 1) both; }
-  .medal.silver { --m1: #ffffff; --m2: #c9d3e0; --m3: #6f7c8f; }
-  .medal.bronze { --m1: #ffd2a8; --m2: #d98a4a; --m3: #7c3f14; }
-  .medal::before, .medal::after { content: ''; position: absolute; top: 0; width: 30px; height: 56px; background: linear-gradient(#e0413a, #a3201c); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); }
-  .medal::before { left: 22px; transform: rotate(14deg); } .medal::after { right: 22px; transform: rotate(-14deg); background: linear-gradient(#3a7bea, #1d4bb0); }
-  .medal b { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 1; width: 92px; height: 92px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(circle at 35% 30%, var(--m1), var(--m2) 55%, var(--m3)); border: 4px solid var(--m3); box-shadow: 0 0 26px var(--m2), 0 6px 14px #000a, inset 0 -6px 10px #0004;
-    font: 400 44px/1 'Lilita One', ui-rounded, system-ui, sans-serif; color: #fff; text-shadow: 0 2px 0 var(--m3), 0 0 8px #0006; }
-  .medal b::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; border: 2px dashed #ffffff88; }
+  .medal { width: 132px; height: 132px; object-fit: contain; margin-top: -6px; filter: drop-shadow(0 6px 14px #000a); animation: medalIn .7s cubic-bezier(.2, 1.6, .4, 1) both; }
+  .medal.gold { filter: drop-shadow(0 0 18px #ffcf3a99) drop-shadow(0 6px 14px #000a); }
+  .lb-rank img { width: 32px; height: 32px; object-fit: contain; display: block; margin: 0 auto; filter: drop-shadow(0 2px 3px #0008); }
   @keyframes medalIn { from { transform: scale(.2) rotate(-30deg); opacity: 0; } to { transform: none; opacity: 1; } }
   #rankTitle.gold { color: #ffd75a; } #rankTitle.silver { color: #e6ecf5; } #rankTitle.bronze { color: #f0a46a; }
   .news-list { margin: 0; padding: 0; list-style: none; width: 92%; display: flex; flex-direction: column; gap: 7px; }
@@ -932,7 +926,7 @@
 </div>
 <div id="rankPop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="rankTitle">
   <div class="card kit-card upd-card">
-    <div class="medal" id="rankMedal"><b id="rankNum">1</b></div>
+    <img class="medal" id="rankMedal" src="assets/medals/gold.webp" alt="">
     <h2 class="card-title fate-title" id="rankTitle">Gold!</h2>
     <p class="upd-text" id="rankText"></p>
     <button class="btn-green" id="rankOk">Awesome!</button>
@@ -4996,7 +4990,7 @@ function openSheet(which, fromRefresh = false) {
       if (!worldBoard) html += '<p class="lb-wait">Loading the world leaderboard…</p>';
       else if (!worldBoard.top.length) html += '<p>No one is on the board yet. Be the first!</p>';
       else {
-        const row = r => `<div class="lb-row tap ${account.name === r.name ? 'me' : ''} ${r.rank <= 3 ? 'top' + r.rank : ''}" data-who="${r.name}"><span class="lb-rank">${r.rank}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
+        const row = r => `<div class="lb-row tap ${account.name === r.name ? 'me' : ''} ${r.rank <= 3 ? 'top' + r.rank : ''}" data-who="${r.name}"><span class="lb-rank">${rankCell(r.rank)}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
           `<span class="lb-name">${esc(r.name)}</span><span class="lb-lvl">Lv ${r.level}</span><b class="lb-score">${r.best.toLocaleString()}</b></div>`;
         html += `<p class="lb-count">${worldBoard.players} player${worldBoard.players === 1 ? '' : 's'}</p><div class="lb">` + worldBoard.top.map(row).join('') + '</div>';
         if (worldBoard.me && worldBoard.me.rank > 100) html += '<div class="lb">' + row(worldBoard.me) + '</div>';
@@ -5013,7 +5007,7 @@ function openSheet(which, fromRefresh = false) {
       const scored = [...meRow, ...fb.filter(f => !f.missing && !f.noScore)].sort((x, y) => y.best - x.best || y.level - x.level);
       const pending = fb.filter(f => f.noScore || f.missing || (!worldBoard && friends.includes(f.name)));
       if (!friends.length) html += '<p class="lb-empty">No friends yet. Add your friends\' names above.</p>';
-      html += '<div class="lb">' + scored.map((r, i) => `<div class="lb-row tap ${r.you ? 'me' : ''} ${i < 3 ? 'top' + (i + 1) : ''}" data-who="${r.name}"><span class="lb-rank">${i + 1}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
+      html += '<div class="lb">' + scored.map((r, i) => `<div class="lb-row tap ${r.you ? 'me' : ''} ${i < 3 ? 'top' + (i + 1) : ''}" data-who="${r.name}"><span class="lb-rank">${rankCell(i + 1)}</span><canvas class="lb-face" data-look="${r.look}"></canvas>` +
         `<span class="lb-name">${esc(r.name)}${r.you ? ' <small class="you">YOU</small>' : ''}${r.rank ? `<small class="wr">World #${r.rank}</small>` : ''}</span><span class="lb-lvl">Lv ${r.level}</span><b class="lb-score">${r.best.toLocaleString()}</b>` +
         (r.you ? '<span></span>' : `<button class="lb-x" data-rm="${r.name}" aria-label="Remove ${r.name}">&times;</button>`) + '</div>').join('') + '</div>';
       if (!worldBoard && friends.length) html += '<p class="lb-wait">Loading your friends…</p>';
@@ -5442,6 +5436,7 @@ $('newsOk').addEventListener('click', () => {
 { const t = setInterval(() => { if (maybeShowNews()) clearInterval(t); }, 2500); }
 
 // ---------- Medal window ----------
+const rankCell = n => n >= 1 && n <= 3 ? `<img src="assets/medals/${['gold', 'silver', 'bronze'][n - 1]}.webp" alt="#${n}">` : n;
 // Reaching the world top 3 shows a medal: gold for #1, silver for #2, bronze for #3. It shows
 // once each time a player climbs to a better medal (dropping and climbing back shows it again).
 const MEDALS = { 1: ['gold', 'Gold!', "You're number 1 in the world! Nobody has a higher score."],
@@ -5461,7 +5456,7 @@ function maybeShowMedal() {
     ['gate', 'tutorial', 'sheet', 'updateGate', 'newsPop'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
   if (busy) return;
   const [cls, title, text] = MEDALS[medalWaiting];
-  $('rankMedal').className = 'medal ' + cls; $('rankNum').textContent = medalWaiting;
+  $('rankMedal').className = 'medal ' + cls; $('rankMedal').src = 'assets/medals/' + cls + '.webp'; $('rankMedal').alt = cls + ' medal';
   $('rankTitle').className = 'card-title fate-title ' + cls; $('rankTitle').textContent = title;
   $('rankText').textContent = text;
   try { localStorage.setItem('bma.medal', String(medalWaiting)); } catch (e) { /* ignore */ }
