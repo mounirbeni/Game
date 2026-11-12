@@ -116,6 +116,8 @@ const AUTH_FAIL = { status: 401, body: { error: 'auth', message: 'Unknown player
 const MAX_SAVE = 200000;
 // The game's developer accounts: unlimited credits, items, hearts, lives, looks and levels.
 const DEV_NAMES = ['MBN'];
+// VIP accounts: unlimited credits and hearts only.
+const VIP_NAMES = ['ZOGHA'];
 function cleanSave(save) {
   if (!save || typeof save !== 'object' || Array.isArray(save)) return null;
   const out = {};
@@ -139,7 +141,7 @@ export async function loadCloud({ name, token }) {
   if (!acc) return AUTH_FAIL;
   const text = await (await blob()).read(`saves/${acc.name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? withUpdateNudge(rec.save) : null, reset: await readReset(acc.name) } };
+  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), vip: VIP_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? withUpdateNudge(rec.save) : null, reset: await readReset(acc.name) } };
 }
 // Raise UPDATE_NUDGE to make games that are already open restart and pick up a new version.
 // Older games (from before the in-game update window) restart when what they load from the
@@ -176,7 +178,7 @@ export async function login({ name: rawName, password }) {
   await (await blob()).write(`keys/${name}/${hash(token)}.json`, JSON.stringify({ t: Date.now() }));
   const text = await (await blob()).read(`saves/${name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name, token, hasPassword: true, dev: DEV_NAMES.includes(name), t: rec ? rec.t : 0, save: rec ? rec.save : null, reset: await readReset(name) } };
+  return { status: 200, body: { name, token, hasPassword: true, dev: DEV_NAMES.includes(name), vip: VIP_NAMES.includes(name), t: rec ? rec.t : 0, save: rec ? rec.save : null, reset: await readReset(name) } };
 }
 // ---------- Gifts ----------
 // Credits handed out to players. Each gift goes to every account that existed when it was made
