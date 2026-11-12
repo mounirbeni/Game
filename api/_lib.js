@@ -139,7 +139,19 @@ export async function loadCloud({ name, token }) {
   if (!acc) return AUTH_FAIL;
   const text = await (await blob()).read(`saves/${acc.name}.json`);
   const rec = text ? JSON.parse(text) : null;
-  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? rec.save : null, reset: await readReset(acc.name) } };
+  return { status: 200, body: { name: acc.name, hasPassword: !!acc.passHash, dev: DEV_NAMES.includes(acc.name), t: rec ? rec.t : 0, save: rec ? withUpdateNudge(rec.save) : null, reset: await readReset(acc.name) } };
+}
+// Raise UPDATE_NUDGE to make games that are already open restart and pick up a new version.
+// Older games (from before the in-game update window) restart when what they load from the
+// server holds more progress than they have. This adds a tiny counter to the stats they load,
+// so they see "more" and restart. It changes nothing a player can see.
+const UPDATE_NUDGE = 1;
+function withUpdateNudge(save) {
+  try {
+    const st = JSON.parse((save && save['bma.stats']) || '{}');
+    if (!(st.upd >= UPDATE_NUDGE)) st.upd = UPDATE_NUDGE;
+    return { ...save, 'bma.stats': JSON.stringify(st) };
+  } catch (e) { return save; }
 }
 // A progress correction set by the developer (reset/<NAME>.json = { id, set: { 'backman.level': '23', ... } }).
 // Phones apply it once, replacing those values even when theirs are higher.
