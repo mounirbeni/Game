@@ -467,7 +467,8 @@ export async function challenge(body) {
 // ---------- Live rooms (real-time play) ----------
 // The server only introduces the phones to each other (WebRTC offer/answer); the game itself
 // then runs directly between the phones, with the host's phone running the match.
-//   rooms/<CODE>.json            { code, host, mode, created }
+//   rooms/<CODE>.json            { code, host, mode, created, seen, count, started, players }
+//   (a started room stays until the match ends, so a player who lost the connection can come back)
 //   rooms/<CODE>/p-<NAME>.json   a player asking to join: { name, look, offer, t }
 //   rooms/<CODE>/a-<NAME>.json   the host's answer for that player: { sdp, t }
 const ROOM_LIFE = 30 * 60000, CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -493,8 +494,8 @@ export async function room(body) {
     // rooms past their life (host closed the app without closing the room): delete them with their files
     const dead = found.filter(r => r && now - r.created > ROOM_LIFE).map(r => r.code);
     if (dead.length) await s.remove(all.filter(p => dead.some(c => p === `rooms/${c}.json` || p.startsWith(`rooms/${c}/`))));
-    const rooms = found.filter(r => r && r.host !== me && now - r.created < ROOM_LIFE && now - (r.seen || r.created) < 60000);
-    const out = await Promise.all(rooms.slice(0, 30).map(async r => ({ code: r.code, host: r.host, mode: r.mode, players: 1 + (await s.list(`rooms/${r.code}/p-`)).length })));
+    const rooms = found.filter(r => r && r.host !== me && !r.started && now - r.created < ROOM_LIFE && now - (r.seen || r.created) < 30000);
+    const out = rooms.slice(0, 30).map(r => ({ code: r.code, host: r.host, mode: r.mode, players: Math.max(1, r.count || 1) }));
     return { status: 200, body: { rooms: out.filter(r => r.players < 4).sort((a, b) => a.players - b.players).slice(0, 20) } };
   }
 
@@ -502,7 +503,7 @@ export async function room(body) {
     const mode = body.mode === 'coop' ? 'coop' : 'race';
     for (let i = 0; i < 8; i++) {
       const c = Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
-      const r = { code: c, host: me, mode, created: now };
+      const r = { code: c, host: me, mode, created: now, seen: now, count: 1 };
       const old = await readJSON(s, `rooms/${c}.json`);
       if (old && now - old.created < ROOM_LIFE) continue;
       await s.write(`rooms/${c}.json`, JSON.stringify(r));
@@ -514,20 +515,31 @@ export async function room(body) {
   }
   const r = await load();
   if (!r || now - r.created > ROOM_LIFE) return gone;
-  if (body.action === 'join') {
+  const hostAway = now - (r.seen || r.created) > (r.started ? 60000 : 30000);   // the host stopped checking in
+  if (body.action === 'leave') {   // a player leaves: drop their connection request
+    await s.remove([`rooms/${code}/p-${me}.json`, `rooms/${code}/a-${me}.json`]);
+    return { status: 200, body: { ok: true } };
+  }
+  if (body.action === 'join' || body.action === 'peek') {   // peek: the same checks, before the phone prepares a connection
     if (r.host === me) return { status: 400, body: { error: 'self', message: 'That is your own room.' } };
+    if (hostAway) return { status: 404, body: { error: 'missing', message: 'That room was closed.' } };
+    if (r.started && !(r.players || []).includes(me)) return { status: 409, body: { error: 'started', message: 'That match already started. Try another room.' } };
+    if (!r.started && (r.count || 1) >= 4) return { status: 409, body: { error: 'full', message: 'That room is full (4 players). Try another room.' } };
+    if (body.action === 'peek') return { status: 200, body: { room: r } };
     if (!okSdp(body.offer)) return { status: 400, body: { error: 'invalid', message: 'Connection data missing.' } };
     await s.remove([`rooms/${code}/a-${me}.json`]);
     await s.write(`rooms/${code}/p-${me}.json`, JSON.stringify({ name: me, look: Math.max(0, Math.min(99, Math.floor(+body.look || 0))), offer: body.offer, t: now }));
     return { status: 200, body: { room: r } };
   }
   if (body.action === 'wait') {   // a joining player waits for the host's answer
+    if (hostAway) return { status: 404, body: { error: 'missing', message: 'The host left the room.' } };
     const a = await readJSON(s, `rooms/${code}/a-${me}.json`);
     return { status: 200, body: { room: r, answer: a ? a.sdp : null } };
   }
   if (r.host !== me) return { status: 403, body: { error: 'host', message: 'Only the host can do that.' } };
   if (body.action === 'poll') {   // the host looks for players asking to join
-    if (now - (r.seen || r.created) > 20000) { r.seen = now; await s.write(`rooms/${code}.json`, JSON.stringify(r)); }   // still here: keep the room listed
+    const count = Math.max(1, Math.min(4, Math.floor(+body.count || 1)));
+    if (now - (r.seen || r.created) > 10000 || count !== r.count) { r.seen = now; r.count = count; await s.write(`rooms/${code}.json`, JSON.stringify(r)); }   // still here: keep the room listed
     const paths = (await s.list(`rooms/${code}/p-`));
     const players = (await Promise.all(paths.map(p => readJSON(s, p)))).filter(Boolean);
     return { status: 200, body: { room: r, players } };
@@ -536,6 +548,13 @@ export async function room(body) {
     const to = cleanName(body.to);
     if (!to || !okSdp(body.sdp)) return { status: 400, body: { error: 'invalid', message: 'Connection data missing.' } };
     await s.write(`rooms/${code}/a-${to}.json`, JSON.stringify({ sdp: body.sdp, t: now }));
+    return { status: 200, body: { ok: true } };
+  }
+  if (body.action === 'start') {   // the match begins: hide the room, remember who plays (they may reconnect)
+    r.started = true; r.seen = now;
+    r.players = (Array.isArray(body.players) ? body.players : []).map(cleanName).filter(Boolean).slice(0, 4);
+    await s.remove(await s.list(`rooms/${code}/`));
+    await s.write(`rooms/${code}.json`, JSON.stringify(r));
     return { status: 200, body: { ok: true } };
   }
   if (body.action === 'close') {
