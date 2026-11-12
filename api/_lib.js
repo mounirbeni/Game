@@ -506,7 +506,8 @@ export async function room(body) {
       const old = await readJSON(s, `rooms/${c}.json`);
       if (old && now - old.created < ROOM_LIFE) continue;
       await s.write(`rooms/${c}.json`, JSON.stringify(r));
-      await notify((await pushNames(s)).filter(n => n !== me), { title: 'Live room open! 🎮', body: `${me} opened a ${mode === 'coop' ? 'Team' : 'Race'} room. Join now: code ${c}`, tag: `room-${c}`, url: '/#live' });
+      const myFriends = (await s.list(`fr/${me}/`)).map(tail);   // only my friends get the phone notification
+      await notify((await pushNames(s)).filter(n => n !== me && myFriends.includes(n)), { title: 'Live room open! 🎮', body: `Your friend ${me} opened a ${mode === 'coop' ? 'Team' : 'Race'} room. Join now: code ${c}`, tag: `room-${c}`, url: '/#live' });
       return { status: 200, body: { room: r } };
     }
     return { status: 503, body: { error: 'busy', message: 'Could not make a room. Try again.' } };

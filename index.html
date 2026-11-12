@@ -838,7 +838,17 @@
   /* what's new window: shown once per news list */
   #newsPop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
     background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
-  #newsPop.hidden, #rankPop.hidden { display: none; }
+  #newsPop.hidden, #rankPop.hidden, #livePop.hidden { display: none; }
+  /* someone is playing live: invite window */
+  #livePop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
+  .live-badge { display: inline-flex; align-items: center; gap: 7px; padding: 4px 14px; border-radius: 999px; background: #e0302a; color: #fff; box-shadow: 0 0 18px #ff3b3b88;
+    font: 400 18px/1.2 'Lilita One', ui-rounded, system-ui, sans-serif; letter-spacing: .08em; }
+  .live-badge i { width: 10px; height: 10px; border-radius: 50%; background: #fff; animation: livePulse 1s ease-in-out infinite; }
+  @keyframes livePulse { 50% { opacity: .25; } }
+  #livePop .lp-face { width: 84px; height: 84px; border-radius: 22px; border: 3px solid #ffcf3a; background: #0c1d3a; box-shadow: 0 6px 14px #000a; }
+  #livePop .fate-row { width: 88%; }
+  #livePop .lp-face.hidden { display: none; }
   /* medal window: reaching the world top 3 */
   #rankPop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
     background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
@@ -922,6 +932,16 @@
     <h2 class="card-title fate-title" id="newsTitle">What's new!</h2>
     <ul class="news-list" id="newsList"></ul>
     <button class="btn-green" id="newsOk">Let's play!</button>
+  </div>
+</div>
+<div id="livePop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="livePopTitle">
+  <div class="card kit-card upd-card">
+    <span class="live-badge"><i></i>LIVE</span>
+    <canvas class="lp-face" id="livePopFace"></canvas><img class="lp-face" id="livePopIcon" src="icons/icon-192.png" alt="">
+    <h2 class="card-title fate-title" id="livePopTitle">MBN is live!</h2>
+    <p class="upd-text" id="livePopText"></p>
+    <button class="btn-green" id="livePopJoin">Join now</button>
+    <div class="fate-row"><button class="btn-blue" id="livePopNo">Not now</button></div>
   </div>
 </div>
 <div id="rankPop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="rankTitle">
@@ -5423,7 +5443,7 @@ function maybeShowNews() {
   let seen = null; try { seen = localStorage.getItem('bma.news'); } catch (e) { /* ignore */ }
   if (seen === NEWS.id) return true;
   const busy = state !== 'title' || homeEl.classList.contains('hidden') || updateShown ||
-    ['gate', 'tutorial', 'sheet', 'updateGate', 'rankPop'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
+    ['gate', 'tutorial', 'sheet', 'updateGate', 'rankPop', 'livePop'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
   if (busy) return false;
   $('newsList').innerHTML = NEWS.items.map(t => '<li>' + t.replace(/</g, '&lt;') + '</li>').join('');
   $('newsPop').classList.remove('hidden');
@@ -5434,6 +5454,43 @@ $('newsOk').addEventListener('click', () => {
   $('newsPop').classList.add('hidden');
 });
 { const t = setInterval(() => { if (maybeShowNews()) clearInterval(t); }, 2500); }
+
+// ---------- Someone is live ----------
+// While a player sits on the home screen, look for open live rooms every 20 seconds. A room
+// nobody has been told about yet opens an invite window (once per room).
+const liveSeen = new Set();
+let liveInvite = null;
+async function checkLiveRooms() {
+  if (!account.token || document.hidden || lobby || live || state !== 'title' || homeEl.classList.contains('hidden')) return;
+  let rooms = [];
+  try { rooms = (await roomApi({ action: 'list' })).rooms || []; } catch (e) { return; }
+  const fresh = rooms.find(r => !liveSeen.has(r.code) && r.host !== account.name && r.players < 4);
+  rooms.forEach(r => liveSeen.add(r.code));
+  if (fresh && !liveInvite) { liveInvite = fresh; showLiveInvite(); }
+}
+function showLiveInvite() {
+  if (!liveInvite) return;
+  const busy = state !== 'title' || homeEl.classList.contains('hidden') || updateShown || lobby || live ||
+    ['gate', 'tutorial', 'sheet', 'updateGate', 'newsPop', 'rankPop'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
+  if (busy) return;
+  const r = liveInvite, friend = typeof friends !== 'undefined' && friends.includes(r.host);
+  $('livePopTitle').textContent = r.host + ' is live!';
+  $('livePopText').textContent = (friend ? 'Your friend ' + r.host : r.host) + ' opened a ' + (r.mode === 'coop' ? 'Team' : 'Race') + ' room (' + r.players + '/4 players). Jump in and play together!';
+  // the host's hero if we know it from the leaderboard, else the game's icon
+  const known = worldBoard && [...(worldBoard.friends || []), ...(worldBoard.top || [])].find(f => f.name === r.host && f.look != null);
+  $('livePopFace').classList.toggle('hidden', !known); $('livePopIcon').classList.toggle('hidden', !!known);
+  if (known) try { paintAvatar($('livePopFace'), 84, 'look:' + Math.min(+known.look || 0, SKINS.length - 1)); } catch (e) { /* ignore */ }
+  $('livePop').classList.remove('hidden');
+  try { sfx.portal(); } catch (e) { /* ignore */ }
+}
+$('livePopJoin').addEventListener('click', () => {
+  const r = liveInvite; liveInvite = null; $('livePop').classList.add('hidden');
+  if (!r) return;
+  openSheet('live'); setTimeout(() => { liveSheetHtml.msg = ''; liveJoin(r.code); }, 60);
+});
+$('livePopNo').addEventListener('click', () => { liveInvite = null; $('livePop').classList.add('hidden'); });
+setInterval(() => { if (liveInvite) showLiveInvite(); else checkLiveRooms(); }, 20000);
+setTimeout(checkLiveRooms, 8000);
 
 // ---------- Medal window ----------
 const rankCell = n => n >= 1 && n <= 3 ? `<img src="assets/medals/${['gold', 'silver', 'bronze'][n - 1]}.webp" alt="#${n}">` : n;
@@ -5453,7 +5510,7 @@ function noteMedal(rank) {
 function maybeShowMedal() {
   if (!medalWaiting) return;
   const busy = state !== 'title' || homeEl.classList.contains('hidden') || updateShown ||
-    ['gate', 'tutorial', 'sheet', 'updateGate', 'newsPop'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
+    ['gate', 'tutorial', 'sheet', 'updateGate', 'newsPop', 'livePop'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
   if (busy) return;
   const [cls, title, text] = MEDALS[medalWaiting];
   $('rankMedal').className = 'medal ' + cls; $('rankMedal').src = 'assets/medals/' + cls + '.webp'; $('rankMedal').alt = cls + ' medal';
