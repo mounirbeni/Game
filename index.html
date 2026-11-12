@@ -838,7 +838,21 @@
   /* what's new window: shown once per news list */
   #newsPop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
     background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
-  #newsPop.hidden { display: none; }
+  #newsPop.hidden, #rankPop.hidden { display: none; }
+  /* medal window: reaching the world top 3 */
+  #rankPop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
+  .medal { --m1: #fff3a8; --m2: #ffcf3a; --m3: #b07a00; position: relative; width: 104px; height: 128px; margin-top: -4px; animation: medalIn .7s cubic-bezier(.2, 1.6, .4, 1) both; }
+  .medal.silver { --m1: #ffffff; --m2: #c9d3e0; --m3: #6f7c8f; }
+  .medal.bronze { --m1: #ffd2a8; --m2: #d98a4a; --m3: #7c3f14; }
+  .medal::before, .medal::after { content: ''; position: absolute; top: 0; width: 30px; height: 56px; background: linear-gradient(#e0413a, #a3201c); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); }
+  .medal::before { left: 22px; transform: rotate(14deg); } .medal::after { right: 22px; transform: rotate(-14deg); background: linear-gradient(#3a7bea, #1d4bb0); }
+  .medal b { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 1; width: 92px; height: 92px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 35% 30%, var(--m1), var(--m2) 55%, var(--m3)); border: 4px solid var(--m3); box-shadow: 0 0 26px var(--m2), 0 6px 14px #000a, inset 0 -6px 10px #0004;
+    font: 400 44px/1 'Lilita One', ui-rounded, system-ui, sans-serif; color: #fff; text-shadow: 0 2px 0 var(--m3), 0 0 8px #0006; }
+  .medal b::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; border: 2px dashed #ffffff88; }
+  @keyframes medalIn { from { transform: scale(.2) rotate(-30deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  #rankTitle.gold { color: #ffd75a; } #rankTitle.silver { color: #e6ecf5; } #rankTitle.bronze { color: #f0a46a; }
   .news-list { margin: 0; padding: 0; list-style: none; width: 92%; display: flex; flex-direction: column; gap: 7px; }
   .news-list li { display: flex; gap: 8px; align-items: flex-start; font: 700 13.5px/1.3 system-ui, sans-serif; color: #e6ecff; text-align: left; }
   .news-list li::before { content: '★'; color: #ffcf3a; flex: none; font-size: 14px; line-height: 1.25; }
@@ -914,6 +928,14 @@
     <h2 class="card-title fate-title" id="newsTitle">What's new!</h2>
     <ul class="news-list" id="newsList"></ul>
     <button class="btn-green" id="newsOk">Let's play!</button>
+  </div>
+</div>
+<div id="rankPop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="rankTitle">
+  <div class="card kit-card upd-card">
+    <div class="medal" id="rankMedal"><b id="rankNum">1</b></div>
+    <h2 class="card-title fate-title" id="rankTitle">Gold!</h2>
+    <p class="upd-text" id="rankText"></p>
+    <button class="btn-green" id="rankOk">Awesome!</button>
   </div>
 </div>
 <div id="gate" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
@@ -4144,6 +4166,7 @@ async function refreshRank() {
     worldBoardAt = Date.now();
     myRank = worldBoard.me ? worldBoard.me.rank : null;
     refreshHome();
+    noteMedal(myRank);
     if (sheetOpen === 'board') openSheet('board', true);
   } catch (e) { /* offline: keep what we have */ }
 }
@@ -5406,7 +5429,7 @@ function maybeShowNews() {
   let seen = null; try { seen = localStorage.getItem('bma.news'); } catch (e) { /* ignore */ }
   if (seen === NEWS.id) return true;
   const busy = state !== 'title' || homeEl.classList.contains('hidden') || updateShown ||
-    ['gate', 'tutorial', 'sheet', 'updateGate'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
+    ['gate', 'tutorial', 'sheet', 'updateGate', 'rankPop'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
   if (busy) return false;
   $('newsList').innerHTML = NEWS.items.map(t => '<li>' + t.replace(/</g, '&lt;') + '</li>').join('');
   $('newsPop').classList.remove('hidden');
@@ -5417,6 +5440,37 @@ $('newsOk').addEventListener('click', () => {
   $('newsPop').classList.add('hidden');
 });
 { const t = setInterval(() => { if (maybeShowNews()) clearInterval(t); }, 2500); }
+
+// ---------- Medal window ----------
+// Reaching the world top 3 shows a medal: gold for #1, silver for #2, bronze for #3. It shows
+// once each time a player climbs to a better medal (dropping and climbing back shows it again).
+const MEDALS = { 1: ['gold', 'Gold!', "You're number 1 in the world! Nobody has a higher score."],
+  2: ['silver', 'Silver!', "You're number 2 in the world! One more push for gold."],
+  3: ['bronze', 'Bronze!', "You're number 3 in the world! Climb higher for silver."] };
+let medalWaiting = 0;
+function noteMedal(rank) {
+  let had = 0; try { had = +localStorage.getItem('bma.medal') || 0; } catch (e) { /* ignore */ }
+  const now = rank >= 1 && rank <= 3 ? rank : 0;
+  if (!now) { if (had) try { localStorage.setItem('bma.medal', '0'); } catch (e) { /* ignore */ } return; }
+  if (had && now >= had) { if (now > had) try { localStorage.setItem('bma.medal', String(now)); } catch (e) { /* ignore */ } return; }   // same or lower medal: no window
+  medalWaiting = now; maybeShowMedal();
+}
+function maybeShowMedal() {
+  if (!medalWaiting) return;
+  const busy = state !== 'title' || homeEl.classList.contains('hidden') || updateShown ||
+    ['gate', 'tutorial', 'sheet', 'updateGate', 'newsPop'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
+  if (busy) return;
+  const [cls, title, text] = MEDALS[medalWaiting];
+  $('rankMedal').className = 'medal ' + cls; $('rankNum').textContent = medalWaiting;
+  $('rankTitle').className = 'card-title fate-title ' + cls; $('rankTitle').textContent = title;
+  $('rankText').textContent = text;
+  try { localStorage.setItem('bma.medal', String(medalWaiting)); } catch (e) { /* ignore */ }
+  medalWaiting = 0;
+  $('rankPop').classList.remove('hidden');
+  try { sfx.lantern(); } catch (e) { /* ignore */ }
+}
+$('rankOk').addEventListener('click', () => $('rankPop').classList.add('hidden'));
+setInterval(maybeShowMedal, 2000);
 
 // ---------- Loop ----------
 let last = performance.now();
