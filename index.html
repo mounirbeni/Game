@@ -846,9 +846,10 @@
     font: 400 18px/1.2 'Lilita One', ui-rounded, system-ui, sans-serif; letter-spacing: .08em; }
   .live-badge i { width: 10px; height: 10px; border-radius: 50%; background: #fff; animation: livePulse 1s ease-in-out infinite; }
   @keyframes livePulse { 50% { opacity: .25; } }
-  #livePop .lp-face { width: 84px; height: 84px; border-radius: 22px; border: 3px solid #ffcf3a; background: #0c1d3a; box-shadow: 0 6px 14px #000a; }
+  #livePop .lp-icon { width: 112px; height: 112px; object-fit: contain; filter: drop-shadow(0 0 16px #ff3b3b88) drop-shadow(0 6px 12px #000a); animation: medalIn .6s cubic-bezier(.2, 1.6, .4, 1) both, liveBeat 1.6s .6s ease-in-out infinite; }
+  @keyframes liveBeat { 50% { transform: scale(1.06); } }
+  .live-btn .live-ico { width: 26px; height: 26px; object-fit: contain; margin: -4px 0 -4px -6px; filter: drop-shadow(0 1px 2px #0008); }
   #livePop .fate-row { width: 88%; }
-  #livePop .lp-face.hidden { display: none; }
   /* medal window: reaching the world top 3 */
   #rankPop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
     background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
@@ -892,7 +893,7 @@
         <button class="bubble ring-blue" data-open="stats"><span class="bicon"><img class="uiicon" src="icons/ui/stats.webp" alt="" draggable="false"></span></button>
       </div>
       <button id="playBtn" class="play-btn"><span class="pb-text" id="playLevel">Level 1</span></button>
-      <button id="liveBtn" class="live-btn" data-open="live"><i class="live-dot"></i>Play live with friends</button>
+      <button id="liveBtn" class="live-btn" data-open="live"><img class="live-ico" src="assets/live.webp" alt="">Play live with friends</button>
       <button class="install hidden" id="installBtn">Install app</button>
       <p class="hint hidden" id="iosHint"></p>
     </div>
@@ -937,7 +938,7 @@
 <div id="livePop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="livePopTitle">
   <div class="card kit-card upd-card">
     <span class="live-badge"><i></i>LIVE</span>
-    <canvas class="lp-face" id="livePopFace"></canvas><img class="lp-face" id="livePopIcon" src="icons/icon-192.png" alt="">
+    <img class="lp-icon" src="assets/live.webp" alt="">
     <h2 class="card-title fate-title" id="livePopTitle">MBN is live!</h2>
     <p class="upd-text" id="livePopText"></p>
     <button class="btn-green" id="livePopJoin">Join now</button>
@@ -5476,10 +5477,6 @@ function showLiveInvite() {
   const r = liveInvite, friend = typeof friends !== 'undefined' && friends.includes(r.host);
   $('livePopTitle').textContent = r.host + ' is live!';
   $('livePopText').textContent = (friend ? 'Your friend ' + r.host : r.host) + ' opened a ' + (r.mode === 'coop' ? 'Team' : 'Race') + ' room (' + r.players + '/4 players). Jump in and play together!';
-  // the host's hero if we know it from the leaderboard, else the game's icon
-  const known = worldBoard && [...(worldBoard.friends || []), ...(worldBoard.top || [])].find(f => f.name === r.host && f.look != null);
-  $('livePopFace').classList.toggle('hidden', !known); $('livePopIcon').classList.toggle('hidden', !!known);
-  if (known) try { paintAvatar($('livePopFace'), 84, 'look:' + Math.min(+known.look || 0, SKINS.length - 1)); } catch (e) { /* ignore */ }
   $('livePop').classList.remove('hidden');
   try { sfx.portal(); } catch (e) { /* ignore */ }
 }

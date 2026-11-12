@@ -1,7 +1,7 @@
 // Backman service worker: makes the game installable and playable offline.
 // The page itself is fetched network-first so updates show up as soon as you're online;
 // everything else is served from the cache first.
-const CACHE = 'bugmaze-v110';
+const CACHE = 'bugmaze-v111';
 const ASSETS = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const ASSETS = [
   './assets/medals/gold.webp',
   './assets/medals/silver.webp',
   './assets/medals/bronze.webp',
+  './assets/live.webp',
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
   './assets/home-bg.jpg', './assets/level-map.webp', './assets/level-btn.webp', './assets/card-frame.webp', './assets/frame-long.webp', './assets/frame-mid.webp', './assets/frame-square.webp', './assets/frame-plain.webp', './assets/items/chest.webp', './assets/items/basket.webp', './assets/items/heart.webp', './assets/items/lantern.webp', './assets/items/shield.webp', './assets/items/icebomb.webp', './assets/items/boots.webp', './assets/items/magnet.webp', './assets/powers/backman.webp', './assets/powers/es.webp', './assets/powers/fox.webp', './assets/powers/mbn.webp', './assets/powers/midnight.webp', './assets/powers/minty.webp', './assets/powers/ranger.webp', './assets/powers/seeker.webp', './assets/powers/shadow.webp', './assets/powers/sprout.webp', './assets/powers/voyager.webp', './assets/powers/zogha.webp', './assets/skills/candy.webp', './assets/skills/flash.webp', './assets/skills/seedburst.webp', './assets/skills/decree.webp', './assets/skills/moon.webp', './assets/skills/net.webp', './assets/skills/sprint.webp', './assets/skills/swap.webp', './assets/skills/timestop.webp', './assets/skills/treasure.webp', './assets/skills/vanish.webp', './assets/skills/waypoint.webp', './assets/fonts/lilita-one.woff2', './assets/btn-green.webp', './assets/btn-blue.webp', './assets/scene-win.webp', './assets/scene-lose.webp', './assets/ladybug.webp', './assets/backman.webp', './assets/skins/zogha.webp', './assets/skins/es.webp', './assets/skins/sprout.webp', './assets/skins/fox.webp', './assets/skins/minty.webp', './assets/skins/mbn.webp', './assets/skins/midnight.webp', './assets/skins/shadow.webp', './assets/skins/ranger.webp', './assets/skins/seeker.webp', './assets/skins/voyager.webp', './assets/floor.webp', './assets/wall.webp', './assets/seed.webp', './assets/lantern.webp', './assets/mushroom.webp', './assets/coin-sprite.webp', './assets/ladybug-scared.webp',
