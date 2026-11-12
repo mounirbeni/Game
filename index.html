@@ -1415,6 +1415,30 @@ function layerCanvas(key, w, h) {
   c.width = w; c.height = h;   // resizing also clears it
   return c;
 }
+// iPhones silently hand back a blank canvas when the page's canvas memory runs out (the maze
+// then shows as plain black). After drawing, look at one wall pixel and one seed pixel; if they
+// are empty, release memory and draw the layers again at a lower resolution.
+function layerPixel(c, x, y) {
+  try { const g = c.getContext('2d'); if (!g) return 0; return g.getImageData(Math.floor((x + 0.5) * T * ldpr), Math.floor((y + 0.5) * T * ldpr), 1, 1).data[3]; }
+  catch (e) { return 255; }   // can't check: assume fine
+}
+function firstTile(M, ch) { for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) if (M[y] && M[y][x] === ch) return { x, y }; return null; }
+function buildLayersSafely() {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    mazeLayer = buildMaze(false);
+    buildSeeds();
+    const wall = firstTile(MAP, '#'), seed = grid ? firstTile(grid, '.') : null;
+    const mazeOk = !wall || layerPixel(mazeLayer, wall.x, wall.y) > 0;
+    const seedOk = !seed || !seedLayer || layerPixel(seedLayer, seed.x, seed.y) > 0;
+    if (mazeOk && seedOk) return;
+    freeSpareCanvases();
+    ldpr = Math.max(0.5, ldpr * 0.6);
+  }
+}
+// Canvases left over in closed windows (faces, avatars) still hold memory on iPhone until freed.
+function freeSpareCanvases(root) {
+  (root || document).querySelectorAll('#sheetBody canvas, #liveLobby canvas, .map-art canvas').forEach(c => { if (!c.isConnected || root) { c.width = c.height = 0; } });
+}
 function freeFlashLayer() { mazeLayerFlash = null; if (layerCanvases.flash) layerCanvases.flash.width = layerCanvases.flash.height = 0; }
 
 // ---------- Storage (best score) ----------
@@ -2668,8 +2692,7 @@ function resize() {
   canvas.height = Math.round(viewH * dpr);
   ldpr = Math.min(dpr, Math.sqrt(4.5e6 / (COLS * T * ROWS * T)));
   freeFlashLayer();
-  mazeLayer = buildMaze(false);
-  buildSeeds();
+  buildLayersSafely();
   updateCamera(0, true);
 }
 
@@ -2703,13 +2726,30 @@ function buildSeeds() {
 }
 function eraseSeed(x, y) { if (seedCtx) seedCtx.clearRect(x * T, y * T, T, T); }
 
+// What the camera looks at. In a live match: my player while alive; while I'm caught, the spot
+// where I'll come back (so the respawn is seamless); once I'm out, the best player still in.
+function cameraFocus() {
+  if (live && live.me) {
+    const me = live.me;
+    if (me.out) {
+      const alive = live.players.filter(p => p !== me && !p.out && !p.dead).sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+      if (alive) { const q = pos(alive); return { x: q.x + (alive.ox || 0), y: q.y + (alive.oy || 0), smooth: true }; }
+      return { x: START.x, y: START.y, smooth: true };
+    }
+    if (me.dead) { const sx = canEnter(START.x + (me.slot || 0), START.y, false) ? START.x + (me.slot || 0) : START.x; return { x: sx, y: START.y, smooth: true }; }
+  }
+  const lp = pos(player); return { x: lp.x + (player.ox || 0), y: lp.y + (player.oy || 0), smooth: false };
+}
+let camSmooth = 0;
 function updateCamera(dt, snap) {
-  const lp = pos(player), p = { x: lp.x + player.ox, y: lp.y + player.oy };
+  const p = cameraFocus();
+  if (p.smooth) camSmooth = 0.6;   // glide (no jumps) while switching to / from a spectator view
+  else if (camSmooth > 0) camSmooth = Math.max(0, camSmooth - dt);
   const tx = clamp(p.x * T + T / 2 - viewW / 2, 0, COLS * T - viewW);
   const ty = clamp(p.y * T + T / 2 - viewH / 2, 0, ROWS * T - viewH);
   if (snap || snapCamera) { camX = tx; camY = ty; snapCamera = false; return; }
-  if (Math.abs(tx - camX) < T * 1.5 && Math.abs(ty - camY) < T * 1.5) { camX = tx; camY = ty; return; }
-  const k = Math.min(1, dt * 10);
+  if (!camSmooth && Math.abs(tx - camX) < T * 1.5 && Math.abs(ty - camY) < T * 1.5) { camX = tx; camY = ty; return; }
+  const k = Math.min(1, dt * (camSmooth ? 5 : 10));
   camX += (tx - camX) * k; camY += (ty - camY) * k;
 }
 
@@ -2935,8 +2975,8 @@ function draw(now) {
   ctx.fillRect(0, 0, viewW, viewH);
   ctx.translate(-Math.round(camX * dpr) / dpr, -Math.round(camY * dpr) / dpr);
   const flashing = state === 'clear' && stateTimer < 1.8 && Math.floor(stateTimer * 6) % 2 === 0;
-  if (flashing && !mazeLayerFlash) mazeLayerFlash = buildMaze(true);
-  blitVisible(flashing ? mazeLayerFlash : mazeLayer);
+  blitVisible(mazeLayer);
+  if (flashing) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.fillStyle = '#9fd8ff'; ctx.fillRect(camX, camY, viewW, viewH); ctx.restore(); }
   if (!grid) return;
 
   // seeds (pre-rendered) & lanterns
@@ -4374,7 +4414,7 @@ function liveStart(role, cfg) {
 function liveSpawn(p) {
   let x = START.x + p.slot;
   if (!canEnter(x, START.y, false)) x = START.x;
-  Object.assign(p, { tx: x, ty: START.y, dir: DIRS.none, progress: 0, ox: 0, oy: 0, trail: [] });
+  Object.assign(p, { tx: x, ty: START.y, dir: DIRS.none, want: DIRS.none, progress: 0, ox: 0, oy: 0, trail: [] });
   p.sp = (p.sp || 0) + 1;   // a new "life": position reports from before it are ignored
 }
 function liveNearest(b) {
@@ -4469,7 +4509,7 @@ function liveApply(m) {
         const before = { x: pos(p).x + p.ox, y: pos(p).y + p.oy };
         p.sp = k; p.tx = tx; p.ty = ty; p.dir = { x: dx, y: dy }; p.progress = pr; p.facing = f;
         if (far || newLife) { p.ox = 0; p.oy = 0; } else ease(p, before);
-        if (newLife) p.trail = [];
+        if (newLife) { p.trail = []; p.want = DIRS.none; }   // come back standing still
       }
       return;
     }
@@ -4806,6 +4846,7 @@ function openSheet(which, fromRefresh = false) {
   if (which === 'levels') { closeSheet(); openMap(); return; }
   sheetOpen = which;
   const body = $('sheetBody'); let title = '';
+  body.querySelectorAll('canvas').forEach(c => { c.width = c.height = 0; });   // give their memory back before redrawing
   if (which === 'daily') {
     title = 'Daily Reward';
     const st = dailyState();
@@ -5297,7 +5338,7 @@ window.__backman = { get music() { return { playing: !!musicSrc, ctx: actx && ac
   get lives() { return lives; }, get beetles() { return beetles; }, get grid() { return grid; }, get level() { return level; }, player, newGame,
   get theme() { return THEME.name; }, get credits() { return credits; }, get coin() { return coin; }, get freeze() { return freezeTimer; }, bonusHere() { bonus = { x: player.tx, y: player.ty, timer: 9, value: 100 }; }, saveCode: () => encodeSave(readSave()), mergeSave, decodeSave, get dpr() { return dpr; }, setProgress(f) { seedsEaten = Math.round(f * TOTAL_SEEDS); }, get skin() { return SKINS[skinIndex].name; },
   setCredits(n) { credits = n; saveMeta(); updateHud(); renderPicker(); }, get audioState() { return actx ? actx.state : 'none'; }, get map() { return MAP; },
-  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, get bag() { return bag; }, get powers() { return { magnetT, bootsT, bubble }; }, openSheet: (w) => openSheet(w), closeSheet: () => closeSheet(), get live() { return live; }, eatAll() { for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] === '.' || grid[y][x] === 'o') eatAt(x, y); }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
+  skipToLevel(n) { level = n - 1; nextLevel(); }, get duel() { return duel; }, get cam() { return [Math.round(camX), Math.round(camY)]; }, get ldpr() { return ldpr; }, get bag() { return bag; }, get powers() { return { magnetT, bootsT, bubble }; }, openSheet: (w) => openSheet(w), closeSheet: () => closeSheet(), get live() { return live; }, eatAll() { for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] === '.' || grid[y][x] === 'o') eatAt(x, y); }, get gates() { return { row: TUNNEL_ROW, col: DOOR_COL, timer: gateTimer, rows: gateRows, cols: gateCols }; }, gateIn(t) { gateTimer = t; }, endRun(cleared) { if (cleared) levelCleared(); else gameOver(); }, addScore };
 })();
 </script>
 </body>
