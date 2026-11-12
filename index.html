@@ -1386,10 +1386,11 @@ function updateGates(dt) {
   [2, 1.4, 0.8, 0.3].forEach((th, i) => { if (was > th && gateTimer <= th && state === 'play') sfx.gateTick(i); });   // a rising tick before they move
   if (gateTimer > 0 || atEdge(player) || beetles.some(atEdge)) return;
   const pick = (list, cur) => { const far = list.filter(v => Math.abs(v - cur) > 2); return far.length ? far[Math.floor(Math.random() * far.length)] : cur; };
+  const oldRow = TUNNEL_ROW, oldCol = DOOR_COL;
   TUNNEL_ROW = pick(gateRows, TUNNEL_ROW);
   if (gateCols.length) DOOR_COL = pick(gateCols, DOOR_COL);
   gateTimer = GATE_EVERY;
-  mazeLayer = buildMaze(false); freeFlashLayer();
+  invalidateTiles([[0, oldRow], [COLS - 1, oldRow], [0, TUNNEL_ROW], [COLS - 1, TUNNEL_ROW], [oldCol, 0], [oldCol, ROWS - 1], [DOOR_COL, 0], [DOOR_COL, ROWS - 1]]);
   for (const [x, y] of [[0, TUNNEL_ROW], [COLS - 1, TUNNEL_ROW], [DOOR_COL, 0], [DOOR_COL, ROWS - 1]]) if (x >= 0) burst(x, y, '#ffcf5a', 10, 3, 0.5);
   sfx.portal();
 }
@@ -1434,44 +1435,74 @@ const ui = {
 
 let T = 24;          // tile size in CSS px
 let dpr = 1;
-let mazeLayer = null; // pre-rendered hedges
-let mazeLayerFlash = null;
-// The full-maze layers are big. iPhones cap the total memory of all canvases and are slow to
-// free old ones, so after many levels new layers came out blank (no maze, no seeds). The layers
-// are now reused instead of recreated, the flash layer is emptied after use, and their
-// resolution (ldpr) is capped so each stays under about 4.5 million pixels.
+// The maze is drawn in small square pieces (chunks of 8x8 tiles), only for the part on
+// screen, and each piece is kept while it is useful. Full-level images used to be redrawn on
+// every gate move and every online seed sync; iPhones ran out of canvas memory and quietly
+// handed back blank images, so the maze turned black. Small pieces use little memory, are
+// checked every few seconds and simply drawn again if the phone ever blanks them.
 let ldpr = 1;
-const layerCanvases = {};
-function layerCanvas(key, w, h) {
-  const c = layerCanvases[key] || (layerCanvases[key] = document.createElement('canvas'));
-  c.width = w; c.height = h;   // resizing also clears it
+const CHUNK = 8, CHUNK_PAD = 2;   // tiles per piece side; CSS px of overlap so edges blend cleanly
+const chunks = new Map();
+let chunkCheckT = 0, chunkFails = 0;
+function dropChunks() { for (const c of chunks.values()) c.width = c.height = 0; chunks.clear(); }
+function chunkLimit() { return Math.max(24, 2 * (Math.ceil(viewW / (CHUNK * T)) + 1) * (Math.ceil(viewH / (CHUNK * T)) + 1)); }
+function mazeChunk(cx, cy) {
+  const key = cx + ',' + cy;
+  let c = chunks.get(key);
+  if (c) { chunks.delete(key); chunks.set(key, c); return c; }   // most recently used goes last
+  const S = CHUNK * T;
+  c = document.createElement('canvas');
+  c.width = c.height = Math.ceil((S + CHUNK_PAD * 2) * ldpr);
+  const g = c.getContext('2d'); if (!g) return null;
+  g.setTransform(ldpr, 0, 0, ldpr, (CHUNK_PAD - cx * S) * ldpr, (CHUNK_PAD - cy * S) * ldpr);
+  drawMazeArea(g, cx * CHUNK, cy * CHUNK, cx * CHUNK + CHUNK - 1, cy * CHUNK + CHUNK - 1);
+  chunks.set(key, c);
+  const lim = chunkLimit();
+  while (chunks.size > lim) { const [k0, c0] = chunks.entries().next().value; c0.width = c0.height = 0; chunks.delete(k0); }
   return c;
 }
-// iPhones silently hand back a blank canvas when the page's canvas memory runs out (the maze
-// then shows as plain black). After drawing, look at one wall pixel and one seed pixel; if they
-// are empty, release memory and draw the layers again at a lower resolution.
-function layerPixel(c, x, y) {
-  try { const g = c.getContext('2d'); if (!g) return 0; return g.getImageData(Math.floor((x + 0.5) * T * ldpr), Math.floor((y + 0.5) * T * ldpr), 1, 1).data[3]; }
-  catch (e) { return 255; }   // can't check: assume fine
-}
-function firstTile(M, ch) { for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) if (M[y] && M[y][x] === ch) return { x, y }; return null; }
-function buildLayersSafely() {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    mazeLayer = buildMaze(false);
-    buildSeeds();
-    const wall = firstTile(MAP, '#'), seed = grid ? firstTile(grid, '.') : null;
-    const mazeOk = !wall || layerPixel(mazeLayer, wall.x, wall.y) > 0;
-    const seedOk = !seed || !seedLayer || layerPixel(seedLayer, seed.x, seed.y) > 0;
-    if (mazeOk && seedOk) return;
-    freeSpareCanvases();
-    ldpr = Math.max(0.5, ldpr * 0.6);
+// Throw away the pieces that show any of these tiles (and their neighbours).
+function invalidateTiles(list) {
+  for (const [x, y] of list) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const k = Math.floor((x + dx) / CHUNK) + ',' + Math.floor((y + dy) / CHUNK), c = chunks.get(k);
+    if (c) { c.width = c.height = 0; chunks.delete(k); }
   }
 }
+function drawMazeChunks() {
+  const S = CHUNK * T, nx = Math.ceil(COLS / CHUNK) - 1, ny = Math.ceil(ROWS / CHUNK) - 1;
+  const cx0 = clamp(Math.floor(camX / S), 0, nx), cx1 = clamp(Math.floor((camX + viewW) / S), 0, nx);
+  const cy0 = clamp(Math.floor(camY / S), 0, ny), cy1 = clamp(Math.floor((camY + viewH) / S), 0, ny);
+  const src = CHUNK_PAD * ldpr, sw = S * ldpr;
+  for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+    const c = mazeChunk(cx, cy);
+    if (c) ctx.drawImage(c, src, src, sw, sw, cx * S, cy * S, S, S);
+  }
+}
+// Every few seconds look at one ground pixel under the middle of the screen. The ground is
+// always painted, so an empty pixel means the phone blanked the piece: free memory and redraw.
+function checkChunks(dt) {
+  if ((chunkCheckT -= dt) > 0) return;
+  chunkCheckT = 2;
+  const tx = clamp(Math.floor((camX + viewW / 2) / T), 0, COLS - 1), ty = clamp(Math.floor((camY + viewH / 2) / T), 0, ROWS - 1);
+  const cx = Math.floor(tx / CHUNK), cy = Math.floor(ty / CHUNK), c = chunks.get(cx + ',' + cy);
+  if (!c) return;
+  let a = 255;
+  try {
+    const g = c.getContext('2d');
+    a = g ? g.getImageData(Math.floor(((tx - cx * CHUNK + 0.5) * T + CHUNK_PAD) * ldpr), Math.floor(((ty - cy * CHUNK + 0.5) * T + CHUNK_PAD) * ldpr), 1, 1).data[3] : 0;
+  } catch (e) { return; }
+  if (a > 0) { chunkFails = 0; return; }
+  dropChunks(); freeSpareCanvases();
+  if (++chunkFails >= 2 && ldpr > 1) { ldpr = Math.max(1, ldpr * 0.75); patCache.clear(); buildSeeds(); }   // still blank: use less memory
+}
+function buildLayersSafely() { dropChunks(); patCache.clear(); buildSeeds(); }
 // Canvases left over in closed windows (faces, avatars) still hold memory on iPhone until freed.
 function freeSpareCanvases(root) {
   (root || document).querySelectorAll('#sheetBody canvas, #liveLobby canvas, .map-art canvas').forEach(c => { if (!c.isConnected || root) { c.width = c.height = 0; } });
 }
-function freeFlashLayer() { mazeLayerFlash = null; if (layerCanvases.flash) layerCanvases.flash.width = layerCanvases.flash.height = 0; }
+// Coming back from the background: iPhones may have thrown canvas pictures away meanwhile.
+document.addEventListener('visibilitychange', () => { if (!document.hidden && T) buildLayersSafely(); });
+window.addEventListener('pageshow', () => { if (T) buildLayersSafely(); });
 
 // ---------- Storage (best score) ----------
 function loadBest() { try { return parseInt(localStorage.getItem('backman.best') || '0', 10) || 0; } catch (e) { return 0; } }
@@ -1869,7 +1900,6 @@ function newGame(startLevel) {
 }
 
 function nextLevel() {
-  freeFlashLayer();
   level++;
   deathsThisLevel = 0; creditsThisLevel = 0; shieldUsed = 0;
   if (level >= loadProgress().level) saveProgress();   // replaying an old level never moves you back
@@ -2716,19 +2746,17 @@ function resize() {
   canvas.style.height = viewH + 'px';
   canvas.width = Math.round(viewW * dpr);
   canvas.height = Math.round(viewH * dpr);
-  ldpr = Math.min(dpr, Math.sqrt(4.5e6 / (COLS * T * ROWS * T)));
-  freeFlashLayer();
+  ldpr = dpr;
   buildLayersSafely();
   updateCamera(0, true);
 }
 
-// Seeds never move, so draw them once onto their own layer and erase them as they are eaten.
-let seedLayer = null, seedCtx = null;
+// Seeds are drawn straight from one small picture, only for the tiles on screen.
+let seedSprite = null, seedKey = '';
 function buildSeeds() {
-  if (!grid) return;
-  seedLayer = layerCanvas('seeds', Math.round(COLS * T * ldpr), Math.round(ROWS * T * ldpr));
-  seedCtx = seedLayer.getContext('2d');
-  seedCtx.setTransform(ldpr, 0, 0, ldpr, 0, 0);
+  const key = T + '|' + ldpr + '|' + !!mapArt.seed;
+  if (!T || (seedSprite && seedKey === key)) return;
+  seedKey = key;
   const sprite = document.createElement('canvas');
   sprite.width = sprite.height = Math.ceil(T * ldpr);
   const sg = sprite.getContext('2d'); sg.scale(ldpr, ldpr); sg.translate(T / 2, T / 2);
@@ -2746,11 +2774,9 @@ function buildSeeds() {
   sg.fillStyle = core; sg.beginPath(); sg.arc(0, 0, T * 0.105, 0, Math.PI * 2); sg.fill();
   sg.fillStyle = 'rgba(255,255,255,0.9)'; sg.beginPath(); sg.arc(-T * 0.035, -T * 0.035, T * 0.03, 0, Math.PI * 2); sg.fill();
   }
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    if (grid[y][x] === '.') seedCtx.drawImage(sprite, x * T, y * T, T, T);
-  }
+  seedSprite = sprite;
 }
-function eraseSeed(x, y) { if (seedCtx) seedCtx.clearRect(x * T, y * T, T, T); }
+function eraseSeed() { /* seeds are drawn from the grid every frame */ }
 
 // What the camera looks at. In a live match: my player while alive; while I'm caught, the spot
 // where I'll come back (so the respawn is seamless); once I'm out, the best player still in.
@@ -2846,7 +2872,15 @@ function wallTexture(n) {
 }
 
 // A repeating pattern from a texture, sized so one copy of the texture spans `size` CSS pixels.
+// Patterns are made once per picture, size and sharpness (making one allocates a canvas).
+const patCache = { map: new WeakMap(), clear() { this.map = new WeakMap(); } };
 function texPattern(g, img, size) {
+  let m = patCache.map.get(img); if (!m) patCache.map.set(img, m = new Map());
+  const key = size + '|' + ldpr;
+  if (!m.has(key)) m.set(key, makePattern(g, img, size));
+  return m.get(key);
+}
+function makePattern(g, img, size) {
   const c = document.createElement('canvas'), px = Math.max(8, Math.round(size * ldpr));
   c.width = c.height = px; c.getContext('2d').drawImage(img, 0, 0, px, px);
   const pat = g.createPattern(c, 'repeat');
@@ -2856,12 +2890,12 @@ function texPattern(g, img, size) {
 
 // The maze is drawn once per level onto its own canvas: textured ground, then raised hedges
 // with a ground shadow, a darker side, a lit top face and some leaves.
-function buildMaze(flash) {
+// Draws the tiles x0..x1, y0..y1 (in maze coordinates) onto g.
+function drawMazeArea(g, x0, y0, x1, y1) {
+  const flash = false;
   const W = COLS * T, H = ROWS * T;
-  const c = layerCanvas(flash ? 'flash' : 'maze', Math.round(W * ldpr), Math.round(H * ldpr));
-  const g = c.getContext('2d');
-  g.setTransform(ldpr, 0, 0, ldpr, 0, 0);
   const r = rng(42);
+  const lx0 = Math.max(0, x0 - 1), lx1 = Math.min(COLS - 1, x1 + 1), ly0 = Math.max(0, y0 - 1), ly1 = Math.min(ROWS - 1, y1 + 1);
   const isWall = (x, y) => {
     if (x < 0 || x >= COLS) return y !== TUNNEL_ROW;
     if (y < 0 || y >= ROWS) return x !== DOOR_COL;
@@ -2896,7 +2930,7 @@ function buildMaze(flash) {
 
   // shadow the hedges cast on the ground
   g.fillStyle = 'rgba(0,0,0,0.4)';
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+  for (let y = ly0; y <= ly1; y++) for (let x = lx0; x <= lx1; x++) {
     if (!isWall(x, y)) continue;
     const [a1, a2, a3, a4] = corners(x, y, R);
     cornerRect(g, x * T + T * 0.05, y * T + T * 0.16, T, T, a1, a2, a3, a4); g.fill();
@@ -2904,7 +2938,7 @@ function buildMaze(flash) {
   // hedge body (its darker colour shows as the side below the top face)
   const wallPat = art ? (isChallenge(level) ? texPattern(g, wallTexture(level), T * 9) : texPattern(g, wallTexture(level), T * 4)) : null;
   g.fillStyle = art ? wallPat : dark;
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+  for (let y = ly0; y <= ly1; y++) for (let x = lx0; x <= lx1; x++) {
     if (!isWall(x, y)) continue;
     const [a1, a2, a3, a4] = corners(x, y, R);
     cornerRect(g, x * T - 0.3, y * T - 0.3, T + 0.6, T + 0.6, a1, a2, a3, a4); g.fill();
@@ -2917,7 +2951,7 @@ function buildMaze(flash) {
     const t = isWall(x, y - 1) ? -0.3 : insTop, b = isWall(x, y + 1) ? -0.3 : insBot;
     return [x * T + l, y * T + t, T - l - rt, T - t - b];
   };
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+  for (let y = ly0; y <= ly1; y++) for (let x = lx0; x <= lx1; x++) {
     if (!isWall(x, y)) continue;
     const [fx, fy, fw, fh] = faceRect(x, y);
     const [a1, a2, a3, a4] = corners(x, y, R2);
@@ -2941,7 +2975,7 @@ function buildMaze(flash) {
     g.save(); g.lineCap = 'round'; g.shadowColor = '#b23cff';
     const neon = (width, color, blur) => {
       g.lineWidth = width; g.strokeStyle = color; g.shadowBlur = blur; g.beginPath();
-      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      for (let y = ly0; y <= ly1; y++) for (let x = lx0; x <= lx1; x++) {
         if (!isWall(x, y)) continue;
         const [fx, fy, fw, fh] = faceRect(x, y);
         if (!isWall(x, y - 1)) { g.moveTo(fx, fy); g.lineTo(fx + fw, fy); }
@@ -2970,7 +3004,6 @@ function buildMaze(flash) {
   const gx = GATE.x * T, gy = GATE.y * T + T * 0.42;
   g.fillStyle = THEME.gate + '55'; roundRect(g, gx - T * 0.05, gy - T * 0.08, T * 1.1, T * 0.32, T * 0.12); g.fill();
   g.fillStyle = THEME.gate; roundRect(g, gx, gy, T, T * 0.16, T * 0.08); g.fill();
-  return c;
 }
 
 function roundRect(g, x, y, w, h, r) {
@@ -2985,14 +3018,6 @@ function roundRect(g, x, y, w, h, r) {
 }
 
 let lastDraw = 0, maxDpr = 2;   // 2x looks the same on phones and draws less than half the pixels of 3x
-// Copy only the on-screen part of a full-maze layer (much cheaper than the whole level).
-function blitVisible(layer) {
-  const x0 = clamp(Math.floor(camX), 0, COLS * T), y0 = clamp(Math.floor(camY), 0, ROWS * T);
-  const w = Math.min(Math.ceil(viewW) + 2, COLS * T - x0), h = Math.min(Math.ceil(viewH) + 2, ROWS * T - y0);
-  if (w <= 0 || h <= 0 || !layer) return;
-  const k = layer.width / (COLS * T);   // layer pixels per maze pixel (the layer's own resolution)
-  ctx.drawImage(layer, x0 * k, y0 * k, w * k, h * k, x0, y0, w, h);
-}
 // Is this actor inside the camera view (with a tile of margin)?
 function onScreen(e) {
   const q = pos(e), x = (q.x + (e.ox || 0)) * T, y = (q.y + (e.oy || 0)) * T;
@@ -3007,15 +3032,15 @@ function draw(now) {
   ctx.fillRect(0, 0, viewW, viewH);
   ctx.translate(-Math.round(camX * dpr) / dpr, -Math.round(camY * dpr) / dpr);
   const flashing = state === 'clear' && stateTimer < 1.8 && Math.floor(stateTimer * 6) % 2 === 0;
-  blitVisible(mazeLayer);
+  drawMazeChunks(); checkChunks(fdt);
   if (flashing) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.fillStyle = '#9fd8ff'; ctx.fillRect(camX, camY, viewW, viewH); ctx.restore(); }
   if (!grid) return;
 
   // seeds (pre-rendered) & lanterns
-  if (seedLayer) blitVisible(seedLayer);
   const pulse = 0.5 + 0.5 * Math.sin(now / 180);
   const vx0 = Math.max(0, Math.floor(camX / T) - 1), vy0 = Math.max(0, Math.floor(camY / T) - 1);
   const vx1 = Math.min(COLS - 1, Math.ceil((camX + viewW) / T) + 1), vy1 = Math.min(ROWS - 1, Math.ceil((camY + viewH) / T) + 1);
+  if (seedSprite) for (let y = vy0; y <= vy1; y++) for (let x = vx0; x <= vx1; x++) if (grid[y][x] === '.') ctx.drawImage(seedSprite, x * T, y * T, T, T);
   for (let y = vy0; y <= vy1; y++) for (let x = vx0; x <= vx1; x++) {
     if (grid[y][x] === 'o') drawLantern(x * T + T / 2, y * T + T / 2, pulse);
   }
