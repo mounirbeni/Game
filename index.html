@@ -95,6 +95,8 @@
   .fate-sub { display: flex; align-items: center; justify-content: center; gap: 1.6cqw; flex-wrap: wrap; margin: 0; min-height: 6cqw;
     font-size: 5cqw; font-weight: 800; line-height: 1.3; color: #e6ecff !important; text-align: center; }
   .fate-sub b, .fate-sub .gold { color: #ffd75a; }
+  .heart-loss { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: #ff8aa0; font-weight: 800; }
+  .heart-loss .uiicon { width: 18px; height: 18px; }
   .fate-sub img { width: 5.6cqw; height: 5.6cqw; }
   .win-dot { width: 1.3cqw; height: 1.3cqw; border-radius: 50%; background: #9fb4ff99; }
   .btn-green, .btn-blue { display: flex; align-items: center; justify-content: center; gap: 2cqw; border: 0; padding: 0 0 .6cqw; cursor: pointer;
@@ -838,7 +840,20 @@
   /* what's new window: shown once per news list */
   #newsPop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
     background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
-  #newsPop.hidden, #rankPop.hidden, #livePop.hidden { display: none; }
+  #newsPop.hidden, #rankPop.hidden, #livePop.hidden, #heartsPop.hidden { display: none; }
+  #heartsPop { position: fixed; inset: 0; z-index: 1600; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
+  #heartsPop .hp-icon { width: 92px; height: 92px; object-fit: contain; filter: drop-shadow(0 0 16px #ff4d6d88) drop-shadow(0 6px 12px #000a); animation: liveBeat 1.4s ease-in-out infinite; }
+  .hp-packs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 92%; }
+  .hp-pack { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px 6px; border-radius: 14px; border: 2px solid #ffcf3a; background: linear-gradient(#1a2c6e, #0c1d3a); color: #fff; cursor: pointer; }
+  .hp-pack > img { width: 46px; height: 46px; object-fit: contain; }
+  .hp-pack b { font: 400 20px/1 'Lilita One', ui-rounded, system-ui, sans-serif; color: #ff8aa0; }
+  .hp-pack span { display: inline-flex; align-items: center; gap: 3px; font: 800 14px/1 system-ui, sans-serif; color: #ffd75a; }
+  .hp-pack span .uiicon { width: 16px; height: 16px; }
+  .hp-pack:disabled { filter: grayscale(.9) brightness(.7); cursor: default; }
+  .hp-pack:not(:disabled):active { transform: scale(.96); }
+  .hp-wallet { margin: 0; display: flex; align-items: center; gap: 5px; font: 800 13px/1 system-ui, sans-serif; color: #c9d6f0; }
+  .hp-wallet .uiicon { width: 16px; height: 16px; }
   #netBanner { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 1900; transform: translate(-50%, -150%); transition: transform .25s;
     padding: 8px 16px 8px 36px; border-radius: 999px; background: #0c1d3aee; border: 2px solid #ffcf3a; color: #ffe9a8; font: 800 14px/1.2 system-ui, sans-serif; box-shadow: 0 6px 18px #000a; pointer-events: none; white-space: nowrap; }
   #netBanner.on { transform: translate(-50%, 0); }
@@ -880,7 +895,7 @@
     <div class="home-top">
       <button class="avatar-btn" data-open="profile" aria-label="Profile"><canvas id="avatar" width="48" height="48"></canvas></button>
       <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false"></span><b id="homeCredits">0</b><button class="plus" data-open="shop" aria-label="Shop">+</button></div>
-      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"></span><b id="homeLives">3</b><small class="full" id="homeLivesFull">Full</small><button class="plus" data-open="daily" aria-label="Daily reward">+</button></div>
+      <div class="hpill"><span class="hicon"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"></span><b id="homeLives">3</b><small class="full" id="homeLivesFull">Full</small><button class="plus" data-open="hearts" aria-label="Hearts">+</button></div>
       <button class="gear" data-open="settings" aria-label="Settings"><img class="uiicon" src="icons/ui/gear.webp" alt="" draggable="false"></button>
     </div>
     <button class="xp-banner" data-open="stats" aria-label="Player level">
@@ -948,6 +963,16 @@
     <p class="upd-text" id="livePopText"></p>
     <button class="btn-green" id="livePopJoin">Join now</button>
     <div class="fate-row"><button class="btn-blue" id="livePopNo">Not now</button></div>
+  </div>
+</div>
+<div id="heartsPop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="heartsTitle">
+  <div class="card kit-card upd-card">
+    <img class="hp-icon" src="icons/ui/heart.webp" alt="">
+    <h2 class="card-title fate-title" id="heartsTitle">Hearts</h2>
+    <p class="upd-text" id="heartsText"></p>
+    <div class="hp-packs" id="heartsPacks"></div>
+    <p class="hp-wallet" id="heartsWallet"></p>
+    <div class="fate-row"><button class="btn-blue" id="heartsClose">Close</button></div>
   </div>
 </div>
 <div id="rankPop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="rankTitle">
@@ -2112,6 +2137,71 @@ const HEART_PACKS = [
 ];
 let bag = loadJSON('bma.items', { magnet: 0, boots: 0, ice: 0, shield: 0, lantern: 0, hearts: 0 });
 const saveBag = () => saveJSON('bma.items', bag);
+// ---------- Hearts ----------
+// Every player has 5 hearts. Losing a level (Game Over) costs one heart and Continue costs one.
+// Below 5, the hearts fill back up to 5 three hours after the first one was lost. With no hearts
+// left you wait, or buy more with credits (bought hearts can go above 5). Hearts bought in the old
+// shop are kept on top of the 5.
+const HEARTS_MAX = 5, HEART_REFILL_MS = 3 * 3600 * 1000;
+let hearts = (() => {
+  const h = loadJSON('bma.hearts', null);
+  if (h && Number.isFinite(h.n)) return h;
+  const n = HEARTS_MAX + Math.max(0, Math.min(999, Math.floor(bag.hearts || 0)));
+  if (bag.hearts) { bag.hearts = 0; saveBag(); }
+  return { n, refillAt: 0 };
+})();
+const saveHearts = () => saveJSON('bma.hearts', hearts);
+function heartsNow() {   // also applies a refill that is due
+  if (hearts.n < HEARTS_MAX) {
+    if (!hearts.refillAt) { hearts.refillAt = Date.now() + HEART_REFILL_MS; saveHearts(); }
+    else if (Date.now() >= hearts.refillAt) { hearts.n = HEARTS_MAX; hearts.refillAt = 0; saveHearts(); }
+  } else if (hearts.refillAt) { hearts.refillAt = 0; saveHearts(); }
+  return rich() ? Infinity : hearts.n;
+}
+function spendHeart() {
+  if (rich()) return true;
+  if (heartsNow() <= 0) return false;
+  hearts.n--; heartsNow(); saveHearts(); refreshHearts();
+  return true;
+}
+function addHearts(k) { hearts.n += k; heartsNow(); saveHearts(); refreshHearts(); }
+const fmtWait = ms => { const t = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), x = t % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`; };
+function refreshHearts() {
+  const n = heartsNow(), el = document.getElementById('homeLives'), sub = document.getElementById('homeLivesFull');
+  if (el) el.textContent = n === Infinity ? '∞' : n;
+  if (sub) {
+    if (rich()) sub.classList.add('hidden');
+    else { sub.classList.remove('hidden'); sub.textContent = n >= HEARTS_MAX ? 'Full' : fmtWait(hearts.refillAt - Date.now()); }
+  }
+  const pop = document.getElementById('heartsPop'); if (pop && !pop.classList.contains('hidden')) renderHeartsPop();
+}
+setInterval(refreshHearts, 1000);
+// The hearts window: how many you have, when they refill, and packs to buy. `after` runs once
+// the player has a heart again (e.g. continue the level they just lost).
+let heartsAfter = null;
+function renderHeartsPop() {
+  const n = heartsNow(), out = n <= 0;
+  $('heartsTitle').textContent = out ? 'Out of hearts!' : `${n === Infinity ? '∞' : n} heart${n === 1 ? '' : 's'}`;
+  $('heartsText').innerHTML = rich() ? 'Your hearts never run out.' :
+    out ? `Full refill in <b>${fmtWait(hearts.refillAt - Date.now())}</b>, or buy hearts with credits:` :
+    n < HEARTS_MAX ? `Back to ${HEARTS_MAX} in <b>${fmtWait(hearts.refillAt - Date.now())}</b>. Losing a level costs 1 heart.` : 'Losing a level costs 1 heart. Need more? Buy them with credits:';
+  const key = HEART_PACKS.map(pk => credits >= pk.price).join() + rich();
+  if ($('heartsPacks').dataset.k !== key) {
+    $('heartsPacks').dataset.k = key;
+    $('heartsPacks').innerHTML = rich() ? '' : HEART_PACKS.map(pk => `<button class="hp-pack" data-hpack="${pk.id}" ${credits >= pk.price ? '' : 'disabled'}><img src="assets/items/${pk.img}.webp" alt=""><b>+${pk.n}</b><span><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${pk.price}</span></button>`).join('');
+  }
+  $('heartsWallet').innerHTML = `<img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${infR(credits.toLocaleString())} credits`;
+}
+function showHeartsPop(after) {
+  heartsAfter = after || null;
+  $('heartsPacks').dataset.k = '';
+  renderHeartsPop();
+  $('heartsPop').classList.remove('hidden');
+}
+function closeHeartsPop() { heartsAfter = null; $('heartsPop').classList.add('hidden'); }
+// Starting a level needs a heart: if there is none, open the hearts window instead.
+function needHearts(then) { if (heartsNow() > 0) return false; showHeartsPop(then); return true; }
 // Items bought before they were removed are paid back in credits, once.
 function refundItems() {
   if (devMode) return;
@@ -2753,22 +2843,18 @@ function showWin() {
   $('nextBtn').textContent = `Next level`;
   showCard($('winCard'));
 }
-$('nextBtn').addEventListener('click', () => { unlockAudio(); hideCards(); nextLevel(); });
-$('replayBtn').addEventListener('click', () => { unlockAudio(); newGame(level); });
+$('nextBtn').addEventListener('click', () => { unlockAudio(); if (needHearts()) return; hideCards(); nextLevel(); });
+$('replayBtn').addEventListener('click', () => { unlockAudio(); if (needHearts()) return; newGame(level); });
 $('winHomeBtn').addEventListener('click', () => { hideCards(); showHome(); });
 function gameOver() {
   if (duel) { finishDuel(false); return; }
   setState('over');
   stats.games++; statsDirty = true; recordRun();
-  ui.overText.innerHTML = score >= best && score > 0 ? `New best score: <b>${score.toLocaleString()}</b>` : `The ladybugs got you on level ${level}`;
-  const useHeart = (bag.hearts || 0) > 0, canContinue = useHeart || credits > 0;
-  $('continueBtn').classList.toggle('hidden', !canContinue);
-  $('continueBtn').innerHTML = useHeart
-    ? `Continue <span class="pb-cost"><img class="uiicon" src="assets/items/heart.webp" alt="" draggable="false">${rich() ? '∞' : `1 of ${bag.hearts}`}</span>`
-    : `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">1</span>`;
-  $('againPlaque').classList.toggle('hidden', canContinue);   // no credits: Retry is the main button
-  $('againPlaque').textContent = `Try again`;
-  $('againBtn').classList.toggle('hidden', !canContinue);
+  spendHeart();   // losing a level costs one heart
+  const left = heartsNow();
+  ui.overText.innerHTML = (score >= best && score > 0 ? `New best score: <b>${score.toLocaleString()}</b>` : `The ladybugs got you on level ${level}`) +
+    (rich() ? '' : `<br><span class="heart-loss">−1 <img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false"> · ${left} heart${left === 1 ? '' : 's'} left</span>`);
+  overButtons();
   showCard(ui.over);
 }
 
@@ -3740,8 +3826,8 @@ function toggleMute() {
 }
 $('startBtn').addEventListener('click', () => { unlockAudio(); newGame(); });
 { const saved = loadProgress(); if (saved.level > 1) $('startBtn').textContent = `Continue: level ${saved.level}`; }
-$('againBtn').addEventListener('click', () => { unlockAudio(); newGame(level); });
-$('againPlaque').addEventListener('click', () => { unlockAudio(); newGame(level); });
+$('againBtn').addEventListener('click', () => { unlockAudio(); if (needHearts(() => overButtons())) return; newGame(level); });
+$('againPlaque').addEventListener('click', () => { unlockAudio(); if (needHearts(() => overButtons())) return; newGame(level); });
 $('resumeBtn').addEventListener('click', togglePause);
 ui.pauseBtn.addEventListener('click', togglePause);
 ui.muteBtn.addEventListener('click', toggleMute);
@@ -3806,12 +3892,22 @@ function buySkin(i) {
   sfx.bonus();
   renderPicker(); updateHud();
 }
+// Game Over buttons: Continue (1 heart, keep this maze as it is) or Retry; with no hearts left
+// the main button opens the hearts window instead.
+function overButtons() {
+  const n = heartsNow();
+  $('continueBtn').classList.remove('hidden');
+  $('continueBtn').innerHTML = n > 0
+    ? `Continue <span class="pb-cost"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false">${rich() ? '∞' : '1'}</span>`
+    : `Get hearts <span class="pb-cost"><img class="uiicon" src="icons/ui/heart.webp" alt="" draggable="false">+</span>`;
+  $('againPlaque').classList.add('hidden');
+  $('againBtn').classList.remove('hidden');
+}
 $('continueBtn').addEventListener('click', () => {
   if (state !== 'over') return;
-  if ((bag.hearts || 0) > 0) { if (!rich()) bag.hearts--; saveBag(); }      // a heart from the shop first
-  else if (credits > 0) { credits--; saveMeta(); }
-  else return;
   unlockAudio();
+  if (heartsNow() <= 0) { showHeartsPop(() => overButtons()); return; }
+  if (!spendHeart()) return;
   lives = 1;
   resetActors();                 // the maze and eaten seeds stay as they were
   hideCards();
@@ -4013,13 +4109,11 @@ async function cloudPull() {
 function applyDev() {
   if (vipMode && !devMode) {   // VIP: credits and hearts only
     if (credits !== DEV_CREDITS) { credits = DEV_CREDITS; try { localStorage.setItem('backman.credits', String(credits)); } catch (e) { /* ignore */ } }
-    if (bag.hearts !== DEV_ITEMS) { bag.hearts = DEV_ITEMS; saveBag(); }
     return;
   }
   if (!devMode) return;
   if (credits !== DEV_CREDITS) { credits = DEV_CREDITS; try { localStorage.setItem('backman.credits', String(credits)); } catch (e) { /* ignore */ } }
   let changed = false;
-  for (const k of ['hearts']) if (bag[k] !== DEV_ITEMS) { bag[k] = DEV_ITEMS; changed = true; }
   for (const k of Object.keys(ITEMS)) if (bag[k]) { bag[k] = 0; changed = true; }
   if (changed) saveBag();
 }
@@ -5055,7 +5149,7 @@ function refreshHome() {
   $('xpFill').style.width = `${Math.round(100 * pl.xp / pl.need)}%`;
   $('xpText').textContent = `${pl.xp} / ${pl.need}`;
   $('homeCredits').textContent = infR(credits);
-  $('homeLives').textContent = infR(3); $('homeLivesFull').classList.toggle('hidden', rich());
+  refreshHearts();
   $('playLevel').textContent = `Level ${prog.level}`;
   const dailyReady = !dailyState().claimedToday;
   $('dailyBadge').classList.toggle('hidden', !dailyReady);
@@ -5133,6 +5227,7 @@ function startPlay(levelNo) {
   if (gateNeeded()) { updateGate(); return; }
   // brand-new players see the tutorial once, right before their first game
   if (!tutorialSeen() && loadProgress().level <= 1 && !stats.games) { showTutorial(() => startPlay(levelNo)); return; }
+  if (needHearts(() => startPlay(levelNo))) return;   // no hearts: wait or buy
   homeEl.classList.add('hidden'); closeSheet();
   newGame(levelNo);
 }
@@ -5142,6 +5237,7 @@ const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 function openSheet(which, fromRefresh = false) {
   if (which === 'live') try { hideLiveInvite(); } catch (e) { /* not ready yet */ }
   if (which === 'home') { closeSheet(); closeMap(); return; }
+  if (which === 'hearts') { showHeartsPop(); return; }
   if (which === 'levels') { closeSheet(); openMap(); return; }
   sheetOpen = which;
   const body = $('sheetBody'); let title = '';
@@ -5321,7 +5417,7 @@ function openSheet(which, fromRefresh = false) {
         `<div class="shop-item"><img class="si-img" src="assets/items/${it.img}.webp" alt=""><div class="si-info"><b>${it.name}</b><em>You have ${inf(bag[k] || 0)}</em><p>${it.desc}</p></div>` +
         (devMode ? '' : `<button class="claim-btn si-buy" data-item="${k}" ${credits >= it.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${it.price}</button>`) + '</div>').join('') + '</div>';
     } else {
-      h += `<p class="shop-hint">Hearts let you <b>Continue</b> after Game Over, before your credits are used. You have <b>${inf(bag.hearts || 0)}</b>.</p><div class="shop-list">` + HEART_PACKS.map(pk =>
+      h += `<p class="shop-hint">Losing a level costs 1 heart and Continue costs 1. Out of hearts? They refill to ${HEARTS_MAX} in 3 hours, or buy more here. You have <b>${heartsNow() === Infinity ? '∞' : heartsNow()}</b>.</p><div class="shop-list">` + HEART_PACKS.map(pk =>
         `<div class="shop-item"><img class="si-img" src="assets/items/${pk.img}.webp" alt=""><div class="si-info"><b>${pk.name}</b><em>+${pk.n} heart${pk.n > 1 ? 's' : ''}</em><p>${pk.n === 1 ? 'One more chance.' : pk.n === 3 ? 'Best for a tricky level.' : 'Best value: 18 credits a heart.'}</p></div>` +
         (devMode ? '' : `<button class="claim-btn si-buy" data-pack="${pk.id}" ${credits >= pk.price ? '' : 'disabled'}><img class="uiicon" src="icons/ui/coin.webp" alt="" draggable="false">${pk.price}</button>`) + '</div>').join('') + '</div>';
     }
@@ -5342,7 +5438,7 @@ function openSheet(which, fromRefresh = false) {
     body.querySelectorAll('[data-skill]').forEach(b => b.addEventListener('click', () => { const hero = b.dataset.skill, pk = SKILL_PACKS[+b.dataset.pk];
       confirmBuy(b, pk.price, () => { skillBag[hero] = skillStock(hero) + pk.n; saveSkillBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} <b>${esc(SKILLS[hero].name)}</b> for ${esc(hero)}. You have <b>${skillStock(hero)}</b> extra.`; }); }));
     body.querySelectorAll('[data-pack]').forEach(b => b.addEventListener('click', () => { const pk = HEART_PACKS.find(x => x.id === b.dataset.pack);
-      confirmBuy(b, pk.price, () => { bag.hearts = (bag.hearts || 0) + pk.n; saveBag(); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} heart${pk.n > 1 ? 's' : ''}! You have <b>${inf(bag.hearts)}</b>.`; }); }));
+      confirmBuy(b, pk.price, () => { addHearts(pk.n); openSheet('shop', true); $('shopNote').innerHTML = `+${pk.n} heart${pk.n > 1 ? 's' : ''}! You have <b>${heartsNow() === Infinity ? '∞' : heartsNow()}</b>.`; }); }));
     body.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.buy;
       if (b.dataset.sure !== '1') {   // tap once to see "Buy?", tap again to buy
@@ -5666,6 +5762,18 @@ function hideLiveInvite() { liveInvite = null; $('livePop').classList.add('hidde
 $('livePopNo').addEventListener('click', hideLiveInvite);
 setInterval(() => { if (liveInvite && $('livePop').classList.contains('hidden')) showLiveInvite(); else checkLiveRooms(); }, 15000);
 setTimeout(checkLiveRooms, 8000);
+
+$('heartsClose').addEventListener('click', closeHeartsPop);
+$('heartsPacks').addEventListener('click', e => {
+  const b = e.target.closest('[data-hpack]'); if (!b || b.disabled) return;
+  const pk = HEART_PACKS.find(x => x.id === b.dataset.hpack);
+  if (!pk || credits < pk.price) return;
+  credits -= pk.price; saveMeta(); addHearts(pk.n); updateHud();
+  try { sfx.life(); } catch (err) { /* ignore */ }
+  $('heartsPacks').dataset.k = ''; renderHeartsPop();
+  const then = heartsAfter;
+  if (then && heartsNow() > 0) { closeHeartsPop(); then(); }
+});
 
 // ---------- Medal window ----------
 const rankCell = n => n >= 1 && n <= 3 ? `<img src="assets/medals/${['gold', 'silver', 'bronze'][n - 1]}.webp" alt="#${n}">` : n;
