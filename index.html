@@ -835,6 +835,13 @@
   .upd-icon { width: 76px; height: 76px; border-radius: 20px; border: 3px solid #ffcf3a; margin-top: -4px; box-shadow: 0 6px 14px #000a; }
   .upd-text { margin: 0; text-align: center; font-size: 14px; font-weight: 700; line-height: 1.4; color: #e6ecff !important; }
   .upd-card .btn-green { width: 88%; font-size: 7cqw; }
+  /* what's new window: shown once per news list */
+  #newsPop { position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: radial-gradient(ellipse at center, #0a1240cc, #02051ae6); animation: rise .3s ease-out both; }
+  #newsPop.hidden { display: none; }
+  .news-list { margin: 0; padding: 0; list-style: none; width: 92%; display: flex; flex-direction: column; gap: 7px; }
+  .news-list li { display: flex; gap: 8px; align-items: flex-start; font: 700 13.5px/1.3 system-ui, sans-serif; color: #e6ecff; text-align: left; }
+  .news-list li::before { content: '★'; color: #ffcf3a; flex: none; font-size: 14px; line-height: 1.25; }
 </style>
 </head>
 <body>
@@ -899,6 +906,14 @@
     <h2 class="card-title fate-title" id="updTitle">New update!</h2>
     <p class="upd-text">A new version of Bug Maze Adventure is ready. Restart to keep playing. Your progress is saved.</p>
     <button class="btn-green" id="updBtn">Restart now</button>
+  </div>
+</div>
+<div id="newsPop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="newsTitle">
+  <div class="card kit-card upd-card">
+    <img class="upd-icon" src="icons/icon-192.png" alt="">
+    <h2 class="card-title fate-title" id="newsTitle">What's new!</h2>
+    <ul class="news-list" id="newsList"></ul>
+    <button class="btn-green" id="newsOk">Let's play!</button>
   </div>
 </div>
 <div id="gate" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
@@ -5334,6 +5349,33 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // a tapped notification asks an open game to show something (e.g. the live rooms)
   navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'open' && /#live$/.test(e.data.url)) { try { openSheet('live'); } catch (err) { /* ignore */ } } });
 }
+
+// ---------- What's new ----------
+// Each player sees the latest news list once, on the home screen, when nothing else is open.
+// Change NEWS.id when publishing a new list so everyone sees it again.
+const NEWS = { id: 'n1', items: [
+  'Smoother, faster play on phones',
+  'Online play: no more black maze, and the camera follows you',
+  'Every hero now has one skill and one power',
+  'New skill icons',
+  'Shop › Skills: buy extra uses of your hero\'s skill',
+  'Change your password in Profile',
+] };
+function maybeShowNews() {
+  let seen = null; try { seen = localStorage.getItem('bma.news'); } catch (e) { /* ignore */ }
+  if (seen === NEWS.id) return true;
+  const busy = state !== 'title' || homeEl.classList.contains('hidden') || updateShown ||
+    ['gate', 'tutorial', 'sheet', 'updateGate'].some(id => { const el = $(id); return el && !el.classList.contains('hidden'); });
+  if (busy) return false;
+  $('newsList').innerHTML = NEWS.items.map(t => '<li>' + t.replace(/</g, '&lt;') + '</li>').join('');
+  $('newsPop').classList.remove('hidden');
+  return true;
+}
+$('newsOk').addEventListener('click', () => {
+  try { localStorage.setItem('bma.news', NEWS.id); } catch (e) { /* ignore */ }
+  $('newsPop').classList.add('hidden');
+});
+{ const t = setInterval(() => { if (maybeShowNews()) clearInterval(t); }, 2500); }
 
 // ---------- Loop ----------
 let last = performance.now();
