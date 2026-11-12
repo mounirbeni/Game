@@ -333,6 +333,14 @@ export async function notify(names, payload) {
   } catch (e) { console.error('push', e); }
 }
 const pushNames = async s => [...new Set((await s.list('push/')).map(p => p.split('/')[1]))];
+// Developer tool: send one notification to every phone that allowed notifications.
+export async function adminBroadcast({ secret, title, body, url }) {
+  if (typeof secret !== 'string' || hash(secret) !== ADMIN_SECRET_HASH) return { status: 403, body: { error: 'admin' } };
+  if (typeof title !== 'string' || !title.trim() || title.length > 80 || typeof body !== 'string' || body.length > 200) return { status: 400, body: { error: 'invalid' } };
+  const s = await blob(), names = await pushNames(s);
+  await notify(names, { title: title.trim(), body, tag: 'update', url: typeof url === 'string' && url.startsWith('/') ? url : '/' });
+  return { status: 200, body: { sentTo: names.length } };
+}
 // Once a day (Vercel cron): remind everyone who allowed notifications about the daily reward.
 export async function dailyReminder() {
   const s = await blob(), day = new Date().toISOString().slice(0, 10);

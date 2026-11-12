@@ -1,7 +1,7 @@
 // Backman service worker: makes the game installable and playable offline.
 // The page itself is fetched network-first so updates show up as soon as you're online;
 // everything else is served from the cache first.
-const CACHE = 'bugmaze-v103';
+const CACHE = 'bugmaze-v104';
 const ASSETS = [
   './',
   './index.html',
@@ -23,11 +23,29 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+    caches.keys().then(keys => {
+      const replaced = keys.some(k => k !== CACHE && k.startsWith('bugmaze-'));   // an older version was here: this is an update
+      return Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+        .then(() => self.clients.claim())
+        .then(() => replaced ? restartOpenGames() : null);
+    })
   );
 });
+// A new version took over. Open games that know about updates answer and show their own
+// "restart" window; older games that don't answer are reloaded directly so nobody keeps
+// playing an out-of-date version.
+const acked = new Set();
+self.addEventListener('message', event => { if (event.data && event.data.type === 'update-ack' && event.source) acked.add(event.source.id); });
+async function restartOpenGames() {
+  const list = await self.clients.matchAll({ type: 'window' });
+  if (!list.length) return;
+  for (const c of list) { try { c.postMessage({ type: 'update?', v: CACHE }); } catch (e) { /* ignore */ } }
+  await new Promise(r => setTimeout(r, 2500));
+  for (const c of list) {
+    if (acked.has(c.id)) continue;
+    try { if (c.navigate) await c.navigate(c.url); } catch (e) { /* not supported here: the game will update on its next start */ }
+  }
+}
 
 self.addEventListener('fetch', event => {
   const req = event.request;

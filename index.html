@@ -826,6 +826,15 @@
   #skillHint b { display: block; font: 400 15px/1.1 'Lilita One', ui-rounded, system-ui, sans-serif; }
   #skillHint::after { content: ''; position: absolute; right: 22px; bottom: -8px; border: 8px solid transparent; border-bottom: 0; border-top-color: #ffd75a; }
   #skillBtn.hint { animation: tPulse 0.9s ease-in-out infinite; box-shadow: 0 0 0 4px #ffd75a; border-radius: 50%; }
+
+  /* forced update window: covers everything and can't be closed */
+  #updateGate { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: radial-gradient(ellipse at center, #0a1240dd, #02051af5); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+  #updateGate.hidden { display: none; }
+  .upd-card { width: min(84vw, 320px) !important; gap: 12px; }
+  .upd-icon { width: 76px; height: 76px; border-radius: 20px; border: 3px solid #ffcf3a; margin-top: -4px; box-shadow: 0 6px 14px #000a; }
+  .upd-text { margin: 0; text-align: center; font-size: 14px; font-weight: 700; line-height: 1.4; color: #e6ecff !important; }
+  .upd-card .btn-green { width: 88%; font-size: 7cqw; }
 </style>
 </head>
 <body>
@@ -882,6 +891,14 @@
     <div class="tut-dots" id="tutDots"><i></i><i></i><i></i><i></i></div>
     <button class="btn-green" id="tutNext">Next</button>
     <div class="fate-row"><button class="btn-blue" id="tutSkip">Skip</button></div>
+  </div>
+</div>
+<div id="updateGate" class="hidden" role="alertdialog" aria-modal="true" aria-labelledby="updTitle">
+  <div class="card kit-card upd-card">
+    <img class="upd-icon" src="icons/icon-192.png" alt="">
+    <h2 class="card-title fate-title" id="updTitle">New update!</h2>
+    <p class="upd-text">A new version of Bug Maze Adventure is ready. Restart to keep playing. Your progress is saved.</p>
+    <button class="btn-green" id="updBtn">Restart now</button>
   </div>
 </div>
 <div id="gate" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
@@ -5275,7 +5292,44 @@ $('installBtn').addEventListener('click', async () => {
 });
 window.addEventListener('appinstalled', () => $('installBtn').classList.add('hidden'));
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone()) $('iosHint').classList.remove('hidden');
+// ---------- Forced update ----------
+// When a new version is published, every open game shows a window that can only be answered by
+// restarting. The version is the service worker's cache name: remember it at start, then check
+// again every minute and whenever the game comes back to the screen.
+let appVersion = null, updateShown = false;
+async function serverVersion() {
+  try { const t = await (await fetch('sw.js?v=' + Date.now(), { cache: 'no-store' })).text(); const m = t.match(/bugmaze-v\d+/); return m ? m[0] : null; }
+  catch (e) { return null; }
+}
+function showUpdateGate() {
+  if (updateShown) return; updateShown = true;
+  try { if (state === 'play' && !paused && !live) togglePause(); } catch (e) { /* ignore */ }
+  try { backupNow(); } catch (e) { /* ignore */ }
+  $('updateGate').classList.remove('hidden');
+}
+$('updBtn').addEventListener('click', async () => {
+  $('updBtn').disabled = true; $('updBtn').textContent = 'Restarting…';
+  try { const r = await navigator.serviceWorker.getRegistration(); if (r) await r.update(); } catch (e) { /* ignore */ }
+  location.reload();
+});
+async function checkForUpdate() {
+  if (updateShown || !location.protocol.startsWith('http')) return;
+  const v = await serverVersion(); if (!v) return;
+  if (!appVersion) { appVersion = v; return; }
+  if (v !== appVersion) showUpdateGate();
+}
+checkForUpdate();
+setInterval(checkForUpdate, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  // a new service worker took over this page: tell it this game shows its own update window
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'update?') {
+      try { e.source && e.source.postMessage({ type: 'update-ack' }); } catch (err) { /* ignore */ }
+      if (!appVersion) appVersion = e.data.v;            // this page is already the new version
+      else if (e.data.v && e.data.v !== appVersion) showUpdateGate();
+    }
+  });
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(() => pushResync()).catch(() => {}));
   // a tapped notification asks an open game to show something (e.g. the live rooms)
   navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'open' && /#live$/.test(e.data.url)) { try { openSheet('live'); } catch (err) { /* ignore */ } } });
